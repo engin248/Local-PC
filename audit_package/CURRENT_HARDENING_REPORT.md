@@ -17,6 +17,7 @@ KONTROL PANELI
 6. Rapor uretim dizini olusturma hatasi sessiz gecilebiliyordu.
 7. Eski audit raporlari guncel teknik durumla karisabilecek ifadeler tasiyordu.
 8. Production web fallback, Tauri koprusu yokken gercek veriyi taklit eden bos cevaplar donebiliyordu.
+9. Connector seviyesindeki dogrudan yazma korumasi, yuksek/kritik risk icin motor seviyesindeki iki ayri yetkili onay standardiyla ayni sertlikte degildi.
 
 ## Uygulanan Kok Duzeltmeler
 
@@ -29,11 +30,12 @@ KONTROL PANELI
 - Sessiz gecilen filesystem ve rollback hatalari acik hata haline getirildi.
 - Audit raporlari guncel denetim kaydina cevrildi.
 - Production Tauri koprusu yoksa UI artik bos veri donmez, hata uretir ve alarm zincirine duser.
+- Connector write korumasi `COUNT(DISTINCT approver_id)` ile en az iki ayri yetkili onayi arayacak sekilde sertlestirildi.
 
 ## Dogrulama
 
 - cargo check: gecti
-- cargo test: 20 test gecti
+- cargo test: 21 test gecti
 - cargo clippy --all-targets -- -D warnings: gecti
 - cargo build: gecti
 - npm run check: 0 hata, 0 uyari

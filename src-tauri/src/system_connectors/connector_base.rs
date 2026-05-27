@@ -118,7 +118,7 @@ pub fn require_authorized_write(context: &WriteApprovalContext) -> Result<(), St
     let conn = db.get_connection().map_err(|e| e.to_string())?;
     let count: i32 = conn
         .query_row(
-            "SELECT COUNT(*) FROM approvals
+            "SELECT COUNT(DISTINCT approver_id) FROM approvals
              WHERE task_id = ?1
              AND decision_node_id = ?2
              AND action = ?3
@@ -139,12 +139,70 @@ pub fn require_authorized_write(context: &WriteApprovalContext) -> Result<(), St
         )
         .map_err(|e| format!("HATA: Yazma onayı sorgulanamadı: {}", e))?;
 
-    if count == 0 {
+    let required_count = if matches!(context.risk_level.as_str(), "high" | "critical") {
+        2
+    } else {
+        1
+    };
+
+    if count < required_count {
         return Err(format!(
-            "HATA: {} işlemi yetkilendirilmemiştir. Görev/düğüm/risk bağlamına bağlı geçerli, tarihli ve yetkili onay kaydı bulunamadı.",
-            context.action
+            "HATA: {} işlemi yetkilendirilmemiştir. Görev/düğüm/risk bağlamına bağlı en az {} ayrı yetkili onay gerekir; bulunan: {}.",
+            context.action, required_count, count
         ));
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{require_authorized_write, WriteApprovalContext};
+    use crate::storage::db::Database;
+    use rusqlite::params;
+
+    fn reset(task_id: &str) {
+        let db = Database::new();
+        let conn = db.get_connection().unwrap();
+        let _ = conn.execute("DELETE FROM approvals WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM tasks WHERE id = ?1", params![task_id]);
+        conn.execute(
+            "INSERT INTO tasks (id, title, user_request, status, planning_status, execution_status, risk_level, approval_status)
+             VALUES (?1, 'Connector Write Test', 'Connector write authorization test', 'pending', 'planning_complete', 'not_started', 'high', 'pending_approval')",
+            params![task_id],
+        )
+        .unwrap();
+    }
+
+    fn insert_approval(task_id: &str, approval_id: &str, approver_id: &str) {
+        let db = Database::new();
+        let conn = db.get_connection().unwrap();
+        conn.execute(
+            "INSERT INTO approvals (
+                id, task_id, decision_node_id, approver_id, approver_role, approval_source,
+                action, risk_level, approved_at, status
+             ) VALUES (?1, ?2, 'node_a', ?3, 'admin', 'database', 'write_file', 'high', CURRENT_TIMESTAMP, 'approved')",
+            params![approval_id, task_id, approver_id],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn high_risk_connector_write_requires_two_distinct_authorized_approvals() {
+        let task_id = "test_connector_double_approval";
+        reset(task_id);
+        insert_approval(task_id, "approval_one", "admin_one");
+
+        let context = WriteApprovalContext {
+            task_id: task_id.to_string(),
+            decision_node_id: "node_a".to_string(),
+            action: "write_file".to_string(),
+            risk_level: "high".to_string(),
+        };
+
+        assert!(require_authorized_write(&context).is_err());
+
+        insert_approval(task_id, "approval_two", "admin_two");
+        assert!(require_authorized_write(&context).is_ok());
+    }
 }
