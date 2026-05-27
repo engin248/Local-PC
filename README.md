@@ -1,6 +1,6 @@
-# Lokal Yapay Zeka ve Sistem Orkestrasyon Paneli
+# LOKAL BİLGİSAYAR KONTROL PANELİ
 
-Bu panel; yapay zeka platformlarını, lokal sistemleri, dosyaları ve veritabanlarını kontrollü, geri alınabilir ve yetki matrisine uygun biçimde bağlayan lokal masaüstü orkestrasyon arayüzüdür.
+Bu panel; yapay zeka provider bağlantılarını, lokal sistem connectorlarını, dosyaları, SQLite veritabanını, onay, rollback, test, audit ve görev yürütme süreçlerini kontrollü ve geri alınabilir biçimde yöneten lokal masaüstü uygulamasıdır.
 
 ## 🛠️ Kurulum ve Çalıştırma Adımları (Windows)
 
@@ -15,7 +15,7 @@ Uygulamanın çalıştırılması için sisteminizde **Node.js** ve **Rust** gel
    ```
 
 ### 2. Adım: Bağımlılıkların Yüklenmesi
-Proje kök dizinine (`local_ai_orchestrator`) gidin ve Node.js bağımlılıklarını yükleyin:
+Proje kök dizinine (`C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli`) gidin ve Node.js bağımlılıklarını yükleyin:
 ```bash
 npm install
 ```

@@ -4,7 +4,7 @@ Bu plan, eski klasör adları ve geçersiz connector örnekleri temizlendikten s
 
 ## Kapatılan Maddeler
 
-- Production config içinden mock connector/provider kalıntıları kaldırıldı.
+- Production config içinden geçersiz connector/provider kalıntıları kaldırıldı.
 - `system_connectors.json` dinamik proje yollarına bağlandı.
 - `write_folder` aksiyonu authority, approval ve risk configlerinde tanımlandı.
 - Execution context varsayılanı read-only olacak şekilde sertleştirildi.

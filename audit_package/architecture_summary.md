@@ -1,6 +1,6 @@
 # Mimari Özet (Architecture Summary)
 
-Bu doküman, ikinci göz denetçi AI platformunun orkestrasyon panelinin yapısal mimarisini doğrulaması için hazırlanmıştır.
+Bu doküman, ikinci göz denetçi AI platformunun LOKAL BİLGİSAYAR KONTROL PANELİ yapısal mimarisini doğrulaması için hazırlanmıştır.
 
 ## 🏗️ 3 Katmanlı Sistem Mimarisi
 1. **Frontend (Kullanıcı Arayüzü)**: Svelte + TypeScript + HTML/CSS ile tasarlanmış, sade ve görsel süslemeden uzak, doğrudan operasyon verisine odaklanan arayüz.

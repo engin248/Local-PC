@@ -17,8 +17,8 @@ Lokal Bilgisayar Kontrol Paneli/
 
 ## Güncel Güvenlik Kontrolleri
 
-- Production config içinde mock connector tanımı yoktur.
-- Production AI provider modülleri içinde mock provider export edilmez.
+- Production config içinde geçersiz veya sahte connector tanımı yoktur.
+- Production AI provider modülleri içinde sahte provider export edilmez.
 - Yazma işlemleri approval gate ve yetkili onay kaydı gerektirir.
 - Yüksek ve kritik riskli işlemler için yetkili rol kontrolü yapılır.
 - Klasör yazma aksiyonu `write_folder` olarak authority, approval ve risk configlerinde tanımlıdır.

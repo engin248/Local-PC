@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_infer_level() {
-        assert_eq!(DependencyAnalyzer::infer_level("mock", None, false), "critical");
+        assert_eq!(DependencyAnalyzer::infer_level("unsupported_connector", None, false), "critical");
         assert_eq!(DependencyAnalyzer::infer_level("folder", None, false), "low");
         assert_eq!(DependencyAnalyzer::infer_level("sqlite", None, false), "low");
         assert_eq!(DependencyAnalyzer::infer_level("local_api", None, false), "medium");
@@ -434,9 +434,9 @@ mod tests {
         let json_content = format!(
             r#"[
                 {{
-                    "id": "test_mock",
-                    "name": "Test Mock",
-                    "type": "mock",
+                    "id": "test_unsupported_connector",
+                    "name": "Test Unsupported Connector",
+                    "type": "unsupported_connector",
                     "enabled": true
                 }},
                 {{
@@ -498,8 +498,8 @@ mod tests {
 
         std::fs::write(&config_file_path, json_content).unwrap();
 
-        // 1. mock connector is only accepted in this fixture and is treated as critical.
-        let res = DependencyAnalyzer::analyze_system_connector_dependency("test_task", "test_mock", &config_path_str).unwrap();
+        // 1. unsupported connector types are treated as critical.
+        let res = DependencyAnalyzer::analyze_system_connector_dependency("test_task", "test_unsupported_connector", &config_path_str).unwrap();
         assert_eq!(res.dependency_level, "critical");
         assert_eq!(res.status, "available");
 

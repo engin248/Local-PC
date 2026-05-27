@@ -15,7 +15,7 @@ Bu not, eski denetim raporunda yer alan yanlış klasör adlarını, eski config
 
 ## Güncel Config Durumu
 
-`config/system_connectors.json` üretim config'inde mock connector bulunmaz.
+`config/system_connectors.json` üretim config'inde geçersiz veya sahte connector tanımı bulunmaz.
 
 Geçerli connector mantığı:
 
