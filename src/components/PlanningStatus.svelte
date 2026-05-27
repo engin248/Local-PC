@@ -21,6 +21,8 @@
   let rollback_plan = $state("Değişiklikten önce gerçek hedef snapshot'ı alınır; hata halinde kayıtlı snapshot hedefe geri yüklenir.");
   let operation_plan = $state("Adım 1: Klasör oku, Adım 2: Onay al, Adım 3: Snapshot al, Adım 4: Dosya yaz, Adım 5: Doğrula");
   let authorized_deciders = $state(["local_projects", "local_app_db", "user"]);
+  let accepted_correct_approach_reason = $state("Genel doğru yaklaşım kullanıcı iradesini, veri gizliliğini, rollback ve test edilebilirliği korur.");
+  let selected_best_option_reason = $state("Seçilen en iyi seçenek mevcut sistemle uyumlu, düşük riskli, rollback destekli ve test edilebilirdir.");
 
   function parseCommaList(value: string) {
     return value
@@ -53,7 +55,9 @@
       test_criteria,
       rollback_plan,
       operation_plan,
-      authorized_deciders
+      authorized_deciders,
+      accepted_correct_approach_reason,
+      selected_best_option_reason
     });
   }
 </script>
@@ -145,6 +149,14 @@
       <div class="field">
         <label for="plan-deciders">17. Yetkili Karar Noktaları (Virgülle Ayırın)</label>
         <input id="plan-deciders" value={authorized_deciders.join(', ')} oninput={(event) => authorized_deciders = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field wide">
+        <label for="correct-approach-reason">Genel Doğru Yaklaşım Gerekçesi</label>
+        <input id="correct-approach-reason" bind:value={accepted_correct_approach_reason} required disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field wide">
+        <label for="best-option-reason">Seçilen En İyi Seçenek Gerekçesi</label>
+        <input id="best-option-reason" bind:value={selected_best_option_reason} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
     </div>
 

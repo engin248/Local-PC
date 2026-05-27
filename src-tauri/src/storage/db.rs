@@ -1,7 +1,7 @@
+use crate::storage::migrations::get_migrations;
 use rusqlite::{Connection, Error, Result};
 use std::fs;
 use std::path::Path;
-use crate::storage::migrations::get_migrations;
 
 pub struct Database {
     db_path: String,
@@ -26,7 +26,7 @@ impl Database {
             .map_err(|e| format!("KRITIK HATA: Proje kok dizini bulunamadi: {}", e))?;
         let storage_path = root.join("storage");
         let storage_dir = storage_path.to_string_lossy().into_owned();
-        
+
         // Create storage and subdirectories
         let subdirs = vec!["", "/logs", "/reports", "/backups", "/snapshots"];
         for sub in subdirs {
@@ -47,7 +47,7 @@ impl Database {
         let conn = Connection::open(&self.db_path)?;
         conn.execute("PRAGMA foreign_keys = ON;", [])?;
         Self::ensure_optional_columns(&conn)?;
-        
+
         Ok(conn)
     }
 
@@ -70,6 +70,16 @@ impl Database {
         Self::add_column_if_missing(conn, "approvals", "approver_id TEXT")?;
         Self::add_column_if_missing(conn, "approvals", "approver_role TEXT")?;
         Self::add_column_if_missing(conn, "approvals", "approval_source TEXT")?;
+        Self::add_column_if_missing(conn, "alternatives", "real_world_basis TEXT")?;
+        Self::add_column_if_missing(conn, "alternatives", "testability_score INTEGER DEFAULT 0")?;
+        Self::add_column_if_missing(conn, "alternatives", "ethical_safety_note TEXT")?;
+        Self::add_column_if_missing(conn, "alternatives", "selection_reason TEXT")?;
+        Self::add_column_if_missing(
+            conn,
+            "alternatives",
+            "accepted_correct_approach_reason TEXT",
+        )?;
+        Self::add_column_if_missing(conn, "alternatives", "selected_best_option_reason TEXT")?;
         Ok(())
     }
 

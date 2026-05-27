@@ -1,0 +1,12 @@
+{
+  "snapshot_required_for": [
+    "file_write",
+    "write_file",
+    "delete_file",
+    "write_folder",
+    "sqlite_write",
+    "api_write",
+    "terminal_command",
+    "live_system_update"
+  ]
+}

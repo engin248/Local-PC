@@ -22,7 +22,9 @@ impl SystemValidator {
         let approval = Self::read_json("approval_rules.json")?;
         let rollback = Self::read_json("rollback_rules.json")?;
         let connectors = Self::read_json("system_connectors.json")?;
+        let ai_providers = Self::read_json("ai_providers.json")?;
         let planning = Self::read_json("planning_standard.json")?;
+        let decision_principles = Self::read_json("decision_principles.json")?;
 
         let action_mappings = risk
             .get("action_mappings")
@@ -36,9 +38,21 @@ impl SystemValidator {
         Self::validate_planning_standard(&planning, &mut issues)?;
         Self::validate_authority_matrix(&authority, &known_actions, &mut issues)?;
         Self::validate_risk_rules(&risk, &approval_actions, &rollback_actions, &mut issues)?;
-        Self::validate_action_set("approval_rules.json", &approval_actions, &known_actions, &mut issues);
-        Self::validate_action_set("rollback_rules.json", &rollback_actions, &known_actions, &mut issues);
-        Self::validate_connectors(&connectors, &mut issues)?;
+        Self::validate_action_set(
+            "approval_rules.json",
+            &approval_actions,
+            &known_actions,
+            &mut issues,
+        );
+        Self::validate_action_set(
+            "rollback_rules.json",
+            &rollback_actions,
+            &known_actions,
+            &mut issues,
+        );
+        Self::validate_ai_providers(&ai_providers, &mut issues)?;
+        Self::validate_connectors(&connectors, &known_actions, &mut issues)?;
+        Self::validate_decision_principles(&decision_principles, &mut issues)?;
 
         Ok(issues)
     }
@@ -63,8 +77,8 @@ impl SystemValidator {
 
     fn read_json(filename: &str) -> Result<Value, String> {
         let path = DependencyAnalyzer::get_config_path(filename)?;
-        let data = fs::read_to_string(&path)
-            .map_err(|e| format!("{} okunamadı: {}", filename, e))?;
+        let data =
+            fs::read_to_string(&path).map_err(|e| format!("{} okunamadı: {}", filename, e))?;
         serde_json::from_str(&data)
             .map_err(|e| format!("{} JSON formatı geçersiz: {}", filename, e))
     }
@@ -102,19 +116,103 @@ impl SystemValidator {
         let fields = planning
             .get("required_fields")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| "planning_standard.json içinde required_fields listesi bulunamadı.".to_string())?;
+            .ok_or_else(|| {
+                "planning_standard.json içinde required_fields listesi bulunamadı.".to_string()
+            })?;
 
         if fields.len() != 17 {
             Self::push_error(
                 issues,
                 "PLANNING_FIELD_COUNT",
-                format!("Planlama standardı 17 alan bekler, bulunan: {}", fields.len()),
+                format!(
+                    "Planlama standardı 17 alan bekler, bulunan: {}",
+                    fields.len()
+                ),
             );
         }
 
         for field in fields {
             if field.as_str().map(|v| v.trim().is_empty()).unwrap_or(true) {
-                Self::push_error(issues, "PLANNING_FIELD_EMPTY", "Planlama alan listesinde boş veya geçersiz değer var.");
+                Self::push_error(
+                    issues,
+                    "PLANNING_FIELD_EMPTY",
+                    "Planlama alan listesinde boş veya geçersiz değer var.",
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    fn validate_decision_principles(
+        principles: &Value,
+        issues: &mut Vec<SystemValidationIssue>,
+    ) -> Result<(), String> {
+        for field in [
+            "correct_approach_criteria",
+            "best_option_criteria",
+            "required_reason_fields",
+            "human_accepted_principles",
+            "alternative_scoring_weights",
+            "high_risk_requirements",
+            "critical_risk_requirements",
+            "phase_model",
+        ] {
+            if principles.get(field).is_none() {
+                Self::push_error(
+                    issues,
+                    "DECISION_PRINCIPLES_MISSING_FIELD",
+                    format!(
+                        "decision_principles.json içinde zorunlu alan eksik: {}",
+                        field
+                    ),
+                );
+            }
+        }
+
+        let required_reasons = principles
+            .get("required_reason_fields")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| "required_reason_fields liste olmalıdır.".to_string())?;
+        for reason in [
+            "accepted_correct_approach_reason",
+            "selected_best_option_reason",
+        ] {
+            if !required_reasons.iter().any(|v| v.as_str() == Some(reason)) {
+                Self::push_error(
+                    issues,
+                    "DECISION_PRINCIPLES_REASON_MISSING",
+                    format!("Zorunlu gerekçe alanı eksik: {}", reason),
+                );
+            }
+        }
+
+        let phase_model = principles
+            .get("phase_model")
+            .and_then(|v| v.as_object())
+            .ok_or_else(|| "phase_model nesne olmalıdır.".to_string())?;
+        for phase in [
+            "analysis",
+            "plan_ready",
+            "awaiting_approval",
+            "execution",
+            "monitoring",
+            "verification",
+            "completed",
+            "failed",
+            "rolled_back",
+        ] {
+            if phase_model
+                .get(phase)
+                .and_then(|v| v.as_str())
+                .map(|v| v.trim().is_empty())
+                .unwrap_or(true)
+            {
+                Self::push_error(
+                    issues,
+                    "PHASE_MODEL_INCOMPLETE",
+                    format!("Phase eşleştirmesi eksik veya boş: {}", phase),
+                );
             }
         }
 
@@ -138,7 +236,10 @@ impl SystemValidator {
                 Self::push_error(
                     issues,
                     "AUTHORITY_UNKNOWN_ACTION",
-                    format!("Yetki matrisi risk kurallarında olmayan aksiyon içeriyor: {}", action),
+                    format!(
+                        "Yetki matrisi risk kurallarında olmayan aksiyon içeriyor: {}",
+                        action
+                    ),
                 );
             }
             if deciders.as_array().map(|v| v.is_empty()).unwrap_or(true) {
@@ -162,7 +263,10 @@ impl SystemValidator {
                 Self::push_error(
                     issues,
                     "LEVEL_MAPPING_UNKNOWN_ACTION",
-                    format!("Seviye eşlemesi risk kurallarında olmayan aksiyona gidiyor: {} -> {}", level, action),
+                    format!(
+                        "Seviye eşlemesi risk kurallarında olmayan aksiyona gidiyor: {} -> {}",
+                        level, action
+                    ),
                 );
             }
         }
@@ -196,10 +300,7 @@ impl SystemValidator {
             .ok_or_else(|| "risk_rules.json içinde action_mappings bulunamadı.".to_string())?;
 
         for (action, config) in mappings {
-            let level = config
-                .get("level")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let level = config.get("level").and_then(|v| v.as_str()).unwrap_or("");
             if !matches!(level, "low" | "medium" | "high" | "critical") {
                 Self::push_error(
                     issues,
@@ -233,7 +334,10 @@ impl SystemValidator {
                 Self::push_error(
                     issues,
                     "HIGH_RISK_APPROVAL_MISSING",
-                    format!("Yüksek/kritik aksiyon approval_rules içinde yok: {}", action),
+                    format!(
+                        "Yüksek/kritik aksiyon approval_rules içinde yok: {}",
+                        action
+                    ),
                 );
             }
             if Self::is_write_like(action) && !rollback_actions.contains(action) {
@@ -265,8 +369,143 @@ impl SystemValidator {
         }
     }
 
+    fn validate_ai_providers(
+        providers: &Value,
+        issues: &mut Vec<SystemValidationIssue>,
+    ) -> Result<(), String> {
+        let providers = providers
+            .as_array()
+            .ok_or_else(|| "ai_providers.json liste formatında olmalıdır.".to_string())?;
+
+        let mut ids = HashSet::new();
+        for provider in providers {
+            let id = provider
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| "AI provider id alanı eksik.".to_string())?;
+            if !ids.insert(id.to_string()) {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_DUPLICATE_ID",
+                    format!("Tekrarlanan AI provider id: {}", id),
+                );
+            }
+            let provider_type = provider
+                .get("type")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("AI provider type alanı eksik: {}", id))?;
+            if !matches!(
+                provider_type,
+                "openai_compatible" | "gemini" | "perplexity" | "verdent" | "custom_api"
+            ) {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_TYPE_INVALID",
+                    format!("AI provider type geçersiz: {} -> {}", id, provider_type),
+                );
+            }
+
+            let enabled = provider
+                .get("enabled")
+                .and_then(|v| v.as_bool())
+                .ok_or_else(|| format!("AI provider enabled alanı eksik: {}", id))?;
+            let dependency_level = provider
+                .get("dependency_level")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| format!("AI provider dependency_level alanı eksik: {}", id))?;
+            if !matches!(dependency_level, "low" | "medium" | "high" | "critical") {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_LEVEL_INVALID",
+                    format!(
+                        "AI provider dependency_level geçersiz: {} -> {}",
+                        id, dependency_level
+                    ),
+                );
+            }
+            if provider
+                .get("base_url")
+                .and_then(|v| v.as_str())
+                .map(|v| v.trim().is_empty())
+                .unwrap_or(true)
+                && provider_type != "custom_api"
+            {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_BASE_URL_MISSING",
+                    format!("AI provider base_url boş: {}", id),
+                );
+            }
+            if provider
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(|v| v.trim().is_empty())
+                .unwrap_or(true)
+            {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_MODEL_MISSING",
+                    format!("AI provider model alanı boş: {}", id),
+                );
+            }
+            if enabled
+                && provider
+                    .get("api_key_env")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.trim().is_empty())
+                    .unwrap_or(true)
+            {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_API_KEY_ENV_MISSING",
+                    format!("Etkin AI provider api_key_env olmadan çalışamaz: {}", id),
+                );
+            }
+            if provider
+                .get("network_required")
+                .and_then(|v| v.as_bool())
+                .is_none()
+            {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_NETWORK_REQUIRED_MISSING",
+                    format!("AI provider network_required alanı eksik: {}", id),
+                );
+            }
+            if provider
+                .get("allowed_task_types")
+                .and_then(|v| v.as_array())
+                .map(|v| v.is_empty())
+                .unwrap_or(true)
+            {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_ALLOWED_TASKS_MISSING",
+                    format!("AI provider allowed_task_types boş veya eksik: {}", id),
+                );
+            }
+            if provider.get("sensitive_data_policy").is_none() {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_SENSITIVE_POLICY_MISSING",
+                    format!("AI provider sensitive_data_policy eksik: {}", id),
+                );
+            }
+            if provider.get("max_payload_policy").is_none() {
+                Self::push_error(
+                    issues,
+                    "AI_PROVIDER_PAYLOAD_POLICY_MISSING",
+                    format!("AI provider max_payload_policy eksik: {}", id),
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     fn validate_connectors(
         connectors: &Value,
+        known_actions: &HashSet<String>,
         issues: &mut Vec<SystemValidationIssue>,
     ) -> Result<(), String> {
         let connectors = connectors
@@ -290,6 +529,16 @@ impl SystemValidator {
                 .get("type")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| format!("Connector type alanı eksik: {}", id))?;
+            if !matches!(
+                connector_type,
+                "folder" | "file" | "sqlite" | "api" | "live_api" | "terminal" | "custom_connector"
+            ) {
+                Self::push_error(
+                    issues,
+                    "CONNECTOR_TYPE_INVALID",
+                    format!("Connector type geçersiz: {} -> {}", id, connector_type),
+                );
+            }
             let enabled = connector
                 .get("enabled")
                 .and_then(|v| v.as_bool())
@@ -303,11 +552,18 @@ impl SystemValidator {
                 Self::push_error(
                     issues,
                     "CONNECTOR_LEVEL_INVALID",
-                    format!("Connector dependency_level geçersiz: {} -> {}", id, dependency_level),
+                    format!(
+                        "Connector dependency_level geçersiz: {} -> {}",
+                        id, dependency_level
+                    ),
                 );
             }
-            if matches!(connector_type, "folder" | "sqlite")
-                && connector.get("path").and_then(|v| v.as_str()).map(|v| v.trim().is_empty()).unwrap_or(true)
+            if matches!(connector_type, "folder" | "file" | "sqlite")
+                && connector
+                    .get("path")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.trim().is_empty())
+                    .unwrap_or(true)
             {
                 Self::push_error(
                     issues,
@@ -315,13 +571,13 @@ impl SystemValidator {
                     format!("{} connector path alanı olmadan kullanılamaz.", id),
                 );
             }
-            if connector_type == "api" && enabled {
+            if matches!(connector_type, "api" | "live_api") {
                 let base_url_empty = connector
                     .get("base_url")
                     .and_then(|v| v.as_str())
                     .map(|v| v.trim().is_empty())
                     .unwrap_or(true);
-                if base_url_empty {
+                if enabled && base_url_empty {
                     Self::push_error(
                         issues,
                         "CONNECTOR_API_BASE_URL_MISSING",
@@ -329,9 +585,118 @@ impl SystemValidator {
                     );
                 }
             }
+
+            for field in [
+                "permissions",
+                "allowed_actions",
+                "approval_required_actions",
+                "rollback_required_actions",
+                "test_required_actions",
+            ] {
+                if connector.get(field).and_then(|v| v.as_array()).is_none() {
+                    Self::push_error(
+                        issues,
+                        "CONNECTOR_ACTION_LIST_MISSING",
+                        format!("{} connector {} alanı liste olmalıdır.", id, field),
+                    );
+                }
+            }
+
+            if connector.get("read_only_default").and_then(|v| v.as_bool()) != Some(true) {
+                Self::push_error(
+                    issues,
+                    "CONNECTOR_READ_ONLY_DEFAULT_MISSING",
+                    format!("{} connector read_only_default=true olmalıdır.", id),
+                );
+            }
+
+            let permissions = Self::optional_string_set(connector, "permissions");
+            for permission in &permissions {
+                if !matches!(
+                    permission.as_str(),
+                    "read"
+                        | "write_with_approval"
+                        | "delete_with_approval"
+                        | "execute_with_approval"
+                        | "api_write_with_approval"
+                        | "db_write_with_approval"
+                ) {
+                    Self::push_error(
+                        issues,
+                        "CONNECTOR_PERMISSION_INVALID",
+                        format!("{} connector izni geçersiz: {}", id, permission),
+                    );
+                }
+            }
+
+            let allowed_actions = Self::optional_string_set(connector, "allowed_actions");
+            let approval_required_actions =
+                Self::optional_string_set(connector, "approval_required_actions");
+            let rollback_required_actions =
+                Self::optional_string_set(connector, "rollback_required_actions");
+            let test_required_actions =
+                Self::optional_string_set(connector, "test_required_actions");
+
+            for action in allowed_actions
+                .iter()
+                .chain(approval_required_actions.iter())
+                .chain(rollback_required_actions.iter())
+                .chain(test_required_actions.iter())
+            {
+                if !known_actions.contains(action) {
+                    Self::push_error(
+                        issues,
+                        "CONNECTOR_UNKNOWN_ACTION",
+                        format!("{} connector bilinmeyen aksiyon içeriyor: {}", id, action),
+                    );
+                }
+            }
+
+            let risky_actions: HashSet<String> = allowed_actions
+                .iter()
+                .chain(approval_required_actions.iter())
+                .filter(|action| Self::is_write_like(action))
+                .cloned()
+                .collect();
+            for action in risky_actions {
+                if !approval_required_actions.contains(&action) {
+                    Self::push_error(
+                        issues,
+                        "CONNECTOR_APPROVAL_ACTION_MISSING",
+                        format!("{} riskli aksiyon approval listesinde yok: {}", id, action),
+                    );
+                }
+                if !rollback_required_actions.contains(&action) {
+                    Self::push_error(
+                        issues,
+                        "CONNECTOR_ROLLBACK_ACTION_MISSING",
+                        format!("{} riskli aksiyon rollback listesinde yok: {}", id, action),
+                    );
+                }
+                if !test_required_actions.contains(&action) {
+                    Self::push_error(
+                        issues,
+                        "CONNECTOR_TEST_ACTION_MISSING",
+                        format!("{} riskli aksiyon test listesinde yok: {}", id, action),
+                    );
+                }
+            }
         }
 
         Ok(())
+    }
+
+    fn optional_string_set(value: &Value, field: &str) -> HashSet<String> {
+        value
+            .get(field)
+            .and_then(|v| v.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(|text| text.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     fn is_write_like(action: &str) -> bool {

@@ -1,0 +1,144 @@
+{
+  "levels": {
+    "low": {
+      "requires_approval": false,
+      "requires_rollback": false,
+      "requires_alternative_analysis": false,
+      "requires_double_check": false
+    },
+    "medium": {
+      "requires_approval": false,
+      "requires_rollback": false,
+      "requires_alternative_analysis": false,
+      "requires_double_check": true
+    },
+    "high": {
+      "requires_approval": true,
+      "requires_rollback": true,
+      "requires_alternative_analysis": false,
+      "requires_double_check": true
+    },
+    "critical": {
+      "requires_approval": true,
+      "requires_rollback": true,
+      "requires_alternative_analysis": true,
+      "requires_double_check": true
+    }
+  },
+  "action_mappings": {
+    "read_file": {
+      "level": "low",
+      "reason": "Dosya okuma işlemi veriyi değiştirmez.",
+      "assets": ["local_projects"],
+      "mitigation": "Audit kaydı yeterlidir."
+    },
+    "file_read": {
+      "level": "low",
+      "reason": "Eski dosya okuma aksiyon adı geriye dönük uyumluluk için salt okunur kabul edilir.",
+      "assets": ["local_projects"],
+      "mitigation": "Audit kaydı yeterlidir; yazma yetkisi vermez."
+    },
+    "read_folder": {
+      "level": "low",
+      "reason": "Klasör listeleme işlemi veriyi değiştirmez.",
+      "assets": ["local_projects"],
+      "mitigation": "Audit kaydı yeterlidir."
+    },
+    "sqlite_read": {
+      "level": "low",
+      "reason": "SQLite okuma işlemi veritabanı durumunu değiştirmez.",
+      "assets": ["local_app_db"],
+      "mitigation": "Audit kaydı yeterlidir."
+    },
+    "api_read": {
+      "level": "medium",
+      "reason": "API okuma işlemi harici sisteme ağ bağımlılığı oluşturabilir.",
+      "assets": ["live_site_api"],
+      "mitigation": "Connector etkinlik durumu ve ağ erişimi doğrulanır."
+    },
+    "ai_provider_call": {
+      "level": "medium",
+      "reason": "AI provider çağrısı harici servis ve API anahtarı bağımlılığı oluşturabilir.",
+      "assets": ["chatgpt", "gemini"],
+      "mitigation": "Provider yapılandırması ve API anahtarı durumu doğrulanır."
+    },
+    "report_generate": {
+      "level": "low",
+      "reason": "Rapor üretimi sistem durumunu değiştirmeyen kayıt üretimidir.",
+      "assets": [],
+      "mitigation": "Audit kaydı yeterlidir."
+    },
+    "code_analysis": {
+      "level": "low",
+      "reason": "Kod analizi okuma ve raporlama kapsamındadır.",
+      "assets": ["local_projects"],
+      "mitigation": "Audit kaydı yeterlidir."
+    },
+    "code_modification_proposal": {
+      "level": "medium",
+      "reason": "Kod değişikliği önerisi yazma yapmaz ancak sonraki işlem riskini etkiler.",
+      "assets": ["local_projects"],
+      "mitigation": "Öneri kullanıcı onayına ve açık plana bağlanır."
+    },
+    "code_modification_control": {
+      "level": "low",
+      "reason": "Kod değişikliği kontrolü doğrulama ve raporlama kapsamındadır.",
+      "assets": ["local_projects"],
+      "mitigation": "Kontrol çıktısı audit kaydı ve test sonucu ile ilişkilendirilir."
+    },
+    "research": {
+      "level": "low",
+      "reason": "Araştırma işlemi yerel sistem durumunu değiştirmez.",
+      "assets": [],
+      "mitigation": "Audit kaydı yeterlidir."
+    },
+    "file_write": {
+      "level": "high",
+      "reason": "Dosya sistemi veya veritabanı yazma işlemi doğrudan veri bütünlüğünü etkiler.",
+      "assets": ["local_projects", "local_app_db"],
+      "mitigation": "Değişiklik öncesi snapshot alınacak ve kullanıcıdan ekran onayı istenecek."
+    },
+    "write_file": {
+      "level": "high",
+      "reason": "Dosya yazma işlemi doğrudan veri bütünlüğünü etkiler.",
+      "assets": ["local_projects"],
+      "mitigation": "Değişiklik öncesi snapshot alınacak ve kullanıcıdan ekran onayı istenecek."
+    },
+    "delete_file": {
+      "level": "critical",
+      "reason": "Dosya silme işlemi geri dönüşü zor veri kaybına yol açabilir.",
+      "assets": ["local_projects"],
+      "mitigation": "11 parametreli alternatif analizi yapılacak, rollback planı hazırlanacak ve kullanıcı çift onayı aranacak."
+    },
+    "write_folder": {
+      "level": "high",
+      "reason": "Klasör oluşturma veya klasör yapısını değiştirme işlemi yerel proje düzenini etkiler.",
+      "assets": ["local_projects"],
+      "mitigation": "Değişiklik öncesi hedef alan doğrulanacak ve yetkili kullanıcı onayı aranacak."
+    },
+    "sqlite_write": {
+      "level": "high",
+      "reason": "SQLite yazma işlemi uygulama veritabanı bütünlüğünü etkiler.",
+      "assets": ["local_app_db"],
+      "mitigation": "Değişiklik öncesi veritabanı snapshot'ı alınacak ve kullanıcı onayı aranacak."
+    },
+    "api_write": {
+      "level": "high",
+      "reason": "API yazma işlemi harici sistem durumunu değiştirebilir.",
+      "assets": ["live_site_api"],
+      "mitigation": "Kullanıcı onayı, audit kaydı ve mümkünse geri alma planı zorunludur."
+    },
+    "terminal_command": {
+      "level": "critical",
+      "reason": "Terminal komutları yerel sistemde geniş yan etki oluşturabilir.",
+      "assets": ["local_projects", "local_app_db"],
+      "mitigation": "Komut içeriği açıkça gösterilecek, çift onay ve test/rollback kapıları çalışacaktır."
+    },
+    "live_system_update": {
+      "level": "critical",
+      "reason": "Dosya silme veya canlı sistem güncelleme işlemi geri dönülemez hasarlara yol açabilir.",
+      "assets": ["live_site_api"],
+      "mitigation": "11 parametreli alternatif analizi yapılacak, rollback planı hazırlanacak ve kullanıcı çift onayı aranacak."
+    }
+  }
+}

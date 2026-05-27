@@ -1,0 +1,21 @@
+{
+  "required_fields": [
+    "task_description",
+    "objective",
+    "scope",
+    "subject",
+    "sub_topic",
+    "criterion",
+    "sub_criterion",
+    "alternatives",
+    "risk_analysis",
+    "impact_area",
+    "technology_selection",
+    "dependency_analysis",
+    "control_points",
+    "test_criteria",
+    "rollback_plan",
+    "operational_plan",
+    "authorized_decision_points"
+  ]
+}

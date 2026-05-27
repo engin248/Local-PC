@@ -1,11 +1,16 @@
+use crate::storage::db::Database;
 use rusqlite::params;
 use uuid::Uuid;
-use crate::storage::db::Database;
 
 pub struct ApprovalManager;
 
 impl ApprovalManager {
-    pub fn request_approval(task_id: &str, node_id: Option<&str>, action: &str, risk_level: &str) -> Result<String, String> {
+    pub fn request_approval(
+        task_id: &str,
+        node_id: Option<&str>,
+        action: &str,
+        risk_level: &str,
+    ) -> Result<String, String> {
         let id = Uuid::new_v4().to_string();
         let db = Database::new();
         let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -14,7 +19,8 @@ impl ApprovalManager {
             "INSERT INTO approvals (id, task_id, decision_node_id, action, risk_level, status)
              VALUES (?1, ?2, ?3, ?4, ?5, 'pending')",
             params![id, task_id, node_id, action, risk_level],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
         Ok(id)
     }
@@ -44,7 +50,9 @@ impl ApprovalManager {
 
         let mut created_ids = Vec::new();
         for _ in existing_count..required_count {
-            created_ids.push(Self::request_approval(task_id, node_id, action, risk_level)?);
+            created_ids.push(Self::request_approval(
+                task_id, node_id, action, risk_level,
+            )?);
         }
 
         Ok(created_ids)
@@ -69,10 +77,10 @@ impl ApprovalManager {
             return Ok(false);
         }
 
-        let approver_id = approver_id
-            .ok_or_else(|| "HATA: Onay kaydında approver_id yok.".to_string())?;
-        let approver_role = approver_role
-            .ok_or_else(|| "HATA: Onay kaydında approver_role yok.".to_string())?;
+        let approver_id =
+            approver_id.ok_or_else(|| "HATA: Onay kaydında approver_id yok.".to_string())?;
+        let approver_role =
+            approver_role.ok_or_else(|| "HATA: Onay kaydında approver_role yok.".to_string())?;
 
         Ok(!approver_id.trim().is_empty()
             && Self::role_is_authorized_for_risk(&approver_role, &risk_level))
@@ -128,8 +136,15 @@ impl ApprovalManager {
                  approver_role = ?3,
                  approval_source = ?4
              WHERE id = ?5",
-            params![user_note, approver_id, approver_role, approval_source, approval_id],
-        ).map_err(|e| e.to_string())?;
+            params![
+                user_note,
+                approver_id,
+                approver_role,
+                approval_source,
+                approval_id
+            ],
+        )
+        .map_err(|e| e.to_string())?;
 
         Ok(())
     }
@@ -177,8 +192,48 @@ pub fn submit_approval(
              approver_role = ?4,
              approval_source = ?5
          WHERE id = ?6",
-        params![status, note, approver_id, approver_role, approval_source, approval_id],
-    ).map_err(|e| e.to_string())?;
+        params![
+            status,
+            note,
+            approver_id,
+            approver_role,
+            approval_source,
+            approval_id
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{submit_approval, ApprovalManager};
+    use crate::storage::db::Database;
+    use rusqlite::params;
+
+    #[test]
+    fn ai_statement_cannot_act_as_approval() {
+        let task_id = "test_ai_statement_cannot_approve";
+        let db = Database::new();
+        let conn = db.get_connection().unwrap();
+        let _ = conn.execute("DELETE FROM tasks WHERE id = ?1", params![task_id]);
+        conn.execute(
+            "INSERT INTO tasks (id, title, user_request, status, planning_status, execution_status, risk_level, approval_status)
+             VALUES (?1, 'Test', 'Test', 'pending', 'planning_complete', 'not_started', 'high', 'pending_approval')",
+            params![task_id],
+        )
+        .unwrap();
+        let approval_id =
+            ApprovalManager::request_approval(task_id, None, "write_file", "high").unwrap();
+        let result = submit_approval(
+            &approval_id,
+            true,
+            Some("AI provider beyanı onay yerine geçmesin."),
+            Some("chatgpt"),
+            Some("ai_provider"),
+            Some("ai_statement"),
+        );
+        assert!(result.is_err());
+    }
 }

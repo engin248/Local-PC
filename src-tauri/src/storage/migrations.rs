@@ -15,7 +15,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );"#,
-
         // Task Breakdown Table
         r#"CREATE TABLE IF NOT EXISTS task_breakdown (
             id TEXT PRIMARY KEY,
@@ -32,7 +31,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             decision_node_required TEXT,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // Decision Nodes Table
         r#"CREATE TABLE IF NOT EXISTS decision_nodes (
             id TEXT PRIMARY KEY,
@@ -54,7 +52,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE,
             FOREIGN KEY(breakdown_id) REFERENCES task_breakdown(id) ON DELETE CASCADE
         );"#,
-
         // Statements Table
         r#"CREATE TABLE IF NOT EXISTS statements (
             id TEXT PRIMARY KEY,
@@ -66,7 +63,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(decision_node_id) REFERENCES decision_nodes(id) ON DELETE CASCADE
         );"#,
-
         // Alternatives Table
         r#"CREATE TABLE IF NOT EXISTS alternatives (
             id TEXT PRIMARY KEY,
@@ -85,11 +81,16 @@ pub fn get_migrations() -> Vec<&'static str> {
             user_control_score INTEGER NOT NULL,
             live_impact_score INTEGER NOT NULL,
             data_loss_risk_score INTEGER NOT NULL,
+            real_world_basis TEXT,
+            testability_score INTEGER DEFAULT 0,
+            ethical_safety_note TEXT,
+            selection_reason TEXT,
+            accepted_correct_approach_reason TEXT,
+            selected_best_option_reason TEXT,
             selected INTEGER DEFAULT 0,
             reason TEXT,
             FOREIGN KEY(decision_node_id) REFERENCES decision_nodes(id) ON DELETE CASCADE
         );"#,
-
         // Risk Assessments Table
         r#"CREATE TABLE IF NOT EXISTS risk_assessments (
             id TEXT PRIMARY KEY,
@@ -102,7 +103,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE,
             FOREIGN KEY(decision_node_id) REFERENCES decision_nodes(id) ON DELETE CASCADE
         );"#,
-
         // Checkpoints Table
         r#"CREATE TABLE IF NOT EXISTS checkpoints (
             id TEXT PRIMARY KEY,
@@ -114,7 +114,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // Tests Table
         r#"CREATE TABLE IF NOT EXISTS tests (
             id TEXT PRIMARY KEY,
@@ -126,7 +125,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // Approvals Table
         r#"CREATE TABLE IF NOT EXISTS approvals (
             id TEXT PRIMARY KEY,
@@ -143,7 +141,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             user_note TEXT,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // Execution Logs Table
         r#"CREATE TABLE IF NOT EXISTS execution_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,7 +153,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             metadata_json TEXT,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // Snapshots Table
         r#"CREATE TABLE IF NOT EXISTS snapshots (
             id TEXT PRIMARY KEY,
@@ -171,7 +167,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // State History Table
         r#"CREATE TABLE IF NOT EXISTS state_history (
             id TEXT PRIMARY KEY,
@@ -182,7 +177,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // Reports Table
         r#"CREATE TABLE IF NOT EXISTS reports (
             id TEXT PRIMARY KEY,
@@ -193,7 +187,6 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
         // Dependency Assessments Table
         r#"CREATE TABLE IF NOT EXISTS dependency_assessments (
             id TEXT PRIMARY KEY,
@@ -210,11 +203,41 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
-
+        r#"CREATE TABLE IF NOT EXISTS operation_steps (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            step_order INTEGER NOT NULL,
+            expected_action TEXT NOT NULL,
+            description TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );"#,
+        r#"CREATE TABLE IF NOT EXISTS operation_monitor_logs (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            decision_node_id TEXT,
+            expected_action TEXT,
+            actual_action TEXT NOT NULL,
+            gate_name TEXT,
+            status TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );"#,
+        r#"CREATE TABLE IF NOT EXISTS principle_evaluations (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            decision_node_id TEXT,
+            accepted_correct_approach_reason TEXT NOT NULL,
+            selected_best_option_reason TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );"#,
         r#"CREATE INDEX IF NOT EXISTS idx_approvals_task_node_action_risk_status
             ON approvals(task_id, decision_node_id, action, risk_level, status);"#,
-
         r#"CREATE INDEX IF NOT EXISTS idx_approvals_authorized_signatures
-            ON approvals(task_id, decision_node_id, action, risk_level, approver_id, approver_role, status);"#
+            ON approvals(task_id, decision_node_id, action, risk_level, approver_id, approver_role, status);"#,
     ]
 }

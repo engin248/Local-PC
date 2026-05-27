@@ -1,0 +1,71 @@
+{
+  "phase_model": {
+    "analysis": "planning_status",
+    "plan_ready": "planning_status = planning_complete",
+    "awaiting_approval": "approval_status = pending_approval",
+    "execution": "execution_status = running",
+    "monitoring": "current_gate / operation_monitor_logs",
+    "verification": "tests/checkpoints",
+    "completed": "execution_status = completed",
+    "failed": "execution_status = failed",
+    "rolled_back": "rollback_status / snapshots"
+  },
+  "correct_approach_criteria": [
+    "zarar vermeyen",
+    "veri gizliligini koruyan",
+    "guvenli",
+    "geri alinabilir",
+    "test edilebilir",
+    "kullanici iradesini devre disi birakmayan",
+    "yasal ve etik sinirlari asmayan",
+    "gereksiz bagimlilik olusturmayan"
+  ],
+  "best_option_criteria": [
+    "mevcut sistemle uyumlu",
+    "dusuk riskli",
+    "uygulanabilir",
+    "surdurulebilir",
+    "rollback plani olan",
+    "test plani olan",
+    "maliyet ve sure dengesi uygun"
+  ],
+  "required_reason_fields": [
+    "accepted_correct_approach_reason",
+    "selected_best_option_reason"
+  ],
+  "human_accepted_principles": [
+    "AI provider kendi ciktisini onay yerine geciremez",
+    "Sisteme dokunan tum islemler connector, approval, rollback ve Test Gate katmanlarindan gecer",
+    "Yuksek ve kritik riskli islemler kullanici veya admin onayi olmadan tamamlanamaz",
+    "Plan disi connector aksiyonu fail-closed durdurulur"
+  ],
+  "alternative_scoring_weights": {
+    "risk_score": 3,
+    "dependency_score": 2,
+    "rollback_score": 3,
+    "testability_score": 3,
+    "cost_score": 1,
+    "time_score": 1,
+    "user_control_score": 3,
+    "live_impact_score": 3
+  },
+  "high_risk_requirements": {
+    "minimum_alternatives": 3,
+    "requires_approval": true,
+    "requires_rollback": true,
+    "requires_tests": true,
+    "requires_accepted_correct_approach_reason": true,
+    "requires_selected_best_option_reason": true,
+    "requires_manual_plan_alternative": true
+  },
+  "critical_risk_requirements": {
+    "minimum_alternatives": 3,
+    "requires_double_approval": true,
+    "requires_rollback": true,
+    "requires_tests": true,
+    "requires_accepted_correct_approach_reason": true,
+    "requires_selected_best_option_reason": true,
+    "requires_manual_plan_alternative": true,
+    "requires_read_only_report_alternative": true
+  }
+}
