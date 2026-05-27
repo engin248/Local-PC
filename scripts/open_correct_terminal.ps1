@@ -15,13 +15,12 @@ if (-not (Test-Path -LiteralPath $SessionScript)) {
     throw "HATA: Terminal oturum scripti bulunamadi: $SessionScript"
 }
 
-Start-Process -FilePath "powershell.exe" -WorkingDirectory $ProjectRoot -ArgumentList @(
+$ArgumentLine = @(
     "-NoExit",
     "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-File",
-    $SessionScript,
-    "-ProjectRoot",
-    $ProjectRoot
-)
+    "-ExecutionPolicy Bypass",
+    "-File `"$SessionScript`"",
+    "-ProjectRoot `"$ProjectRoot`""
+) -join " "
+
+Start-Process -FilePath "powershell.exe" -WorkingDirectory $ProjectRoot -ArgumentList $ArgumentLine

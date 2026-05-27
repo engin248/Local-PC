@@ -2,15 +2,16 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "OPEN_SCRIPT=%SCRIPT_DIR%scripts\open_correct_terminal.ps1"
+set "PROJECT_DIR=%SCRIPT_DIR:~0,-1%"
+set "SESSION_SCRIPT=%SCRIPT_DIR%scripts\project_terminal_session.ps1"
 
-if not exist "%OPEN_SCRIPT%" (
-  echo HATA: Terminal acma scripti bulunamadi:
-  echo %OPEN_SCRIPT%
+if not exist "%SESSION_SCRIPT%" (
+  echo HATA: Terminal oturum scripti bulunamadi:
+  echo %SESSION_SCRIPT%
   pause
   exit /b 1
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%OPEN_SCRIPT%"
+powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -File "%SESSION_SCRIPT%" -ProjectRoot "%PROJECT_DIR%"
 
 endlocal
