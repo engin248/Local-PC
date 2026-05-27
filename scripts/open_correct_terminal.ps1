@@ -95,7 +95,22 @@ public static class LokalPanelTerminalWindow {
         "-WindowTitle `"$WindowTitle`""
     ) -join " "
 
-    Start-Process -FilePath "powershell.exe" -WorkingDirectory $ProjectRoot -ArgumentList $ArgumentLine
+    $startedProcess = Start-Process -FilePath "powershell.exe" -WorkingDirectory $ProjectRoot -ArgumentList $ArgumentLine -PassThru
+
+    $deadline = (Get-Date).AddSeconds(5)
+    do {
+        Start-Sleep -Milliseconds 150
+        $startedTerminal = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.ProcessId -eq $startedProcess.Id -or (
+                    $_.Name -eq "powershell.exe" -and
+                    $_.CommandLine -and
+                    $_.CommandLine.Contains($SessionScript) -and
+                    $_.CommandLine.Contains($ProjectRoot)
+                )
+            } |
+            Select-Object -First 1
+    } while (-not $startedTerminal -and (Get-Date) -lt $deadline)
 } finally {
     if ($MutexAcquired) {
         $LauncherMutex.ReleaseMutex()
