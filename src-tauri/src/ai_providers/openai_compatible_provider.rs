@@ -8,7 +8,10 @@ pub struct OpenAICompatibleProvider {
 
 impl AIProvider for OpenAICompatibleProvider {
     fn query(&self, _prompt: &str) -> Result<String, String> {
-        Err("OpenAI Compatible Provider sadece Canlı modda etkindir. İlk Sprint'te devre dışıdır.".to_string())
+        Err(
+            "OpenAI Compatible Provider sadece Canlı modda etkindir. İlk Sprint'te devre dışıdır."
+                .to_string(),
+        )
     }
 
     fn get_name(&self) -> &str {

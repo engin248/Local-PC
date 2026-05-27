@@ -1,0 +1,31 @@
+[
+  {
+    "id": "chatgpt",
+    "name": "ChatGPT",
+    "type": "openai_compatible",
+    "base_url": "https://api.openai.com/v1",
+    "api_key_env": "OPENAI_API_KEY",
+    "model": "gpt-4o",
+    "enabled": true,
+    "dependency_level": "high"
+  },
+  {
+    "id": "gemini",
+    "name": "Gemini",
+    "type": "google",
+    "api_key_env": "GEMINI_API_KEY",
+    "model": "gemini-1.5-pro",
+    "enabled": true,
+    "dependency_level": "high"
+  },
+  {
+    "id": "verdent",
+    "name": "Verdent",
+    "type": "custom_api",
+    "base_url": "http://127.0.0.1:8085",
+    "api_key_env": "VERDENT_API_KEY",
+    "model": "verdent-v1",
+    "enabled": false,
+    "dependency_level": "medium"
+  }
+]

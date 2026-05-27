@@ -1,12 +1,14 @@
-use std::fs;
-use serde_json::Value;
 use crate::core::decision_tree_builder::DecisionNode;
+use serde_json::Value;
+use std::fs;
 
 pub struct AuthorityRouter;
 
 impl AuthorityRouter {
     pub fn route_and_validate(node: &DecisionNode) -> Result<(), String> {
-        let matrix_path = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path("authority_matrix.json")?;
+        let matrix_path = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path(
+            "authority_matrix.json",
+        )?;
         let matrix_data = fs::read_to_string(&matrix_path)
             .map_err(|e| format!("Yetki matrisi (authority_matrix.json) okunamadı: {}", e))?;
 
@@ -33,8 +35,10 @@ impl AuthorityRouter {
         if let Some(deciders) = matrix.get(action) {
             if let Some(arr) = deciders.as_array() {
                 let decider_id = &node.authorized_decider_id;
-                let exists = arr.iter().any(|d| d.as_str() == Some(decider_id) || d.as_str() == Some("user"));
-                
+                let exists = arr
+                    .iter()
+                    .any(|d| d.as_str() == Some(decider_id) || d.as_str() == Some("user"));
+
                 if exists {
                     return Ok(());
                 }

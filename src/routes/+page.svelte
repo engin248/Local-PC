@@ -14,6 +14,8 @@
   import LiveLog from "../components/LiveLog.svelte";
   import ReportPanel from "../components/ReportPanel.svelte";
   import DefinitiveAnswerPanel from "../components/DefinitiveAnswerPanel.svelte";
+  import AIConnectionsPanel from "../components/AIConnectionsPanel.svelte";
+  import SystemConnectionsPanel from "../components/SystemConnectionsPanel.svelte";
 
   let tasks = $state<any[]>([]);
   let selectedTaskId = $state<string | null>(null);
@@ -26,8 +28,10 @@
   let checkpoints = $state<any[]>([]);
   let tests = $state<any[]>([]);
   let reports = $state<any[]>([]);
+  let aiProviderHealth = $state<any[]>([]);
+  let systemConnectorHealth = $state<any[]>([]);
 
-  let activeSection = $state("planning"); // "planning", "decisions", "security", "execution"
+  let activeSection = $state("planning"); // "planning", "decisions", "security", "connections", "execution"
   let globalError = $state<string | null>(null);
   let alarmEvents = $state<any[]>([]);
   let voiceRepliesEnabled = $state(true);
@@ -67,6 +71,10 @@
       case "get_reports_cmd":
         return [];
       case "get_system_health_cmd":
+        return [];
+      case "get_ai_provider_health_cmd":
+        return [];
+      case "get_system_connector_health_cmd":
         return [];
       case "create_task_cmd":
         throw new Error("Tauri bağlantısı olmadan gerçek görev oluşturulamaz.");
@@ -231,6 +239,16 @@
     }
   }
 
+  async function refreshConnectionHealth(writeAudit = false) {
+    try {
+      aiProviderHealth = await safeInvoke("get_ai_provider_health_cmd", { writeAudit });
+      systemConnectorHealth = await safeInvoke("get_system_connector_health_cmd", { writeAudit });
+    } catch (err) {
+      console.error("Bağlantı health-check hatası:", err);
+      raiseCriticalAlarm("Bağlantı health-check sırasında hata oluştu", err);
+    }
+  }
+
   async function refreshTaskDetails(taskId: string) {
     try {
       logs = await safeInvoke("get_task_logs_cmd", { taskId });
@@ -322,7 +340,15 @@
       voiceRepliesEnabled = savedVoiceSetting === "true";
     }
 
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has("alarmTest")) {
+      raiseCriticalAlarm(
+        "Otomatik görsel alarm testi",
+        "Test amaçlı hata enjeksiyonu: alarm banner, aktif hata kayıtları ve sesli kritik alarm akışı doğrulanıyor."
+      );
+    }
+
     checkSystemHealth();
+    refreshConnectionHealth(true);
     loadTasks();
     const interval = setInterval(() => {
       if (selectedTaskId) {
@@ -359,6 +385,7 @@
         <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
         <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AĞACI & ALTERNATİFLER (GATE 2-4)</button>
         <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activeSection = 'security'}>GÜVENLİK DUVARI & ONAY (GATE 5-7)</button>
+        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAĞLANTILAR</button>
         <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activeSection = 'execution'}>TEST VE RAPOR (GATE 8)</button>
       </div>
       <div class="voice-controls">
@@ -408,7 +435,10 @@
         onStopVoice={stopVoiceReply}
       />
 
-      {#if selectedTask}
+      {#if activeSection === 'connections'}
+        <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
+        <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
+      {:else if selectedTask}
         {#if activeSection === 'planning'}
           <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
         {:else if activeSection === 'decisions'}

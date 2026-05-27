@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
-use rusqlite::params;
-use uuid::Uuid;
 use crate::storage::db::Database;
+use rusqlite::params;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RiskAssessment {
@@ -17,19 +17,32 @@ pub struct RiskAssessment {
 pub struct RiskEngine;
 
 impl RiskEngine {
-    pub fn assess_risk(task_id: &str, node_id: &str, action_type: &str) -> Result<RiskAssessment, String> {
-        let rules_path = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path("risk_rules.json")?;
+    pub fn assess_risk(
+        task_id: &str,
+        node_id: &str,
+        action_type: &str,
+    ) -> Result<RiskAssessment, String> {
+        let rules_path = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path(
+            "risk_rules.json",
+        )?;
         let rules_data = std::fs::read_to_string(&rules_path)
             .map_err(|e| format!("Risk kuralları (risk_rules.json) okunamadı: {}", e))?;
         let rules: serde_json::Value = serde_json::from_str(&rules_data)
             .map_err(|e| format!("Risk kuralları JSON formatı geçersiz: {}", e))?;
 
         // Dynamically resolve risk properties from action_mappings in risk_rules.json
-        let (risk_level, reason, assets, mitigation) = if let Some(mappings) = rules.get("action_mappings") {
-            let config = mappings.get(action_type)
-                .ok_or_else(|| format!("Risk kurallarında eylem türü için açık yapılandırma bulunamadı: {}", action_type))?;
-            
-            let level = config.get("level")
+        let (risk_level, reason, assets, mitigation) = if let Some(mappings) =
+            rules.get("action_mappings")
+        {
+            let config = mappings.get(action_type).ok_or_else(|| {
+                format!(
+                    "Risk kurallarında eylem türü için açık yapılandırma bulunamadı: {}",
+                    action_type
+                )
+            })?;
+
+            let level = config
+                .get("level")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| format!("Risk kuralında level eksik: {}", action_type))?
                 .to_string();
@@ -39,7 +52,7 @@ impl RiskEngine {
                 .filter(|v| !v.trim().is_empty())
                 .ok_or_else(|| format!("Risk kuralında reason eksik veya boş: {}", action_type))?
                 .to_string();
-            
+
             let arr = config
                 .get("assets")
                 .and_then(|v| v.as_array())
@@ -51,9 +64,11 @@ impl RiskEngine {
                 .get("mitigation")
                 .and_then(|v| v.as_str())
                 .filter(|v| !v.trim().is_empty())
-                .ok_or_else(|| format!("Risk kuralında mitigation eksik veya boş: {}", action_type))?
+                .ok_or_else(|| {
+                    format!("Risk kuralında mitigation eksik veya boş: {}", action_type)
+                })?
                 .to_string();
-            
+
             (level, reason, assets, mitigation)
         } else {
             return Err("Risk kurallarında action_mappings bulunamadı.".to_string());
@@ -62,7 +77,10 @@ impl RiskEngine {
         // Enforce rules from risk_rules.json dynamically
         if let Some(levels) = rules.get("levels") {
             if let Some(rules_config) = levels.get(&risk_level) {
-                if let Some(double_check) = rules_config.get("requires_double_check").and_then(|v| v.as_bool()) {
+                if let Some(double_check) = rules_config
+                    .get("requires_double_check")
+                    .and_then(|v| v.as_bool())
+                {
                     if double_check && risk_level == "critical" {
                         crate::core::audit_logger::AuditLogger::log_event(
                             task_id,
@@ -108,7 +126,8 @@ impl RiskEngine {
         conn.execute(
             "UPDATE tasks SET risk_level = ?1 WHERE id = ?2",
             params![risk_level, task_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
         Ok(assessment)
     }

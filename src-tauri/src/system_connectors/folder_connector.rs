@@ -1,8 +1,8 @@
 use crate::system_connectors::connector_base::{
     decode_write_request, require_authorized_write, SystemConnector,
 };
-use std::fs;
 use serde_json::json;
+use std::fs;
 
 pub struct FolderConnector {
     pub name: String,
@@ -10,8 +10,8 @@ pub struct FolderConnector {
 
 impl SystemConnector for FolderConnector {
     fn execute_read(&self, target: &str) -> Result<String, String> {
-        let entries = fs::read_dir(target)
-            .map_err(|e| format!("Dizin okuma hatası ({}): {}", target, e))?;
+        let entries =
+            fs::read_dir(target).map_err(|e| format!("Dizin okuma hatası ({}): {}", target, e))?;
 
         let mut list = Vec::new();
         for entry in entries.flatten() {

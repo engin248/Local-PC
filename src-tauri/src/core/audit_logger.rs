@@ -1,10 +1,17 @@
-use rusqlite::params;
 use crate::storage::db::Database;
+use rusqlite::params;
 
 pub struct AuditLogger;
 
 impl AuditLogger {
-    pub fn log_event(task_id: &str, level: &str, message: &str, gate_name: Option<&str>, event_type: Option<&str>, metadata_json: Option<&str>) -> Result<(), String> {
+    pub fn log_event(
+        task_id: &str,
+        level: &str,
+        message: &str,
+        gate_name: Option<&str>,
+        event_type: Option<&str>,
+        metadata_json: Option<&str>,
+    ) -> Result<(), String> {
         let db = Database::new();
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 

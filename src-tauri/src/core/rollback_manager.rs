@@ -1,10 +1,10 @@
-use serde_json::json;
+use crate::storage::db::Database;
 use rusqlite::params;
-use uuid::Uuid;
+use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
-use crate::storage::db::Database;
-use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 pub struct RollbackManager;
 
@@ -23,7 +23,11 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result
 }
 
 impl RollbackManager {
-    pub fn create_snapshot(task_id: &str, target_type: &str, target_path: &str) -> Result<String, String> {
+    pub fn create_snapshot(
+        task_id: &str,
+        target_type: &str,
+        target_path: &str,
+    ) -> Result<String, String> {
         Self::create_snapshot_with_context(task_id, None, target_type, target_path, None)
     }
 
@@ -41,7 +45,7 @@ impl RollbackManager {
             .unwrap_or_else(|| Uuid::new_v4().to_string());
         let root = crate::core::dependency_analyzer::DependencyAnalyzer::get_project_root()?;
         let snapshots_dir = root.join("storage").join("snapshots");
-        
+
         // Ensure snapshots directory exists
         fs::create_dir_all(&snapshots_dir)
             .map_err(|e| format!("HATA: Snapshots dizini olusturulamadi: {}", e))?;
@@ -56,20 +60,31 @@ impl RollbackManager {
         // 1. PHYSICAL MULTI-TYPE SNAPSHOT COPY
         if target_type == "file" || target_type == "sqlite" {
             if Path::new(target_path).exists() {
-                fs::copy(target_path, &snapshot_path)
-                    .map_err(|e| format!("HATA: Fiziksel dosya/db yedekleme basarisiz oldu: {}", e))?;
+                fs::copy(target_path, &snapshot_path).map_err(|e| {
+                    format!("HATA: Fiziksel dosya/db yedekleme basarisiz oldu: {}", e)
+                })?;
             } else {
-                return Err(format!("HATA: Yedeklenecek hedef dosya mevcut degil: {} (Fail-Closed)", target_path));
+                return Err(format!(
+                    "HATA: Yedeklenecek hedef dosya mevcut degil: {} (Fail-Closed)",
+                    target_path
+                ));
             }
         } else if target_type == "folder" {
             if Path::new(target_path).exists() {
-                copy_dir_all(target_path, &snapshot_path)
-                    .map_err(|e| format!("HATA: Fiziksel klasor yedekleme basarisiz oldu: {}", e))?;
+                copy_dir_all(target_path, &snapshot_path).map_err(|e| {
+                    format!("HATA: Fiziksel klasor yedekleme basarisiz oldu: {}", e)
+                })?;
             } else {
-                return Err(format!("HATA: Yedeklenecek hedef klasor mevcut degil: {} (Fail-Closed)", target_path));
+                return Err(format!(
+                    "HATA: Yedeklenecek hedef klasor mevcut degil: {} (Fail-Closed)",
+                    target_path
+                ));
             }
         } else {
-            return Err(format!("HATA: Desteklenmeyen yedekleme hedef turu: {} (Fail-Closed)", target_type));
+            return Err(format!(
+                "HATA: Desteklenmeyen yedekleme hedef turu: {} (Fail-Closed)",
+                target_type
+            ));
         }
 
         // Register snapshot in DB
@@ -100,7 +115,8 @@ impl RollbackManager {
             "operation_id": operation_id,
             "state_id": state_id,
             "created_at": chrono::Utc::now().to_rfc3339()
-        }).to_string();
+        })
+        .to_string();
 
         conn.execute(
             "INSERT INTO state_history (id, task_id, state_name, state_json, is_valid)
@@ -112,13 +128,15 @@ impl RollbackManager {
                 state_json,
                 1
             ],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
         // Save last valid state to task
         conn.execute(
             "UPDATE tasks SET last_valid_state_id = ?1 WHERE id = ?2",
             params![state_id, task_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
         Ok(snapshot_path)
     }
@@ -127,7 +145,10 @@ impl RollbackManager {
         match target_type {
             "file" | "sqlite" => Self::hash_file(target_path),
             "folder" => Self::hash_folder(target_path),
-            _ => Err(format!("HATA: Hash hesaplanamayan hedef türü: {}", target_type)),
+            _ => Err(format!(
+                "HATA: Hash hesaplanamayan hedef türü: {}",
+                target_type
+            )),
         }
     }
 
@@ -157,8 +178,8 @@ impl RollbackManager {
         current: &Path,
         entries: &mut Vec<(String, String)>,
     ) -> Result<(), String> {
-        for entry in fs::read_dir(current)
-            .map_err(|e| format!("HATA: Klasör hash için okunamadı: {}", e))?
+        for entry in
+            fs::read_dir(current).map_err(|e| format!("HATA: Klasör hash için okunamadı: {}", e))?
         {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
@@ -182,11 +203,13 @@ impl RollbackManager {
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
         // Retrieve last snapshot
-        let mut stmt = conn.prepare(
-            "SELECT id, target_path, snapshot_path, target_type FROM snapshots 
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, target_path, snapshot_path, target_type FROM snapshots 
              WHERE task_id = ?1 AND rollback_status = 'active' 
-             ORDER BY created_at DESC LIMIT 1"
-        ).map_err(|e| e.to_string())?;
+             ORDER BY created_at DESC LIMIT 1",
+            )
+            .map_err(|e| e.to_string())?;
 
         let snapshot_row = stmt.query_row(params![task_id], |row| {
             Ok((
@@ -199,13 +222,16 @@ impl RollbackManager {
 
         if let Ok((snapshot_id, target_path, snapshot_path, target_type)) = snapshot_row {
             // 2. PHYSICAL RESTORE BY TYPE
-            if (target_type == "file" || target_type == "sqlite") && Path::new(&snapshot_path).exists() {
+            if (target_type == "file" || target_type == "sqlite")
+                && Path::new(&snapshot_path).exists()
+            {
                 // Ensure parent directory of target path exists
                 if let Some(parent) = Path::new(&target_path).parent() {
                     fs::create_dir_all(parent).map_err(|e| e.to_string())?;
                 }
                 if let Err(e) = fs::copy(&snapshot_path, &target_path) {
-                    let message = format!("HATA: Fiziksel dosya/db geri yukleme basarisiz oldu: {}", e);
+                    let message =
+                        format!("HATA: Fiziksel dosya/db geri yukleme basarisiz oldu: {}", e);
                     Self::mark_rollback_failure(task_id, &message)?;
                     return Err(message);
                 }
@@ -218,12 +244,16 @@ impl RollbackManager {
                     }
                 }
                 if let Err(e) = copy_dir_all(&snapshot_path, &target_path) {
-                    let message = format!("HATA: Fiziksel klasor geri yukleme basarisiz oldu: {}", e);
+                    let message =
+                        format!("HATA: Fiziksel klasor geri yukleme basarisiz oldu: {}", e);
                     Self::mark_rollback_failure(task_id, &message)?;
                     return Err(message);
                 }
             } else {
-                let message = format!("HATA: Snapshot yedek dosyalari fiziksel olarak mevcut degil: {}", snapshot_path);
+                let message = format!(
+                    "HATA: Snapshot yedek dosyalari fiziksel olarak mevcut degil: {}",
+                    snapshot_path
+                );
                 Self::mark_rollback_failure(task_id, &message)?;
                 return Err(message);
             }
@@ -239,7 +269,8 @@ impl RollbackManager {
             ));
         }
 
-        let message = "Geri alinabilecek gecerli bir sistem snapshot yedegi bulunamadi!".to_string();
+        let message =
+            "Geri alinabilecek gecerli bir sistem snapshot yedegi bulunamadi!".to_string();
         Self::mark_rollback_failure(task_id, &message)?;
         Err(message)
     }
@@ -255,13 +286,15 @@ impl RollbackManager {
                  current_gate = 'Rollback Failure'
              WHERE id = ?1",
             params![task_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
         conn.execute(
             "UPDATE snapshots
              SET rollback_status = 'failed'
              WHERE task_id = ?1 AND rollback_status = 'active'",
             params![task_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
         crate::core::audit_logger::AuditLogger::log_event(
             task_id,
             "error",

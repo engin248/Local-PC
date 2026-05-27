@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
-use rusqlite::params;
-use uuid::Uuid;
 use crate::storage::db::Database;
+use rusqlite::params;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Statement {
@@ -16,43 +16,56 @@ pub struct Statement {
 pub struct StatementCollector;
 
 impl StatementCollector {
-    pub fn collect_statement(node_id: &str, src_type: &str, src_name: &str, content: &str, evidence_ref: Option<&str>) -> Result<Statement, String> {
+    pub fn collect_statement(
+        node_id: &str,
+        src_type: &str,
+        src_name: &str,
+        content: &str,
+        evidence_ref: Option<&str>,
+    ) -> Result<Statement, String> {
         // Dynamic validation based on source type
         let validated_content = match src_type {
-            "ai_provider" => {
+            "ai_provider" | "ai_provider_response" => {
                 if content.trim().is_empty() {
                     return Err("HATA: Yapay zeka beyan içeriği boş olamaz!".to_string());
                 }
                 if evidence_ref.map(|s| s.trim().is_empty()).unwrap_or(true) {
-                    return Err("HATA: Yapay zeka beyanı gerçek evidence_ref olmadan kabul edilemez.".to_string());
+                    return Err(
+                        "HATA: Yapay zeka beyanı gerçek evidence_ref olmadan kabul edilemez."
+                            .to_string(),
+                    );
                 }
                 format!("[AI-VERIFIED] {}", content)
             }
-            "system_connector" => {
-                let connectors_path = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path("system_connectors.json")?;
+            "system_connector" | "system_connector_output" => {
+                let connectors_path =
+                    crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path(
+                        "system_connectors.json",
+                    )?;
                 let mut is_valid = false;
                 let data = std::fs::read_to_string(&connectors_path)
                     .map_err(|e| format!("Sistem connector config okunamadı: {}", e))?;
                 let val: serde_json::Value = serde_json::from_str(&data)
                     .map_err(|e| format!("Sistem connector config JSON formatı geçersiz: {}", e))?;
-                let arr = val
-                    .as_array()
-                    .ok_or_else(|| "Sistem connector config liste formatında olmalıdır.".to_string())?;
+                let arr = val.as_array().ok_or_else(|| {
+                    "Sistem connector config liste formatında olmalıdır.".to_string()
+                })?;
                 for item in arr {
-                    let id = item
-                        .get("id")
-                        .and_then(|v| v.as_str())
-                        .ok_or_else(|| "Sistem connector config içinde id alanı eksik.".to_string())?;
-                    let item_type = item
-                        .get("type")
-                        .and_then(|v| v.as_str())
-                        .ok_or_else(|| "Sistem connector config içinde type alanı eksik.".to_string())?;
-                    let enabled = item
-                        .get("enabled")
-                        .and_then(|v| v.as_bool())
-                        .ok_or_else(|| {
-                            format!("Sistem connector config içinde enabled alanı eksik: {}", id)
-                        })?;
+                    let id = item.get("id").and_then(|v| v.as_str()).ok_or_else(|| {
+                        "Sistem connector config içinde id alanı eksik.".to_string()
+                    })?;
+                    let item_type = item.get("type").and_then(|v| v.as_str()).ok_or_else(|| {
+                        "Sistem connector config içinde type alanı eksik.".to_string()
+                    })?;
+                    let enabled =
+                        item.get("enabled")
+                            .and_then(|v| v.as_bool())
+                            .ok_or_else(|| {
+                                format!(
+                                    "Sistem connector config içinde enabled alanı eksik: {}",
+                                    id
+                                )
+                            })?;
                     if enabled
                         && (id == src_name
                             || item_type == src_name
@@ -64,7 +77,10 @@ impl StatementCollector {
                 }
 
                 if !is_valid {
-                    return Err(format!("HATA: Geçersiz veya devre dışı sistem konnektör kaynağı: {}", src_name));
+                    return Err(format!(
+                        "HATA: Geçersiz veya devre dışı sistem konnektör kaynağı: {}",
+                        src_name
+                    ));
                 }
                 format!("[SYS-VERIFIED] Kaynak: {}, Veri: {}", src_name, content)
             }
@@ -76,11 +92,19 @@ impl StatementCollector {
             }
             "audit_log" | "test_result" | "sqlite_read" | "file_read" => {
                 if evidence_ref.map(|s| s.trim().is_empty()).unwrap_or(true) {
-                    return Err(format!("HATA: {} beyanı gerçek evidence_ref olmadan kabul edilemez.", src_type));
+                    return Err(format!(
+                        "HATA: {} beyanı gerçek evidence_ref olmadan kabul edilemez.",
+                        src_type
+                    ));
                 }
                 format!("[VERIFIED] {}", content)
             }
-            _ => return Err(format!("HATA: Desteklenmeyen beyan kaynak türü: {}", src_type)),
+            _ => {
+                return Err(format!(
+                    "HATA: Desteklenmeyen beyan kaynak türü: {}",
+                    src_type
+                ))
+            }
         };
 
         let stmt = Statement {
@@ -117,16 +141,18 @@ impl StatementCollector {
         let mut stmt = conn.prepare("SELECT id, decision_node_id, source_type, source_name, content, evidence_ref FROM statements WHERE decision_node_id = ?1")
             .map_err(|e| e.to_string())?;
 
-        let rows = stmt.query_map(params![node_id], |row| {
-            Ok(Statement {
-                id: row.get(0)?,
-                decision_node_id: row.get(1)?,
-                source_type: row.get(2)?,
-                source_name: row.get(3)?,
-                content: row.get(4)?,
-                evidence_ref: row.get(5)?,
+        let rows = stmt
+            .query_map(params![node_id], |row| {
+                Ok(Statement {
+                    id: row.get(0)?,
+                    decision_node_id: row.get(1)?,
+                    source_type: row.get(2)?,
+                    source_name: row.get(3)?,
+                    content: row.get(4)?,
+                    evidence_ref: row.get(5)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
 
         let mut stmts = Vec::new();
         for row in rows {

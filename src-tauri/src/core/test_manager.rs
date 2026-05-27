@@ -1,9 +1,9 @@
-use rusqlite::params;
-use uuid::Uuid;
 use crate::storage::db::Database;
-use std::path::Path;
-use std::fs;
+use rusqlite::params;
 use sha2::{Digest, Sha256};
+use std::fs;
+use std::path::Path;
+use uuid::Uuid;
 
 pub struct TestManager;
 
@@ -14,7 +14,12 @@ fn sha256_hash(data: &[u8]) -> String {
 }
 
 impl TestManager {
-    pub fn run_test(task_id: &str, test_name: &str, expected: &str, actual: &str) -> Result<(), String> {
+    pub fn run_test(
+        task_id: &str,
+        test_name: &str,
+        expected: &str,
+        actual: &str,
+    ) -> Result<(), String> {
         let mut actual_result = actual.to_string();
 
         if test_name.starts_with("file_exists:") {
@@ -105,7 +110,8 @@ impl TestManager {
                 if Path::new(db_path).exists() {
                     match rusqlite::Connection::open(db_path) {
                         Ok(conn) => {
-                            let query_res: Result<String, _> = conn.query_row(query, [], |row| row.get(0));
+                            let query_res: Result<String, _> =
+                                conn.query_row(query, [], |row| row.get(0));
                             match query_res {
                                 Ok(val) => {
                                     if val == expected_val {
@@ -138,8 +144,9 @@ impl TestManager {
                 let conn = db
                     .get_connection()
                     .map_err(|e| format!("approval_exists DB bağlantısı başarısız: {}", e))?;
-                let exists: bool = conn.query_row(
-                    "SELECT EXISTS(
+                let exists: bool = conn
+                    .query_row(
+                        "SELECT EXISTS(
                         SELECT 1 FROM approvals
                         WHERE task_id = ?1
                         AND decision_node_id = ?2
@@ -150,9 +157,10 @@ impl TestManager {
                         AND TRIM(approver_id) != ''
                         AND approver_role IN ('admin', 'owner', 'security_officer')
                     )",
-                    params![t_id, n_id, act],
-                    |row| row.get(0),
-                ).map_err(|e| format!("approval_exists sorgusu başarısız: {}", e))?;
+                        params![t_id, n_id, act],
+                        |row| row.get(0),
+                    )
+                    .map_err(|e| format!("approval_exists sorgusu başarısız: {}", e))?;
                 if exists {
                     actual_result = "approved_exists".to_string();
                 } else {
@@ -221,8 +229,9 @@ impl TestManager {
                 let conn = db
                     .get_connection()
                     .map_err(|e| format!("no_unapproved_write DB bağlantısı başarısız: {}", e))?;
-                let unapproved_write_exists: bool = conn.query_row(
-                    "SELECT EXISTS(
+                let unapproved_write_exists: bool = conn
+                    .query_row(
+                        "SELECT EXISTS(
                         SELECT 1 FROM execution_logs
                         WHERE task_id = ?1
                         AND event_type = 'write_executed'
@@ -239,9 +248,10 @@ impl TestManager {
                             AND approver_role IN ('admin', 'owner', 'security_officer')
                         )
                     )",
-                    params![t_id, n_id, act],
-                    |row| row.get(0),
-                ).map_err(|e| format!("no_unapproved_write sorgusu başarısız: {}", e))?;
+                        params![t_id, n_id, act],
+                        |row| row.get(0),
+                    )
+                    .map_err(|e| format!("no_unapproved_write sorgusu başarısız: {}", e))?;
                 actual_result = if unapproved_write_exists {
                     "unapproved_write_found".to_string()
                 } else {
@@ -272,7 +282,8 @@ impl TestManager {
             "INSERT INTO tests (id, task_id, test_name, expected_result, actual_result, status)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params![id, task_id, test_name, expected, actual_result, status],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
         if !is_passed {
             return Err(format!(

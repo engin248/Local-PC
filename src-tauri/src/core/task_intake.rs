@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
-use uuid::Uuid;
-use rusqlite::params;
 use crate::storage::db::Database;
+use rusqlite::params;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Task {
@@ -75,21 +75,23 @@ impl TaskIntake {
         let mut stmt = conn.prepare("SELECT id, title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status, created_at FROM tasks WHERE id = ?1")
             .map_err(|e| e.to_string())?;
 
-        let task = stmt.query_row(params![id], |row| {
-            Ok(Task {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                user_request: row.get(2)?,
-                status: row.get(3)?,
-                planning_status: row.get(4)?,
-                execution_status: row.get(5)?,
-                current_gate: row.get(6)?,
-                last_valid_state_id: row.get(7)?,
-                risk_level: row.get(8)?,
-                approval_status: row.get(9)?,
-                created_at: row.get(10)?,
+        let task = stmt
+            .query_row(params![id], |row| {
+                Ok(Task {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    user_request: row.get(2)?,
+                    status: row.get(3)?,
+                    planning_status: row.get(4)?,
+                    execution_status: row.get(5)?,
+                    current_gate: row.get(6)?,
+                    last_valid_state_id: row.get(7)?,
+                    risk_level: row.get(8)?,
+                    approval_status: row.get(9)?,
+                    created_at: row.get(10)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
 
         Ok(task)
     }

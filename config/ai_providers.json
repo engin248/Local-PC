@@ -6,26 +6,137 @@
     "base_url": "https://api.openai.com/v1",
     "api_key_env": "OPENAI_API_KEY",
     "model": "gpt-4o",
-    "enabled": true,
-    "dependency_level": "high"
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "high",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
   },
   {
     "id": "gemini",
     "name": "Gemini",
-    "type": "google",
+    "type": "gemini",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta",
     "api_key_env": "GEMINI_API_KEY",
     "model": "gemini-1.5-pro",
-    "enabled": true,
-    "dependency_level": "high"
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "high",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "perplexity",
+    "name": "Perplexity",
+    "type": "perplexity",
+    "base_url": "https://api.perplexity.ai",
+    "api_key_env": "PERPLEXITY_API_KEY",
+    "model": "sonar",
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "high",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
   },
   {
     "id": "verdent",
     "name": "Verdent",
-    "type": "custom_api",
+    "type": "verdent",
     "base_url": "http://127.0.0.1:8085",
     "api_key_env": "VERDENT_API_KEY",
     "model": "verdent-v1",
     "enabled": false,
-    "dependency_level": "medium"
+    "network_required": true,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "custom_api_template",
+    "name": "Özel AI Provider Şablonu",
+    "type": "custom_api",
+    "base_url": "https://example.com/custom-ai",
+    "api_key_env": "CUSTOM_AI_API_KEY",
+    "model": "custom-model",
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "high",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 8000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
   }
 ]

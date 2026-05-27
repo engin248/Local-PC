@@ -18,16 +18,21 @@ impl SystemConnector for SqliteConnector {
         let db_path = parts[0];
         let query = parts[1];
 
-        let conn = Connection::open(db_path).map_err(|e| format!("Hedef veritabanı açılamadı: {}", e))?;
-        let mut stmt = conn.prepare(query).map_err(|e| format!("Sorgu hazırlama hatası: {}", e))?;
-        
+        let conn =
+            Connection::open(db_path).map_err(|e| format!("Hedef veritabanı açılamadı: {}", e))?;
+        let mut stmt = conn
+            .prepare(query)
+            .map_err(|e| format!("Sorgu hazırlama hatası: {}", e))?;
+
         let col_count = stmt.column_count();
         let mut col_names = Vec::new();
         for i in 0..col_count {
             col_names.push(stmt.column_name(i).map_err(|e| e.to_string())?.to_string());
         }
 
-        let mut rows = stmt.query([]).map_err(|e| format!("Sorgu yürütme hatası: {}", e))?;
+        let mut rows = stmt
+            .query([])
+            .map_err(|e| format!("Sorgu yürütme hatası: {}", e))?;
         let mut result_list = Vec::new();
 
         while let Some(row) = rows.next().map_err(|e| e.to_string())? {
@@ -39,7 +44,9 @@ impl SystemConnector for SqliteConnector {
                     rusqlite::types::ValueRef::Integer(i) => json!(i),
                     rusqlite::types::ValueRef::Real(r) => json!(r),
                     rusqlite::types::ValueRef::Text(t) => json!(String::from_utf8_lossy(t)),
-                    rusqlite::types::ValueRef::Blob(b) => json!(format!("BLOB ({} bytes)", b.len())),
+                    rusqlite::types::ValueRef::Blob(b) => {
+                        json!(format!("BLOB ({} bytes)", b.len()))
+                    }
                 };
                 row_json.insert(name.clone(), val);
             }
@@ -54,8 +61,11 @@ impl SystemConnector for SqliteConnector {
         let (context, payload) = decode_write_request("sqlite_write", data)?;
         require_authorized_write(&context)?;
 
-        let target_conn = Connection::open(target).map_err(|e| format!("Hedef veritabanı açılamadı: {}", e))?;
-        target_conn.execute(&payload, []).map_err(|e| format!("SQLite yazma sorgusu yürütülemedi: {}", e))?;
+        let target_conn =
+            Connection::open(target).map_err(|e| format!("Hedef veritabanı açılamadı: {}", e))?;
+        target_conn
+            .execute(&payload, [])
+            .map_err(|e| format!("SQLite yazma sorgusu yürütülemedi: {}", e))?;
 
         Ok(())
     }

@@ -1,8 +1,8 @@
-use serde::{Serialize, Deserialize};
-use rusqlite::params;
-use uuid::Uuid;
-use crate::storage::db::Database;
 use crate::core::task_decomposer::TaskBreakdown;
+use crate::storage::db::Database;
+use rusqlite::params;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DecisionNode {
@@ -25,12 +25,17 @@ pub struct DecisionNode {
 pub struct DecisionTreeBuilder;
 
 impl DecisionTreeBuilder {
-    pub fn build_tree(task_id: &str, breakdowns: &Vec<TaskBreakdown>) -> Result<Vec<DecisionNode>, String> {
+    pub fn build_tree(
+        task_id: &str,
+        breakdowns: &Vec<TaskBreakdown>,
+    ) -> Result<Vec<DecisionNode>, String> {
         let mut nodes = Vec::new();
         let db = Database::new();
         let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        let matrix_path = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path("authority_matrix.json")?;
+        let matrix_path = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path(
+            "authority_matrix.json",
+        )?;
         let matrix_data = std::fs::read_to_string(&matrix_path)
             .map_err(|e| format!("Yetki matrisi (authority_matrix.json) okunamadı: {}", e))?;
         let matrix: serde_json::Value = serde_json::from_str(&matrix_data)
@@ -74,7 +79,7 @@ impl DecisionTreeBuilder {
                     }
                 }
             }
-            
+
             let node = DecisionNode {
                 id: Uuid::new_v4().to_string(),
                 task_id: task_id.to_string(),
@@ -126,24 +131,26 @@ impl DecisionTreeBuilder {
         let mut stmt = conn.prepare("SELECT id, task_id, breakdown_id, level, parent_node_id, required_approval, gate_status, authorized_decider_type, authorized_decider_id, status, selected_option, reason, evidence_json, confidence FROM decision_nodes WHERE task_id = ?1")
             .map_err(|e| e.to_string())?;
 
-        let rows = stmt.query_map(params![task_id], |row| {
-            Ok(DecisionNode {
-                id: row.get(0)?,
-                task_id: row.get(1)?,
-                breakdown_id: row.get(2)?,
-                level: row.get(3)?,
-                parent_node_id: row.get(4)?,
-                required_approval: row.get(5)?,
-                gate_status: row.get(6)?,
-                authorized_decider_type: row.get(7)?,
-                authorized_decider_id: row.get(8)?,
-                status: row.get(9)?,
-                selected_option: row.get(10)?,
-                reason: row.get(11)?,
-                evidence_json: row.get(12)?,
-                confidence: row.get(13)?,
+        let rows = stmt
+            .query_map(params![task_id], |row| {
+                Ok(DecisionNode {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    breakdown_id: row.get(2)?,
+                    level: row.get(3)?,
+                    parent_node_id: row.get(4)?,
+                    required_approval: row.get(5)?,
+                    gate_status: row.get(6)?,
+                    authorized_decider_type: row.get(7)?,
+                    authorized_decider_id: row.get(8)?,
+                    status: row.get(9)?,
+                    selected_option: row.get(10)?,
+                    reason: row.get(11)?,
+                    evidence_json: row.get(12)?,
+                    confidence: row.get(13)?,
+                })
             })
-        }).map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
 
         let mut nodes = Vec::new();
         for row in rows {

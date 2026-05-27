@@ -1,11 +1,53 @@
 use crate::storage::db::Database;
 use rusqlite::params;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 pub trait SystemConnector {
     fn execute_read(&self, target: &str) -> Result<String, String>;
     fn execute_write(&self, target: &str, data: &str) -> Result<(), String>;
     fn get_name(&self) -> &str;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemConnectorConfig {
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "type")]
+    pub connector_type: String,
+    pub path: Option<String>,
+    pub base_url: Option<String>,
+    pub api_key_env: Option<String>,
+    pub permissions: Vec<String>,
+    pub enabled: bool,
+    pub dependency_level: String,
+    pub live_system: bool,
+    pub network_required: bool,
+    pub allowed_actions: Vec<String>,
+    pub approval_required_actions: Vec<String>,
+    pub rollback_required_actions: Vec<String>,
+    pub test_required_actions: Vec<String>,
+    pub read_only_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemConnectorHealth {
+    pub id: String,
+    pub name: String,
+    pub connector_type: String,
+    pub target: Option<String>,
+    pub permissions: Vec<String>,
+    pub enabled: bool,
+    pub read_only: bool,
+    pub dependency_level: String,
+    pub live_system: bool,
+    pub network_required: bool,
+    pub allowed_actions: Vec<String>,
+    pub approval_required_actions: Vec<String>,
+    pub rollback_required_actions: Vec<String>,
+    pub test_required_actions: Vec<String>,
+    pub status: String,
+    pub last_error: Option<String>,
+    pub last_checked_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,7 +102,10 @@ pub fn decode_write_request(
 
     envelope.approval_context.validate(expected_action)?;
 
-    Ok((envelope.approval_context, envelope.payload.unwrap_or_default()))
+    Ok((
+        envelope.approval_context,
+        envelope.payload.unwrap_or_default(),
+    ))
 }
 
 pub fn require_authorized_write(context: &WriteApprovalContext) -> Result<(), String> {

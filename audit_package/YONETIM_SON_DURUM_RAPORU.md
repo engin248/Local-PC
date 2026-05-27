@@ -11,7 +11,7 @@ Bu çalışma yalnızca **LOKAL BİLGİSAYAR KONTROL PANELİ** projesi üzerinde
 
 Karıştırılmaması gereken eski veya yanlış adlar kaynak/config/audit taramasından temizlenmiştir:
 
-- Asker Motor
+- Başka kök motor projesi
 - Sistem Kontrol / Sistem Takip
 - Lokal Yapay Zeka / Orkestrasyon adlandırmaları
 - `local_ai_orchestrator`
