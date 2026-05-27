@@ -1,0 +1,13 @@
+{
+  "actions_requiring_approval": [
+    "file_write",
+    "write_file",
+    "file_delete",
+    "delete_file",
+    "write_folder",
+    "sqlite_write",
+    "api_write",
+    "live_system_update",
+    "terminal_command"
+  ]
+}

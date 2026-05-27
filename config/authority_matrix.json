@@ -1,0 +1,28 @@
+{
+  "code_analysis": ["chatgpt", "gemini"],
+  "code_modification_proposal": ["chatgpt"],
+  "code_modification_control": ["integrity_checker"],
+  "research": ["gemini"],
+  "read_file": ["file_connector"],
+  "read_folder": ["folder_connector"],
+  "file_read": ["file_connector"],
+  "file_write": ["permission_manager", "user"],
+  "write_file": ["permission_manager", "user"],
+  "delete_file": ["permission_manager", "user"],
+  "write_folder": ["folder_connector", "permission_manager", "user"],
+  "sqlite_read": ["sqlite_connector"],
+  "sqlite_write": ["sqlite_connector", "permission_manager", "user"],
+  "api_read": ["api_connector"],
+  "api_write": ["api_connector", "risk_engine", "user"],
+  "live_system_update": ["risk_engine", "user"],
+  "terminal_command": ["terminal_connector", "risk_engine", "user"],
+  "ai_provider_call": ["chatgpt", "gemini"],
+  "report_generate": ["report_manager"],
+  "level_mappings": {
+    "1": "code_analysis",
+    "2": "code_modification_proposal",
+    "3": "research",
+    "4": "write_file",
+    "default": "report_generate"
+  }
+}
