@@ -6,6 +6,63 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
+$MutexName = "Global\LokalBilgisayarKontrolPaneliDogruTerminalSession"
+$SessionMutex = [System.Threading.Mutex]::new($false, $MutexName)
+$MutexAcquired = $false
+
+function Show-ExistingWindow {
+    param([IntPtr]$Handle)
+
+    if ($Handle -eq [IntPtr]::Zero) {
+        return
+    }
+
+    $typeName = "LokalPanelTerminalSessionWindow"
+    if (-not ($typeName -as [type])) {
+        Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class LokalPanelTerminalSessionWindow {
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr hWnd);
+}
+"@
+    }
+
+    [LokalPanelTerminalSessionWindow]::ShowWindow($Handle, 9) | Out-Null
+    [LokalPanelTerminalSessionWindow]::SetForegroundWindow($Handle) | Out-Null
+}
+
+$CurrentProcessId = $PID
+$CurrentScriptPath = $PSCommandPath
+$ExistingSession = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    Where-Object {
+        $_.ProcessId -ne $CurrentProcessId -and
+        $_.Name -eq "powershell.exe" -and
+        $_.CommandLine -and
+        $_.CommandLine.Contains($CurrentScriptPath) -and
+        $_.CommandLine.Contains($ProjectRoot)
+    } |
+    Sort-Object CreationDate -Descending |
+    Select-Object -First 1
+
+if ($ExistingSession) {
+    $existingProcess = Get-Process -Id $ExistingSession.ProcessId -ErrorAction SilentlyContinue
+    if ($existingProcess) {
+        Show-ExistingWindow -Handle $existingProcess.MainWindowHandle
+    }
+    Stop-Process -Id $PID -Force
+}
+
+$MutexAcquired = $SessionMutex.WaitOne(5000)
+if (-not $MutexAcquired) {
+    Stop-Process -Id $PID -Force
+}
+
 $Host.UI.RawUI.WindowTitle = $WindowTitle
 
 $GitDir = "C:\Program Files\Git\cmd"
@@ -127,3 +184,8 @@ Write-ToolVersion -Name "sqlite3" -Path $SqliteExe
 
 Write-Host ""
 Write-Host "Hazir. Bu terminal LOKAL BILGISAYAR KONTROL PANELI icin dogru terminaldir." -ForegroundColor Green
+
+if ($MutexAcquired) {
+    $SessionMutex.ReleaseMutex()
+}
+$SessionMutex.Dispose()
