@@ -1,16 +1,15 @@
 @echo off
 setlocal
 
-set "PROJECT_DIR=C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli"
-set "PANEL_URL=http://127.0.0.1:1420/"
+set "SCRIPT_DIR=%~dp0"
+set "START_SCRIPT=%SCRIPT_DIR%scripts\start_panel_singleton.ps1"
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$existing = Get-NetTCPConnection -LocalPort 1420 -ErrorAction SilentlyContinue; ^
-   if (-not $existing) { ^
-     Start-Process -FilePath 'cmd.exe' -WindowStyle Minimized -ArgumentList '/c', 'cd /d ""%PROJECT_DIR%"" && npm run dev -- --host 127.0.0.1'; ^
-   }"
+if not exist "%START_SCRIPT%" (
+  echo HATA: Panel acma scripti bulunamadi:
+  echo %START_SCRIPT%
+  exit /b 1
+)
 
-timeout /t 5 /nobreak >nul
-start "" "%PANEL_URL%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%START_SCRIPT%"
 
 endlocal

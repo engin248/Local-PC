@@ -1,9 +1,12 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$ProjectRoot
+    [string]$ProjectRoot,
+
+    [string]$WindowTitle = "LOKAL BILGISAYAR KONTROL PANELI - Dogru Terminal"
 )
 
 $ErrorActionPreference = "Continue"
+$Host.UI.RawUI.WindowTitle = $WindowTitle
 
 $GitDir = "C:\Program Files\Git\cmd"
 $GitExe = Join-Path $GitDir "git.exe"
