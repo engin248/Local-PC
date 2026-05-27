@@ -2,15 +2,15 @@
 setlocal
 
 set "SCRIPT_DIR=%~dp0"
-set "OPEN_SCRIPT=%SCRIPT_DIR%scripts\open_correct_terminal.ps1"
+set "VBS_SCRIPT=%SCRIPT_DIR%DOGRU_TERMINAL_AC.vbs"
 
-if not exist "%OPEN_SCRIPT%" (
+if not exist "%VBS_SCRIPT%" (
   echo HATA: Terminal acma scripti bulunamadi:
-  echo %OPEN_SCRIPT%
+  echo %VBS_SCRIPT%
   pause
   exit /b 1
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%OPEN_SCRIPT%"
+wscript.exe "%VBS_SCRIPT%"
 
 endlocal
