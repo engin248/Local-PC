@@ -18,6 +18,7 @@ KONTROL PANELI
 7. Eski audit raporlari guncel teknik durumla karisabilecek ifadeler tasiyordu.
 8. Production web fallback, Tauri koprusu yokken gercek veriyi taklit eden bos cevaplar donebiliyordu.
 9. Connector seviyesindeki dogrudan yazma korumasi, yuksek/kritik risk icin motor seviyesindeki iki ayri yetkili onay standardiyla ayni sertlikte degildi.
+10. Kurulu exe yanlis calisma dizininden baslatildiginda gelistirme proje kokunu kullanma riski vardi; bu runtime DB/config denetiminde yanlis kok secimine yol acabilirdi.
 
 ## Uygulanan Kok Duzeltmeler
 
@@ -31,6 +32,7 @@ KONTROL PANELI
 - Audit raporlari guncel denetim kaydina cevrildi.
 - Production Tauri koprusu yoksa UI artik bos veri donmez, hata uretir ve alarm zincirine duser.
 - Connector write korumasi `COUNT(DISTINCT approver_id)` ile en az iki ayri yetkili onayi arayacak sekilde sertlestirildi.
+- Development root secimi, yalnizca calisan exe ilgili proje agacinin icindeyse aktif olacak sekilde sertlestirildi; kurulu uygulama artik calisma dizininden bagimsiz runtime kokunu kullanir.
 
 ## Dogrulama
 
@@ -41,6 +43,7 @@ KONTROL PANELI
 - npm run check: 0 hata, 0 uyari
 - npm run build: gecti
 - npm run tauri build: MSI ve NSIS paketleri uretildi
+- Canli installer testi: silent uninstall ve reinstall exit code 0 ile tamamlandi; kurulu exe yanlis working directory ile baslatildiginda da runtime DB semasi tamamlandi.
 
 ## Bes Aci Kontrolu
 

@@ -73,10 +73,13 @@ impl DependencyAnalyzer {
     }
 
     fn find_development_root() -> Option<PathBuf> {
+        let exe_path = std::env::current_exe().ok()?;
         if let Ok(current_dir) = std::env::current_dir() {
             let mut check_dir = current_dir;
             loop {
-                if check_dir.join("package.json").exists() || check_dir.join("src-tauri").exists() {
+                if (check_dir.join("package.json").exists() || check_dir.join("src-tauri").exists())
+                    && exe_path.starts_with(&check_dir)
+                {
                     return Some(check_dir);
                 }
                 if let Some(parent) = check_dir.parent() {
