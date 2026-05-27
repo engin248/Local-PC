@@ -58,7 +58,10 @@ pub fn save_plan(task_id: &str, plan: PlanningStandardInput) -> Result<(), Strin
 
     // Save to physical backup JSON file
     let root = crate::core::dependency_analyzer::DependencyAnalyzer::get_project_root()?;
-    let path_buf = root.join("storage").join("backups").join(format!("plan_{}.json", task_id));
+    let backup_dir = root.join("storage").join("backups");
+    std::fs::create_dir_all(&backup_dir)
+        .map_err(|e| format!("Fiziksel plan yedek dizini oluşturulamadı: {}", e))?;
+    let path_buf = backup_dir.join(format!("plan_{}.json", task_id));
     let path = path_buf.to_string_lossy().into_owned();
     let plan_json = serde_json::to_string_pretty(&plan).map_err(|e| e.to_string())?;
     std::fs::write(&path, plan_json).map_err(|e| format!("Fiziksel plan yedeği kaydedilemedi: {}", e))?;
@@ -123,4 +126,3 @@ impl PlanningGate {
         Ok(plan)
     }
 }
-

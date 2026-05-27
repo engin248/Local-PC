@@ -56,7 +56,7 @@ fn rollback_task_cmd(task_id: String) -> Result<bool, String> {
 #[tauri::command]
 fn get_tasks_cmd() -> Result<Vec<Task>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status FROM tasks ORDER BY created_at DESC")
+    let mut stmt = conn.prepare("SELECT id, title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status, created_at FROM tasks ORDER BY created_at DESC")
         .map_err(|e| e.to_string())?;
     
     let rows = stmt.query_map([], |row| {
@@ -71,6 +71,7 @@ fn get_tasks_cmd() -> Result<Vec<Task>, String> {
             last_valid_state_id: row.get(7)?,
             risk_level: row.get(8)?,
             approval_status: row.get(9)?,
+            created_at: row.get(10)?,
         })
     }).map_err(|e| e.to_string())?;
 

@@ -135,29 +135,28 @@ impl TestManager {
                 let n_id = parts[1];
                 let act = parts[2];
                 let db = Database::new();
-                if let Ok(conn) = db.get_connection() {
-                    let exists: bool = conn.query_row(
-                        "SELECT EXISTS(
-                            SELECT 1 FROM approvals
-                            WHERE task_id = ?1
-                            AND decision_node_id = ?2
-                            AND action = ?3
-                            AND status = 'approved'
-                            AND approved_at IS NOT NULL
-                            AND approver_id IS NOT NULL
-                            AND TRIM(approver_id) != ''
-                            AND approver_role IN ('admin', 'owner', 'security_officer')
-                        )",
-                        params![t_id, n_id, act],
-                        |row| row.get(0),
-                    ).map_err(|e| format!("approval_exists sorgusu başarısız: {}", e))?;
-                    if exists {
-                        actual_result = "approved_exists".to_string();
-                    } else {
-                        actual_result = "not_approved".to_string();
-                    }
+                let conn = db
+                    .get_connection()
+                    .map_err(|e| format!("approval_exists DB bağlantısı başarısız: {}", e))?;
+                let exists: bool = conn.query_row(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM approvals
+                        WHERE task_id = ?1
+                        AND decision_node_id = ?2
+                        AND action = ?3
+                        AND status = 'approved'
+                        AND approved_at IS NOT NULL
+                        AND approver_id IS NOT NULL
+                        AND TRIM(approver_id) != ''
+                        AND approver_role IN ('admin', 'owner', 'security_officer')
+                    )",
+                    params![t_id, n_id, act],
+                    |row| row.get(0),
+                ).map_err(|e| format!("approval_exists sorgusu başarısız: {}", e))?;
+                if exists {
+                    actual_result = "approved_exists".to_string();
                 } else {
-                    actual_result = "db_error".to_string();
+                    actual_result = "not_approved".to_string();
                 }
             }
         } else if test_name.starts_with("snapshot_exists:") {
@@ -167,26 +166,25 @@ impl TestManager {
                 let t_id = parts[0];
                 let n_id = parts[1];
                 let db = Database::new();
-                if let Ok(conn) = db.get_connection() {
-                    let snapshot_path_opt: Result<String, _> = conn.query_row(
-                        "SELECT snapshot_path FROM snapshots WHERE task_id = ?1 AND state_id = ?2",
-                        params![t_id, n_id],
-                        |row| row.get(0),
-                    );
-                    match snapshot_path_opt {
-                        Ok(path) => {
-                            if Path::new(&path).exists() {
-                                actual_result = "snapshot_verified".to_string();
-                            } else {
-                                actual_result = "file_missing".to_string();
-                            }
-                        }
-                        Err(_) => {
-                            actual_result = "no_snapshot_record".to_string();
+                let conn = db
+                    .get_connection()
+                    .map_err(|e| format!("snapshot_exists DB bağlantısı başarısız: {}", e))?;
+                let snapshot_path_opt: Result<String, _> = conn.query_row(
+                    "SELECT snapshot_path FROM snapshots WHERE task_id = ?1 AND state_id = ?2",
+                    params![t_id, n_id],
+                    |row| row.get(0),
+                );
+                match snapshot_path_opt {
+                    Ok(path) => {
+                        if Path::new(&path).exists() {
+                            actual_result = "snapshot_verified".to_string();
+                        } else {
+                            actual_result = "file_missing".to_string();
                         }
                     }
-                } else {
-                    actual_result = "db_error".to_string();
+                    Err(_) => {
+                        actual_result = "no_snapshot_record".to_string();
+                    }
                 }
             }
         } else if test_name.starts_with("rollback_restored:") {
@@ -220,36 +218,35 @@ impl TestManager {
                 let n_id = parts[1];
                 let act = parts[2];
                 let db = Database::new();
-                if let Ok(conn) = db.get_connection() {
-                    let unapproved_write_exists: bool = conn.query_row(
-                        "SELECT EXISTS(
-                            SELECT 1 FROM execution_logs
+                let conn = db
+                    .get_connection()
+                    .map_err(|e| format!("no_unapproved_write DB bağlantısı başarısız: {}", e))?;
+                let unapproved_write_exists: bool = conn.query_row(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM execution_logs
+                        WHERE task_id = ?1
+                        AND event_type = 'write_executed'
+                        AND metadata_json LIKE '%' || ?2 || '%'
+                        AND NOT EXISTS (
+                            SELECT 1 FROM approvals
                             WHERE task_id = ?1
-                            AND event_type = 'write_executed'
-                            AND metadata_json LIKE '%' || ?2 || '%'
-                            AND NOT EXISTS (
-                                SELECT 1 FROM approvals
-                                WHERE task_id = ?1
-                                AND decision_node_id = ?2
-                                AND action = ?3
-                                AND status = 'approved'
-                                AND approved_at IS NOT NULL
-                                AND approver_id IS NOT NULL
-                                AND TRIM(approver_id) != ''
-                                AND approver_role IN ('admin', 'owner', 'security_officer')
-                            )
-                        )",
-                        params![t_id, n_id, act],
-                        |row| row.get(0),
-                    ).map_err(|e| format!("no_unapproved_write sorgusu başarısız: {}", e))?;
-                    actual_result = if unapproved_write_exists {
-                        "unapproved_write_found".to_string()
-                    } else {
-                        "no_unapproved_write".to_string()
-                    };
+                            AND decision_node_id = ?2
+                            AND action = ?3
+                            AND status = 'approved'
+                            AND approved_at IS NOT NULL
+                            AND approver_id IS NOT NULL
+                            AND TRIM(approver_id) != ''
+                            AND approver_role IN ('admin', 'owner', 'security_officer')
+                        )
+                    )",
+                    params![t_id, n_id, act],
+                    |row| row.get(0),
+                ).map_err(|e| format!("no_unapproved_write sorgusu başarısız: {}", e))?;
+                actual_result = if unapproved_write_exists {
+                    "unapproved_write_found".to_string()
                 } else {
-                    actual_result = "db_error".to_string();
-                }
+                    "no_unapproved_write".to_string()
+                };
             }
         } else if test_name.starts_with("build_command_passed:") {
             actual_result = if actual == "passed" {

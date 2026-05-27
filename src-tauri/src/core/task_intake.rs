@@ -15,6 +15,7 @@ pub struct Task {
     pub last_valid_state_id: Option<String>,
     pub risk_level: String,
     pub approval_status: String,
+    pub created_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -42,6 +43,7 @@ impl TaskIntake {
             last_valid_state_id: None,
             risk_level: "low".to_string(),
             approval_status: "pending_approval".to_string(),
+            created_at: None,
         };
 
         // Write to DB
@@ -70,7 +72,7 @@ impl TaskIntake {
     pub fn get_task(id: &str) -> Result<Task, String> {
         let db = Database::new();
         let conn = db.get_connection().map_err(|e| e.to_string())?;
-        let mut stmt = conn.prepare("SELECT id, title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status FROM tasks WHERE id = ?1")
+        let mut stmt = conn.prepare("SELECT id, title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status, created_at FROM tasks WHERE id = ?1")
             .map_err(|e| e.to_string())?;
 
         let task = stmt.query_row(params![id], |row| {
@@ -85,6 +87,7 @@ impl TaskIntake {
                 last_valid_state_id: row.get(7)?,
                 risk_level: row.get(8)?,
                 approval_status: row.get(9)?,
+                created_at: row.get(10)?,
             })
         }).map_err(|e| e.to_string())?;
 

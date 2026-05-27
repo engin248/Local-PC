@@ -4,9 +4,13 @@
     onSubmitApproval: (id: string, approve: boolean, note: string, approverId: string, approverRole: string) => void;
   }>();
 
-  let note = $state("Kod ve risk kontrol edildi. İşlemi onaylıyorum.");
-  let approverId = $state("local_ui_user");
-  let approverRole = $state("admin");
+  let note = $state("");
+  let approverId = $state("");
+  let approverRole = $state("");
+
+  let approvalFormReady = $derived(
+    note.trim().length > 0 && approverId.trim().length > 0 && approverRole.trim().length > 0
+  );
 </script>
 
 <div class="approval-panel-container">
@@ -32,6 +36,7 @@
                 <input placeholder="Onay Gerekçesi / Notu..." bind:value={note} />
                 <input placeholder="Onay Veren Kullanıcı ID..." bind:value={approverId} />
                 <select bind:value={approverRole}>
+                  <option value="" disabled>Rol seçin</option>
                   <option value="admin">admin</option>
                   <option value="owner">owner</option>
                   <option value="security_officer">security_officer</option>
@@ -39,8 +44,8 @@
                   <option value="user">user</option>
                 </select>
                 <div class="buttons">
-                  <button class="btn approve-btn" onclick={() => onSubmitApproval(app.id, true, note, approverId, approverRole)}>İŞLEMİ ONAYLA</button>
-                  <button class="btn reject-btn" onclick={() => onSubmitApproval(app.id, false, note, approverId, approverRole)}>İŞLEMİ REDDET</button>
+                  <button class="btn approve-btn" disabled={!approvalFormReady} onclick={() => onSubmitApproval(app.id, true, note, approverId, approverRole)}>İŞLEMİ ONAYLA</button>
+                  <button class="btn reject-btn" disabled={!approvalFormReady} onclick={() => onSubmitApproval(app.id, false, note, approverId, approverRole)}>İŞLEMİ REDDET</button>
                 </div>
               </div>
             {:else}
@@ -127,6 +132,10 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.75rem;
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
   .approve-btn { background: #4ec9b0; color: #1e1e1e; }
   .approve-btn:hover { background: #5fd9c0; }

@@ -3,6 +3,10 @@
     task: any;
     onExecute: () => void;
   }>();
+
+  let createdAt = $derived(
+    task?.created_at ? task.created_at.substring(0, 19).replace('T', ' ') : "kayıt yok"
+  );
 </script>
 
 <div class="task-detail-container">
@@ -44,7 +48,7 @@
         </div>
         <div class="card mini">
           <span class="label">Oluşturulma</span>
-          <span class="time">{task.created_at.substring(0, 19).replace('T', ' ')}</span>
+          <span class="time">{createdAt}</span>
         </div>
       </div>
     </div>
@@ -53,9 +57,9 @@
       {#if task.planning_status === 'planning_complete' && task.status !== 'completed'}
         <button class="btn execute-btn" onclick={onExecute}>Execution Engine Başlat (8 Kapı)</button>
       {:else if task.status === 'completed'}
-        <span class="completed-msg">İşlem Başarıyla 8 Kapıdan Geçti ve Tamamlandı!</span>
+        <span class="completed-msg">İşlem 8 kapıdan geçti ve tamamlandı.</span>
       {:else}
-        <span class="warning-msg">İşlemin başlaması için Planlama Standardı (18/18) kilit açma formu doldurulmalıdır.</span>
+        <span class="warning-msg">İşlemin başlaması için Planlama Standardı (17/17) kilit açma formu doldurulmalıdır.</span>
       {/if}
     </div>
   {:else}

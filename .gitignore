@@ -8,6 +8,8 @@ node_modules
 /storage/app.db
 /storage/reports/*
 /storage/snapshots/*
+/storage/backups/*
+!/storage/backups/.gitkeep
 !/storage/.gitkeep
 !/storage/reports/.gitkeep
 !/storage/snapshots/.gitkeep

@@ -22,6 +22,13 @@
   let operation_plan = $state("Adım 1: Klasör oku, Adım 2: Onay al, Adım 3: Snapshot al, Adım 4: Dosya yaz, Adım 5: Doğrula");
   let authorized_deciders = $state(["local_projects", "local_app_db", "user"]);
 
+  function parseCommaList(value: string) {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
   $effect(() => {
     task_definition = task?.title || "";
     risk_analysis = task?.risk_level || "high";
@@ -52,15 +59,15 @@
 </script>
 
 <div class="planning-container">
-  <h3>PLANLAMA STANDARDI & KİLİT AÇMA FORMU (18/18 ZORUNLU ALAN)</h3>
+  <h3>PLANLAMA STANDARDI & KİLİT AÇMA FORMU (17/17 ZORUNLU ALAN)</h3>
   
   {#if task?.planning_status === 'planning_complete'}
     <div class="success-alert">
-      <strong>PLAN ONAYLANDI:</strong> 18 Zorunlu planlama alanı başarıyla girildi, kilit açıldı ve doğrulanmış karar altyapısı hazırlandı.
+      <strong>PLAN ONAYLANDI:</strong> 17 zorunlu planlama alanı girildi, kilit açıldı ve doğrulanmış karar altyapısı hazırlandı.
     </div>
   {:else}
     <div class="warning-alert">
-      <strong>PLANLAMA KİLİDİ AKTİF:</strong> Aşağıdaki 18 alanı doldurup kaydetmeden Execution Engine çalışmayacaktır.
+      <strong>PLANLAMA KİLİDİ AKTİF:</strong> Aşağıdaki 17 alanı doldurup kaydetmeden Execution Engine çalışmayacaktır.
     </div>
   {/if}
 
@@ -96,7 +103,7 @@
       </div>
       <div class="field">
         <label for="plan-alternatives">8. Alternatifler (Virgülle Ayırın)</label>
-        <input id="plan-alternatives" value={alternatives.join(', ')} disabled={task?.planning_status === 'planning_complete'} />
+        <input id="plan-alternatives" value={alternatives.join(', ')} oninput={(event) => alternatives = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
         <label for="plan-risk">9. Risk Analizi Seviyesi</label>
@@ -121,11 +128,11 @@
       </div>
       <div class="field">
         <label for="plan-checkpoints">13. Kontrol Noktaları (Virgülle Ayırın)</label>
-        <input id="plan-checkpoints" value={checkpoints.join(', ')} disabled={task?.planning_status === 'planning_complete'} />
+        <input id="plan-checkpoints" value={checkpoints.join(', ')} oninput={(event) => checkpoints = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
         <label for="plan-tests">14. Test Kriterleri (Virgülle Ayırın)</label>
-        <input id="plan-tests" value={test_criteria.join(', ')} disabled={task?.planning_status === 'planning_complete'} />
+        <input id="plan-tests" value={test_criteria.join(', ')} oninput={(event) => test_criteria = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
         <label for="plan-rollback">15. Geri Alma Planı</label>
@@ -137,12 +144,12 @@
       </div>
       <div class="field">
         <label for="plan-deciders">17. Yetkili Karar Noktaları (Virgülle Ayırın)</label>
-        <input id="plan-deciders" value={authorized_deciders.join(', ')} disabled={task?.planning_status === 'planning_complete'} />
+        <input id="plan-deciders" value={authorized_deciders.join(', ')} oninput={(event) => authorized_deciders = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
     </div>
 
     {#if task?.planning_status !== 'planning_complete'}
-      <button type="submit" class="submit-plan-btn">18/18 Planı Gönder & Kilidi Kaldır</button>
+      <button type="submit" class="submit-plan-btn">17/17 Planı Gönder & Kilidi Kaldır</button>
     {/if}
   </form>
 </div>

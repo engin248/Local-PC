@@ -21,8 +21,6 @@ impl AuditLogger {
             ],
         ).map_err(|e| e.to_string())?;
 
-        println!("[{}] [Task: {}] [{:?}] - {}", level.to_uppercase(), task_id, gate_name, message);
-
         Ok(())
     }
 }

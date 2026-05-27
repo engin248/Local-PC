@@ -252,7 +252,7 @@
       await safeInvoke("save_plan_cmd", { taskId: selectedTaskId, plan: planInput });
       await loadTasks();
       speakReply("Plan kaydedildi. Planlama alanları doğrulandı.", `plan-saved:${selectedTaskId}`, true);
-      alert("Plan başarıyla kaydedildi, 18/18 alan doğrulandı!");
+      alert("Plan kaydedildi, 17/17 alan doğrulandı.");
     } catch (err) {
       console.error("Plan kaydedilemedi:", err);
       raiseCriticalAlarm("Plan kaydedilemedi", err);
