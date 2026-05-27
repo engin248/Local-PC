@@ -9,6 +9,7 @@ use crate::core::planning_gate::{save_plan, PlanningStandardInput};
 use crate::core::execution_engine::{execute_task_pipeline, ExecutionResult};
 use crate::core::approval_manager::submit_approval;
 use crate::core::rollback_manager::rollback_task;
+use crate::core::system_validator::{SystemValidationIssue, SystemValidator};
 use crate::storage::db::init_db;
 
 // UI'dan tetiklenecek Tauri komutları
@@ -49,6 +50,11 @@ fn submit_approval_cmd(
 #[tauri::command]
 fn rollback_task_cmd(task_id: String) -> Result<bool, String> {
     rollback_task(&task_id)
+}
+
+#[tauri::command]
+fn get_system_health_cmd() -> Result<Vec<SystemValidationIssue>, String> {
+    SystemValidator::validate()
 }
 
 // Veritabanı sorgulama yardımcı komutları
@@ -326,6 +332,10 @@ pub fn run() {
         eprintln!("Veritabani baslatilamadi: {}", e);
         return;
     }
+    if let Err(e) = SystemValidator::validate_or_fail() {
+        eprintln!("{}", e);
+        return;
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -335,6 +345,7 @@ pub fn run() {
             execute_task_cmd,
             submit_approval_cmd,
             rollback_task_cmd,
+            get_system_health_cmd,
             get_tasks_cmd,
             get_task_logs_cmd,
             get_decisions_cmd,

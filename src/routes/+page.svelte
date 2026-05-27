@@ -66,6 +66,8 @@
         return [];
       case "get_reports_cmd":
         return [];
+      case "get_system_health_cmd":
+        return [];
       case "create_task_cmd":
         throw new Error("Tauri bağlantısı olmadan gerçek görev oluşturulamaz.");
       case "save_plan_cmd":
@@ -214,6 +216,21 @@
     }
   }
 
+  async function checkSystemHealth() {
+    try {
+      const issues: any[] = await safeInvoke("get_system_health_cmd");
+      const blockers = issues.filter((issue) => issue.severity === "error");
+      if (blockers.length > 0) {
+        raiseCriticalAlarm(
+          "Sistem kök doğrulaması başarısız",
+          blockers.map((issue) => `${issue.code}: ${issue.message}`).join(" | ")
+        );
+      }
+    } catch (err) {
+      raiseCriticalAlarm("Sistem kök doğrulaması çalıştırılamadı", err);
+    }
+  }
+
   async function refreshTaskDetails(taskId: string) {
     try {
       logs = await safeInvoke("get_task_logs_cmd", { taskId });
@@ -305,6 +322,7 @@
       voiceRepliesEnabled = savedVoiceSetting === "true";
     }
 
+    checkSystemHealth();
     loadTasks();
     const interval = setInterval(() => {
       if (selectedTaskId) {

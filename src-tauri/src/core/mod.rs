@@ -15,3 +15,4 @@ pub mod rollback_manager;
 pub mod integrity_checker;
 pub mod audit_logger;
 pub mod report_manager;
+pub mod system_validator;
