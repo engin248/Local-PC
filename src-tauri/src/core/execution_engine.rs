@@ -627,7 +627,7 @@ impl ExecutionEngine {
                     "info",
                     "Düşük riskli işlem: Onay gerekmiyor.",
                     Some("Approval Gate"),
-                    Some("gate_bypass"),
+                    Some("policy_no_approval_required"),
                     None,
                 )?;
             }

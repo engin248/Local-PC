@@ -258,9 +258,23 @@ impl RollbackManager {
                 return Err(message);
             }
 
+            let hash_after = match Self::hash_target(&target_type, &target_path) {
+                Ok(hash) => hash,
+                Err(e) => {
+                    let message = format!("HATA: Rollback sonrası hash hesaplanamadı: {}", e);
+                    if let Err(mark_error) = Self::mark_rollback_failure(task_id, &message) {
+                        return Err(format!(
+                            "{}; rollback failure durumu da yazılamadı: {}",
+                            message, mark_error
+                        ));
+                    }
+                    return Err(message);
+                }
+            };
+
             conn.execute(
                 "UPDATE snapshots SET rollback_status = 'rolled_back', hash_after = ?1 WHERE id = ?2",
-                params![Self::hash_target(&target_type, &target_path).unwrap_or_default(), snapshot_id],
+                params![hash_after, snapshot_id],
             ).map_err(|e| e.to_string())?;
 
             return Ok(format!(

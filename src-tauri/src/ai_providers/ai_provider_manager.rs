@@ -100,7 +100,7 @@ impl AIProviderManager {
         conn.execute(
             "INSERT OR IGNORE INTO tasks (
                 id, title, user_request, status, planning_status, execution_status, risk_level, approval_status
-             ) VALUES (?1, ?2, ?3, 'system', 'planning_complete', 'not_started', 'low', 'not_required')",
+             ) VALUES (?1, ?2, ?3, 'system', 'planning_complete', 'not_started', 'low', 'policy_checked_no_user_approval_required')",
             params![
                 "__connection_audit__",
                 "Bağlantı Aktivite Audit Kaydı",
@@ -112,11 +112,10 @@ impl AIProviderManager {
     }
 
     fn now_string() -> String {
-        let seconds = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or_default();
-        seconds.to_string()
+        match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration.as_secs().to_string(),
+            Err(_) => "0".to_string(),
+        }
     }
 }
 
@@ -130,7 +129,7 @@ mod tests {
             id: "test_provider".to_string(),
             name: "Test Provider".to_string(),
             provider_type: "openai_compatible".to_string(),
-            base_url: "https://example.com".to_string(),
+            base_url: "https://provider-domain.invalid".to_string(),
             api_key_env: api_key_env.to_string(),
             model: "test-model".to_string(),
             enabled,

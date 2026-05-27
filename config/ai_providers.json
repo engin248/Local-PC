@@ -110,33 +110,5 @@
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
     }
-  },
-  {
-    "id": "custom_api_template",
-    "name": "Özel AI Provider Şablonu",
-    "type": "custom_api",
-    "base_url": "https://example.com/custom-ai",
-    "api_key_env": "CUSTOM_AI_API_KEY",
-    "model": "custom-model",
-    "enabled": false,
-    "network_required": true,
-    "dependency_level": "high",
-    "allowed_task_types": [
-      "health_check",
-      "statement_generate",
-      "analysis_answer",
-      "alternative_suggest",
-      "risk_comment",
-      "report_draft"
-    ],
-    "max_payload_policy": {
-      "max_chars": 8000,
-      "truncate_strategy": "deny_if_exceeds"
-    },
-    "sensitive_data_policy": {
-      "send_secrets": false,
-      "send_personal_data": false,
-      "requires_user_confirmation_for_sensitive_context": true
-    }
   }
 ]

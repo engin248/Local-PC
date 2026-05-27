@@ -1,0 +1,35 @@
+[
+  {
+    "id": "custom_file_connector_id",
+    "name": "Özel Dosya Connector",
+    "type": "file",
+    "path": "$PROJECT_ROOT/relative/path.ext",
+    "permissions": ["read", "write_with_approval", "delete_with_approval"],
+    "enabled": false,
+    "dependency_level": "low",
+    "live_system": false,
+    "network_required": false,
+    "allowed_actions": ["read_file"],
+    "approval_required_actions": ["write_file", "delete_file"],
+    "rollback_required_actions": ["write_file", "delete_file"],
+    "test_required_actions": ["read_file", "write_file", "delete_file"],
+    "read_only_default": true
+  },
+  {
+    "id": "custom_live_api_connector_id",
+    "name": "Özel Canlı API Connector",
+    "type": "live_api",
+    "base_url": "https://service-domain.invalid/api",
+    "api_key_env": "LIVE_SYSTEM_API_KEY",
+    "permissions": ["read", "api_write_with_approval"],
+    "enabled": false,
+    "dependency_level": "critical",
+    "live_system": true,
+    "network_required": true,
+    "allowed_actions": ["api_read"],
+    "approval_required_actions": ["api_write", "live_system_update"],
+    "rollback_required_actions": ["api_write", "live_system_update"],
+    "test_required_actions": ["api_read", "api_write", "live_system_update"],
+    "read_only_default": true
+  }
+]

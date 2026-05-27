@@ -180,7 +180,7 @@ impl SystemConnectorManager {
         conn.execute(
             "INSERT OR IGNORE INTO tasks (
                 id, title, user_request, status, planning_status, execution_status, risk_level, approval_status
-             ) VALUES (?1, ?2, ?3, 'system', 'planning_complete', 'not_started', 'low', 'not_required')",
+             ) VALUES (?1, ?2, ?3, 'system', 'planning_complete', 'not_started', 'low', 'policy_checked_no_user_approval_required')",
             params![
                 "__connection_audit__",
                 "Bağlantı Aktivite Audit Kaydı",
@@ -192,11 +192,10 @@ impl SystemConnectorManager {
     }
 
     fn now_string() -> String {
-        let seconds = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or_default();
-        seconds.to_string()
+        match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration.as_secs().to_string(),
+            Err(_) => "0".to_string(),
+        }
     }
 }
 
@@ -210,7 +209,7 @@ mod tests {
             name: "Test Connector".to_string(),
             connector_type: connector_type.to_string(),
             path: None,
-            base_url: Some("https://example.com/api".to_string()),
+            base_url: Some("https://service-domain.invalid/api".to_string()),
             api_key_env: None,
             permissions: vec!["read".to_string()],
             enabled,

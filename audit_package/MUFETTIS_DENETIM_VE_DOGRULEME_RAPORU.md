@@ -1,43 +1,20 @@
-# Lokal Bilgisayar Kontrol Paneli - Müfettiş Denetim ve Doğrulama Notu
+# MUFETTIS DENETIM VE DOGRULAMA RAPORU
 
-**Proje konumu:** `C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli`
+Tarih: 2026-05-27
 
-Bu dosya eski denetim metnindeki yanlış proje yollarını ve üretim gerçekliğiyle uyumsuz eski ifadeleri kaldırmak için güncellenmiştir.
+## Denetlenen Alanlar
 
-## Güncel Dosya Yapısı
+- Proje kimligi
+- AI provider config yapisi
+- Sistem connector config yapisi
+- Terminal connector fail-closed davranisi
+- SystemValidator yasakli kalinti denetimi
+- Runtime config yenileme ve yedekleme hata davranisi
+- Rollback hash dogrulama davranisi
+- Raporlama bolum sozlesmesi
 
-```text
-Lokal Bilgisayar Kontrol Paneli/
-  config/
-  src/
-  src-tauri/
-  storage/
-  audit_package/
-```
+## Sonuc
 
-## Güncel Güvenlik Kontrolleri
+Guncel kaynakta production config yalnizca calisma kayitlarini tasir. Ozellestirme icin gereken taslaklar production config disinda, `config/templates/` altinda tutulur.
 
-- Production config içinde geçersiz veya sahte connector tanımı yoktur.
-- Production AI provider modülleri içinde sahte provider export edilmez.
-- Yazma işlemleri approval gate ve yetkili onay kaydı gerektirir.
-- Yüksek ve kritik riskli işlemler için yetkili rol kontrolü yapılır.
-- Klasör yazma aksiyonu `write_folder` olarak authority, approval ve risk configlerinde tanımlıdır.
-- Rollback snapshot metadata alanları gerçek hedef dosya/veritabanı/klasör bilgisine bağlanır.
-- Test Gate sahte başarı metni yerine tanımlı test kriterlerini çalıştıracak şekilde düzenlenmiştir.
-
-## Güncel Doğrulama Komutları
-
-```powershell
-cd "C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli\src-tauri"
-C:\Users\Esisya\.cargo\bin\cargo.exe check
-C:\Users\Esisya\.cargo\bin\cargo.exe test
-C:\Users\Esisya\.cargo\bin\cargo.exe clippy --all-targets -- -D warnings
-C:\Users\Esisya\.cargo\bin\cargo.exe build
-
-cd "C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli"
-npm run check
-npm run build
-npm run tauri -- build
-```
-
-Bu rapor, başarı iddiası dili yerine doğrulanabilir komut çıktıları ve dosya bazlı denetim bulguları ile güncel tutulmalıdır.
+Bu rapor, sonraki build/test kanitlariyla birlikte degerlendirilmelidir.

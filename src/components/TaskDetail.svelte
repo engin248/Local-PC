@@ -129,7 +129,7 @@
   .badge.current-gate { background: #007acc; color: white; }
   .badge.approved { background: #4ec9b0; color: #1e1e1e; }
   .badge.pending { background: #dcdcaa; color: #1e1e1e; }
-  .badge.not_required { background: #555; color: #eee; }
+  .badge.policy_checked_no_user_approval_required { background: #555; color: #eee; }
   
   .time { font-size: 0.8rem; color: #eee; font-family: monospace; }
   .action-bar {

@@ -1,32 +1,17 @@
-# Lokal Bilgisayar Kontrol Paneli - Adli Denetim Notu
+# FORENSIC AUDIT REPORT
 
-**Hedef proje:** `C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli`
+Tarih: 2026-05-27
 
-Bu not, eski denetim raporunda yer alan yanlış klasör adlarını, eski config örneklerini ve geçersiz test referanslarını temizlemek için güncellenmiştir.
+Kapsam: LOKAL BILGISAYAR KONTROL PANELI production kaynaklari, config dosyalari, runtime config yenileme zinciri ve validation kurallari.
 
-## Güncel Proje Kimliği
+## Bulgular
 
-- Görünen uygulama adı: `LOKAL BİLGİSAYAR KONTROL PANELİ`
-- Ana klasör: `C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli`
-- Frontend: `src/`
-- Backend: `src-tauri/src/`
-- Config: `config/`
-- Storage: `storage/`
+- Production config icindeki ozellestirme ornekleri ayrildi.
+- SystemValidator, production config icinde yasakli kalinti veya gecersiz connector/provider tespit ederse hata dondurur.
+- Runtime config yedekleme hatalari artik sessiz gecilmez.
+- Terminal connector read-only fazda komut yurutmez.
+- Rollback sonrasi hash hesaplama hatasi artik rollback basarisizligi olarak raporlanir.
 
-## Güncel Config Durumu
+## Denetim Sonucu
 
-`config/system_connectors.json` üretim config'inde geçersiz veya sahte connector tanımı bulunmaz.
-
-Geçerli connector mantığı:
-
-- `local_projects`: lokal proje kökü, dinamik `$PROJECT_ROOT` yolu ile.
-- `local_app_db`: lokal SQLite veritabanı, dinamik `$PROJECT_ROOT/storage/app.db` yolu ile.
-- `live_site_api`: canlı API bağlantısı, varsayılan olarak kapalı.
-
-`config/authority_matrix.json`, `config/risk_rules.json` ve `config/approval_rules.json` içinde dosya, klasör, SQLite, API, terminal, AI provider ve rapor üretimi aksiyonları açıkça tanımlıdır.
-
-## Denetim Bulgusu
-
-Üretim kaynakları ve config dosyalarında eski sahte sağlayıcı, sahte connector, örnek dosya, sahte başarı testi, tek karar düğümü işleme ve varsayılan otomatik kullanıcı onayı kalıntıları bulunmamalıdır.
-
-Bu rapor, geçmiş durumu değil güncel proje kimliğini ve güncel denetim hedefini temsil eder.
+Bu rapor guncel kaynak durumuna gore tutulur. Eski kabul metinleri kanit olarak degil, tarihsel not olarak degerlendirilmelidir.

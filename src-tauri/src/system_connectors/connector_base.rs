@@ -104,7 +104,10 @@ pub fn decode_write_request(
 
     Ok((
         envelope.approval_context,
-        envelope.payload.unwrap_or_default(),
+        envelope
+            .payload
+            .filter(|payload| !payload.trim().is_empty())
+            .ok_or_else(|| "HATA: Yazma isteği boş payload ile çalıştırılamaz.".to_string())?,
     ))
 }
 

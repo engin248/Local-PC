@@ -155,7 +155,7 @@ mod tests {
         let _ = conn.execute("DELETE FROM tests WHERE task_id = ?1", params![task_id]);
         conn.execute(
             "INSERT INTO tasks (id, title, user_request, status, planning_status, execution_status, risk_level, approval_status)
-             VALUES (?1, 'Test', 'Test', 'completed', 'planning_complete', 'completed', 'low', 'not_required')",
+             VALUES (?1, 'Test', 'Test', 'completed', 'planning_complete', 'completed', 'low', 'policy_checked_no_user_approval_required')",
             params![task_id],
         )
         .unwrap();

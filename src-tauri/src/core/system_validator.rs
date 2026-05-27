@@ -383,6 +383,12 @@ impl SystemValidator {
                 .get("id")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| "AI provider id alanı eksik.".to_string())?;
+            Self::validate_no_production_placeholder(
+                "AI_PROVIDER_PRODUCTION_PLACEHOLDER",
+                id,
+                provider,
+                issues,
+            );
             if !ids.insert(id.to_string()) {
                 Self::push_error(
                     issues,
@@ -518,6 +524,12 @@ impl SystemValidator {
                 .get("id")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| "Connector id alanı eksik.".to_string())?;
+            Self::validate_no_production_placeholder(
+                "CONNECTOR_PRODUCTION_PLACEHOLDER",
+                id,
+                connector,
+                issues,
+            );
             if !ids.insert(id.to_string()) {
                 Self::push_error(
                     issues,
@@ -686,17 +698,60 @@ impl SystemValidator {
         Ok(())
     }
 
+    fn validate_no_production_placeholder(
+        code: &str,
+        id: &str,
+        item: &Value,
+        issues: &mut Vec<SystemValidationIssue>,
+    ) {
+        if item.get("placeholder").and_then(|v| v.as_bool()) == Some(true) {
+            Self::push_error(
+                issues,
+                code,
+                format!("Production config placeholder kaydı içeremez: {}", id),
+            );
+        }
+
+        if Self::contains_forbidden_production_text(item) {
+            Self::push_error(
+                issues,
+                code,
+                format!(
+                    "Production config şablon/example/demo/mock metni içeremez: {}",
+                    id
+                ),
+            );
+        }
+    }
+
+    fn contains_forbidden_production_text(value: &Value) -> bool {
+        match value {
+            Value::String(text) => {
+                let lower = text.to_lowercase();
+                lower.contains("example.com")
+                    || lower.contains("_template")
+                    || lower.contains(" template")
+                    || lower.contains("şablon")
+                    || lower.contains("sablon")
+                    || lower.contains("mock")
+                    || lower.contains("demo")
+                    || lower.contains("fake")
+                    || lower.contains("sahte")
+            }
+            Value::Array(items) => items.iter().any(Self::contains_forbidden_production_text),
+            Value::Object(map) => map.values().any(Self::contains_forbidden_production_text),
+            _ => false,
+        }
+    }
+
     fn optional_string_set(value: &Value, field: &str) -> HashSet<String> {
-        value
-            .get(field)
-            .and_then(|v| v.as_array())
-            .map(|items| {
-                items
-                    .iter()
-                    .filter_map(|item| item.as_str().map(|text| text.to_string()))
-                    .collect()
-            })
-            .unwrap_or_default()
+        match value.get(field).and_then(|v| v.as_array()) {
+            Some(items) => items
+                .iter()
+                .filter_map(|item| item.as_str().map(|text| text.to_string()))
+                .collect(),
+            None => HashSet::new(),
+        }
     }
 
     fn is_write_like(action: &str) -> bool {

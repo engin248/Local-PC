@@ -102,7 +102,8 @@ impl ReportManager {
         // Ensure storage/reports directory exists
         let root = crate::core::dependency_analyzer::DependencyAnalyzer::get_project_root()?;
         let reports_dir_path = root.join("storage").join("reports");
-        fs::create_dir_all(&reports_dir_path).unwrap_or_default();
+        fs::create_dir_all(&reports_dir_path)
+            .map_err(|e| format!("Rapor dizini oluşturulamadı: {}", e))?;
 
         // Write report file
         fs::write(&report_path, &content).map_err(|e| e.to_string())?;

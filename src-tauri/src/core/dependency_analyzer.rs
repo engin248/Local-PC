@@ -114,7 +114,9 @@ impl DependencyAnalyzer {
             if !target.exists() || !Self::runtime_config_has_required_schema(filename, &target) {
                 if target.exists() {
                     let backup = target.with_extension("json.bak");
-                    let _ = fs::copy(&target, backup);
+                    fs::copy(&target, backup).map_err(|e| {
+                        format!("Runtime config yedeği alınamadı ({}): {}", filename, e)
+                    })?;
                 }
                 fs::write(&target, content).map_err(|e| {
                     format!("Runtime config dosyası yazılamadı ({}): {}", filename, e)
@@ -144,6 +146,7 @@ impl DependencyAnalyzer {
                             && item.get("allowed_task_types").is_some()
                             && item.get("max_payload_policy").is_some()
                             && item.get("sensitive_data_policy").is_some()
+                            && !Self::runtime_config_contains_production_placeholder(item)
                     })
                 })
                 .unwrap_or(false),
@@ -156,10 +159,35 @@ impl DependencyAnalyzer {
                             && item.get("rollback_required_actions").is_some()
                             && item.get("test_required_actions").is_some()
                             && item.get("read_only_default").is_some()
+                            && !Self::runtime_config_contains_production_placeholder(item)
                     })
                 })
                 .unwrap_or(false),
             _ => true,
+        }
+    }
+
+    fn runtime_config_contains_production_placeholder(value: &serde_json::Value) -> bool {
+        match value {
+            serde_json::Value::String(text) => {
+                let lower = text.to_lowercase();
+                lower.contains("example.com")
+                    || lower.contains("_template")
+                    || lower.contains(" template")
+                    || lower.contains("şablon")
+                    || lower.contains("sablon")
+                    || lower.contains("mock")
+                    || lower.contains("demo")
+                    || lower.contains("fake")
+                    || lower.contains("sahte")
+            }
+            serde_json::Value::Array(items) => items
+                .iter()
+                .any(Self::runtime_config_contains_production_placeholder),
+            serde_json::Value::Object(map) => map
+                .values()
+                .any(Self::runtime_config_contains_production_placeholder),
+            _ => false,
         }
     }
 
@@ -259,7 +287,10 @@ impl DependencyAnalyzer {
             .ok_or_else(|| format!("Connector bulunamadı: {}", connector_id))?;
 
         let enabled = connector.enabled.unwrap_or(false);
-        let permissions = connector.permissions.clone().unwrap_or_default();
+        let permissions = connector
+            .permissions
+            .clone()
+            .ok_or_else(|| format!("Connector permissions alanı eksik: {}", connector.id))?;
         let network_required = connector.network_required.unwrap_or(matches!(
             connector.connector_type.as_str(),
             "api" | "live_api"
@@ -644,6 +675,7 @@ mod tests {
                     "id": "test_unsupported_connector",
                     "name": "Test Unsupported Connector",
                     "type": "unsupported_connector",
+                    "permissions": ["read"],
                     "enabled": true
                 }},
                 {{
@@ -651,6 +683,7 @@ mod tests {
                     "name": "Test Folder Exists",
                     "type": "folder",
                     "path": "{}",
+                    "permissions": ["read"],
                     "enabled": true
                 }},
                 {{
@@ -658,6 +691,7 @@ mod tests {
                     "name": "Test Folder Missing",
                     "type": "folder",
                     "path": "C:/non_existent_folder_xyz_123",
+                    "permissions": ["read"],
                     "enabled": true
                 }},
                 {{
@@ -665,12 +699,14 @@ mod tests {
                     "name": "Test Sqlite Exists",
                     "type": "sqlite",
                     "path": "{}",
+                    "permissions": ["read"],
                     "enabled": true
                 }},
                 {{
                     "id": "test_api",
                     "name": "Test API",
                     "type": "api",
+                    "permissions": ["read"],
                     "enabled": true
                 }},
                 {{
@@ -678,18 +714,21 @@ mod tests {
                     "name": "Test Live API",
                     "type": "live_api",
                     "live_system": true,
+                    "permissions": ["read"],
                     "enabled": true
                 }},
                 {{
                     "id": "test_disabled",
                     "name": "Test Disabled",
                     "type": "api",
+                    "permissions": ["read"],
                     "enabled": false
                 }},
                 {{
                     "id": "test_missing_level",
                     "name": "Test Missing Level",
                     "type": "unknown_type",
+                    "permissions": ["read"],
                     "enabled": true
                 }},
                 {{

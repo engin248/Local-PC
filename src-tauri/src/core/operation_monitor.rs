@@ -253,7 +253,7 @@ mod tests {
         );
         conn.execute(
             "INSERT INTO tasks (id, title, user_request, status, planning_status, execution_status, risk_level, approval_status)
-             VALUES (?1, 'Test', 'Test', 'pending', 'planning_complete', 'not_started', 'low', 'not_required')",
+             VALUES (?1, 'Test', 'Test', 'pending', 'planning_complete', 'not_started', 'low', 'policy_checked_no_user_approval_required')",
             params![task_id],
         )
         .unwrap();

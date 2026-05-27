@@ -8,26 +8,24 @@ pub struct TerminalConnector {
 }
 
 impl SystemConnector for TerminalConnector {
-    fn execute_read(&self, target: &str) -> Result<String, String> {
-        let output = Command::new("powershell")
-            .args(["-Command", target])
-            .output()
-            .map_err(|e| format!("PowerShell okuma komutu çalıştırılamadı: {}", e))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Komut hatayla sonuçlandı: {}", stderr));
-        }
-
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    fn execute_read(&self, _target: &str) -> Result<String, String> {
+        Err(
+            "HATA: Terminal connector read-only health-check dışında komut çalıştıramaz. Komut yürütme yalnızca terminal_command approval context, rollback planı ve Test Gate ile execute_write üzerinden yapılır."
+                .to_string(),
+        )
     }
 
-    fn execute_write(&self, target: &str, data: &str) -> Result<(), String> {
-        let (context, _) = decode_write_request("terminal_command", data)?;
+    fn execute_write(&self, _target: &str, data: &str) -> Result<(), String> {
+        let (context, command) = decode_write_request("terminal_command", data)?;
         require_authorized_write(&context)?;
 
         let output = Command::new("powershell")
-            .args(["-Command", target])
+            .args([
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                command.as_str(),
+            ])
             .output()
             .map_err(|e| format!("PowerShell yazma komutu çalıştırılamadı: {}", e))?;
 

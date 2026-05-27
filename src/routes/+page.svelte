@@ -50,7 +50,9 @@
     if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
       return await invoke(cmd, args);
     }
-    console.warn(`[Tauri Web Fallback] ${cmd} çağrıldı. args:`, args);
+    if (!import.meta.env.DEV) {
+      throw new Error(`Tauri köprüsü yok: ${cmd} komutu production ortamında çalıştırılamaz.`);
+    }
     await new Promise(resolve => setTimeout(resolve, 80));
 
     switch (cmd) {

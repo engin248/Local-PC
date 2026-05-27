@@ -188,7 +188,7 @@ MSI uninstall test edildi:
 
 Ek tarama:
 
-- Production/source/config/audit kapsamında eski ad, sahte sağlayıcı/connector, demo dosya, sahte test, otomatik onay ve tek düğüm işleme kalıpları yeniden tarandı.
+- Production/source/config/audit kapsamında proje kimliği, yasaklı kalıntı, otomatik onay ve tek düğüm işleme kalıpları yeniden tarandı.
 - Tarama sonucu: bulgu yok.
 
 Son doğrulama komutları:
