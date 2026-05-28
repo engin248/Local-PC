@@ -235,9 +235,249 @@ pub fn get_migrations() -> Vec<&'static str> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
+        r#"CREATE TABLE IF NOT EXISTS ai_tasks (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            risk_level TEXT NOT NULL CHECK(risk_level IN ('low', 'medium', 'high', 'critical')),
+            status TEXT NOT NULL CHECK(status IN ('pending', 'approved', 'in_progress', 'completed', 'failed', 'rejected')),
+            created_by TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );"#,
+        r#"CREATE TABLE IF NOT EXISTS ai_task_allocations (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            platform_name TEXT NOT NULL CHECK(platform_name IN ('codex', 'open_agent_manager', 'antigravity', 'cursor', 'perplexity', 'verdent')),
+            assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            status TEXT NOT NULL CHECK(status IN ('waiting', 'processing', 'submitted', 'failed', 'rejected')),
+            payload_file_path TEXT NOT NULL,
+            FOREIGN KEY(task_id) REFERENCES ai_tasks(id) ON DELETE CASCADE,
+            UNIQUE(task_id, platform_name)
+        );"#,
+        r#"CREATE TABLE IF NOT EXISTS ai_collected_reports (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            platform_name TEXT NOT NULL CHECK(platform_name IN ('codex', 'open_agent_manager', 'antigravity', 'cursor', 'perplexity', 'verdent')),
+            submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            report_path TEXT NOT NULL,
+            is_verified INTEGER DEFAULT 0 CHECK(is_verified IN (0, 1)),
+            verification_error TEXT,
+            FOREIGN KEY(task_id) REFERENCES ai_tasks(id) ON DELETE CASCADE,
+            UNIQUE(task_id, platform_name)
+        );"#,
         r#"CREATE INDEX IF NOT EXISTS idx_approvals_task_node_action_risk_status
             ON approvals(task_id, decision_node_id, action, risk_level, status);"#,
         r#"CREATE INDEX IF NOT EXISTS idx_approvals_authorized_signatures
             ON approvals(task_id, decision_node_id, action, risk_level, approver_id, approver_role, status);"#,
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_migrations;
+    use rusqlite::Connection;
+
+    fn setup_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute("PRAGMA foreign_keys = ON;", []).unwrap();
+
+        for migration in get_migrations() {
+            conn.execute(migration, []).unwrap();
+        }
+
+        conn
+    }
+
+    fn insert_valid_ai_task(conn: &Connection, task_id: &str) {
+        conn.execute(
+            "INSERT INTO ai_tasks (id, title, description, risk_level, status, created_by)
+             VALUES (?1, 'AI Task', 'Schema integration test', 'high', 'pending', 'codex')",
+            [task_id],
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn valid_ai_task_insert_succeeds() {
+        let conn = setup_conn();
+
+        insert_valid_ai_task(&conn, "ai_task_valid");
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM ai_tasks WHERE id = 'ai_task_valid'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn invalid_ai_task_risk_level_fails() {
+        let conn = setup_conn();
+
+        let result = conn.execute(
+            "INSERT INTO ai_tasks (id, title, risk_level, status, created_by)
+             VALUES ('ai_task_bad_risk', 'Bad Risk', 'severe', 'pending', 'codex')",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn invalid_ai_task_status_fails() {
+        let conn = setup_conn();
+
+        let result = conn.execute(
+            "INSERT INTO ai_tasks (id, title, risk_level, status, created_by)
+             VALUES ('ai_task_bad_status', 'Bad Status', 'low', 'queued', 'codex')",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn invalid_platform_name_fails() {
+        let conn = setup_conn();
+        insert_valid_ai_task(&conn, "ai_task_platform");
+
+        let result = conn.execute(
+            "INSERT INTO ai_task_allocations (id, task_id, platform_name, status, payload_file_path)
+             VALUES ('alloc_bad_platform', 'ai_task_platform', 'unknown_platform', 'waiting', 'ai_workflow/tasks/task.json')",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn duplicate_task_platform_allocation_fails() {
+        let conn = setup_conn();
+        insert_valid_ai_task(&conn, "ai_task_alloc_duplicate");
+
+        conn.execute(
+            "INSERT INTO ai_task_allocations (id, task_id, platform_name, status, payload_file_path)
+             VALUES ('alloc_one', 'ai_task_alloc_duplicate', 'codex', 'waiting', 'ai_workflow/tasks/task.json')",
+            [],
+        )
+        .unwrap();
+        let result = conn.execute(
+            "INSERT INTO ai_task_allocations (id, task_id, platform_name, status, payload_file_path)
+             VALUES ('alloc_two', 'ai_task_alloc_duplicate', 'codex', 'waiting', 'ai_workflow/tasks/task-2.json')",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn duplicate_task_platform_report_fails() {
+        let conn = setup_conn();
+        insert_valid_ai_task(&conn, "ai_task_report_duplicate");
+
+        conn.execute(
+            "INSERT INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+             VALUES ('report_one', 'ai_task_report_duplicate', 'codex', 'ai_workflow/collected_reports/report.md', 0)",
+            [],
+        )
+        .unwrap();
+        let result = conn.execute(
+            "INSERT INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+             VALUES ('report_two', 'ai_task_report_duplicate', 'codex', 'ai_workflow/collected_reports/report-2.md', 1)",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn deleting_task_cascades_allocation_and_report() {
+        let conn = setup_conn();
+        insert_valid_ai_task(&conn, "ai_task_cascade");
+
+        conn.execute(
+            "INSERT INTO ai_task_allocations (id, task_id, platform_name, status, payload_file_path)
+             VALUES ('alloc_cascade', 'ai_task_cascade', 'codex', 'waiting', 'ai_workflow/tasks/task.json')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+             VALUES ('report_cascade', 'ai_task_cascade', 'codex', 'ai_workflow/collected_reports/report.md', 1)",
+            [],
+        )
+        .unwrap();
+
+        conn.execute("DELETE FROM ai_tasks WHERE id = 'ai_task_cascade'", [])
+            .unwrap();
+
+        let allocation_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM ai_task_allocations WHERE task_id = 'ai_task_cascade'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let report_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM ai_collected_reports WHERE task_id = 'ai_task_cascade'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(allocation_count, 0);
+        assert_eq!(report_count, 0);
+    }
+
+    #[test]
+    fn allocation_payload_file_path_not_null() {
+        let conn = setup_conn();
+        insert_valid_ai_task(&conn, "ai_task_payload_required");
+
+        let result = conn.execute(
+            "INSERT INTO ai_task_allocations (id, task_id, platform_name, status)
+             VALUES ('alloc_missing_payload', 'ai_task_payload_required', 'codex', 'waiting')",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn report_is_verified_accepts_only_zero_or_one() {
+        let conn = setup_conn();
+        insert_valid_ai_task(&conn, "ai_task_verified");
+
+        conn.execute(
+            "INSERT INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+             VALUES ('report_verified_zero', 'ai_task_verified', 'codex', 'ai_workflow/collected_reports/report.md', 0)",
+            [],
+        )
+        .unwrap();
+        let result = conn.execute(
+            "INSERT INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+             VALUES ('report_verified_bad', 'ai_task_verified', 'cursor', 'ai_workflow/collected_reports/report-2.md', 2)",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn ai_task_created_by_not_null() {
+        let conn = setup_conn();
+
+        let result = conn.execute(
+            "INSERT INTO ai_tasks (id, title, risk_level, status)
+             VALUES ('ai_task_missing_creator', 'Missing Creator', 'low', 'pending')",
+            [],
+        );
+
+        assert!(result.is_err());
+    }
 }
