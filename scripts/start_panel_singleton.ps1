@@ -7,6 +7,37 @@ $MutexName = "Global\LokalBilgisayarKontrolPaneliStartPanel"
 $LauncherMutex = [System.Threading.Mutex]::new($false, $MutexName)
 $MutexAcquired = $false
 
+function Invoke-WmiQueryWithTimeout {
+    param([string]$Filter)
+    $ps = $null
+    try {
+        if ($env:LOKAL_PANEL_FORCE_WMI_TIMEOUT -eq "1") {
+            return @()
+        }
+        $ps = [powershell]::Create()
+        $null = $ps.AddCommand("Get-CimInstance").AddParameter("ClassName", "Win32_Process").AddParameter("Filter", $Filter).AddParameter("ErrorAction", "Stop")
+        $asyncResult = $ps.BeginInvoke()
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        while (-not $asyncResult.IsCompleted -and $sw.ElapsedMilliseconds -lt 1500) {
+            Start-Sleep -Milliseconds 10
+        }
+        if (-not $asyncResult.IsCompleted) {
+            $ps.Stop()
+            return @()
+        }
+        if ($ps.HadErrors) {
+            return @()
+        }
+        return $ps.EndInvoke($asyncResult)
+    } catch {
+        return @()
+    } finally {
+        if ($ps) {
+            $ps.Dispose()
+        }
+    }
+}
+
 try {
     $MutexAcquired = $LauncherMutex.WaitOne(5000)
     if (-not $MutexAcquired) {
@@ -21,7 +52,7 @@ try {
         Where-Object { $_.State -eq "Listen" } |
         Select-Object -First 1
 
-    $viteProcess = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+    $viteProcess = Invoke-WmiQueryWithTimeout -Filter "Name='node.exe' OR Name='cmd.exe' OR Name='powershell.exe' OR Name='pwsh.exe'" |
         Where-Object {
             $_.CommandLine -and
             $_.CommandLine.Contains($ProjectRoot) -and

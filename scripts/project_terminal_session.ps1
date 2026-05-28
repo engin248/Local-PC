@@ -2,190 +2,135 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ProjectRoot,
 
+    [string]$LauncherRequestId = "",
+
     [string]$WindowTitle = "LOKAL BILGISAYAR KONTROL PANELI - Dogru Terminal"
 )
 
-$ErrorActionPreference = "Continue"
-$MutexName = "Global\LokalBilgisayarKontrolPaneliDogruTerminalSession"
-$SessionMutex = [System.Threading.Mutex]::new($false, $MutexName)
-$MutexAcquired = $false
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 
-function Show-ExistingWindow {
-    param([IntPtr]$Handle)
+$ProjectSignatureRoot = Join-Path $env:LOCALAPPDATA "LokalBilgisayarKontrolPaneli"
+$LogDir = Join-Path $ProjectSignatureRoot "logs"
+$LockDir = Join-Path $ProjectSignatureRoot "locks"
+$LogPath = Join-Path $LogDir "launcher.log"
+$LockPath = Join-Path $LockDir "terminal_open.lock"
+$HeartbeatPath = Join-Path $LockDir "terminal_session.heartbeat.json"
+$SessionPid = $PID
+$SingletonScript = Join-Path $PSScriptRoot "start_panel_singleton.ps1"
 
-    if ($Handle -eq [IntPtr]::Zero) {
-        return
-    }
+$NoExitMessage = "Bu pencere acildiktan sonra kapatilmadikca acik kalir."
 
-    $typeName = "LokalPanelTerminalSessionWindow"
-    if (-not ($typeName -as [type])) {
-        Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-
-public static class LokalPanelTerminalSessionWindow {
-    [DllImport("user32.dll")]
-    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-    [DllImport("user32.dll")]
-    public static extern bool SetForegroundWindow(IntPtr hWnd);
-}
-"@
-    }
-
-    [LokalPanelTerminalSessionWindow]::ShowWindow($Handle, 9) | Out-Null
-    [LokalPanelTerminalSessionWindow]::SetForegroundWindow($Handle) | Out-Null
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    $OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+    # Encoding setup is best effort; log events stay ASCII.
 }
 
-$CurrentProcessId = $PID
-$CurrentScriptPath = $PSCommandPath
-$ExistingSession = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.ProcessId -ne $CurrentProcessId -and
-        $_.Name -eq "powershell.exe" -and
-        $_.CommandLine -and
-        $_.CommandLine.Contains($CurrentScriptPath) -and
-        $_.CommandLine.Contains($ProjectRoot)
-    } |
-    Sort-Object CreationDate -Descending |
-    Select-Object -First 1
-
-if ($ExistingSession) {
-    $existingProcess = Get-Process -Id $ExistingSession.ProcessId -ErrorAction SilentlyContinue
-    if ($existingProcess) {
-        Show-ExistingWindow -Handle $existingProcess.MainWindowHandle
-    }
-    Stop-Process -Id $PID -Force
-}
-
-$MutexAcquired = $SessionMutex.WaitOne(5000)
-if (-not $MutexAcquired) {
-    Stop-Process -Id $PID -Force
-}
-
-$Host.UI.RawUI.WindowTitle = $WindowTitle
-
-$GitDir = "C:\Program Files\Git\cmd"
-$GitExe = Join-Path $GitDir "git.exe"
-$NodeExeCandidates = @(
-    "C:\Program Files\nodejs\node.exe",
-    "$env:LOCALAPPDATA\nvm\nodejs\node.exe"
-)
-$NpmCmdCandidates = @(
-    "C:\Program Files\nodejs\npm.cmd",
-    "$env:APPDATA\npm\npm.cmd"
-)
-$CargoExeCandidates = @(
-    "$env:USERPROFILE\.cargo\bin\cargo.exe"
-)
-$SqliteExeCandidates = @(
-    "C:\Tools\SQLite\sqlite3.exe"
-)
-$NodeDirs = @(
-    "C:\Program Files\nodejs",
-    "$env:LOCALAPPDATA\nvm",
-    "$env:APPDATA\npm"
-)
-$CargoDir = Join-Path $env:USERPROFILE ".cargo\bin"
-$SqliteDir = "C:\Tools\SQLite"
-
-$PathParts = @()
-if (Test-Path -LiteralPath $GitDir) {
-    $PathParts += $GitDir
-}
-foreach ($nodeDir in $NodeDirs) {
-    if ($nodeDir -and (Test-Path -LiteralPath $nodeDir)) {
-        $PathParts += $nodeDir
+function Ensure-Directory {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        $null = New-Item -ItemType Directory -Path $Path -Force
     }
 }
-if (Test-Path -LiteralPath $CargoDir) {
-    $PathParts += $CargoDir
-}
-if (Test-Path -LiteralPath $SqliteDir) {
-    $PathParts += $SqliteDir
-}
 
-$SafePathPrefix = ($PathParts | Select-Object -Unique) -join ";"
-if ($SafePathPrefix) {
-    $env:PATH = "$SafePathPrefix;$env:PATH"
-}
-
-Set-Location -LiteralPath $ProjectRoot
-Clear-Host
-
-Write-Host "LOKAL BILGISAYAR KONTROL PANELI" -ForegroundColor Green
-Write-Host "Dogru proje klasoru:" -ForegroundColor Cyan
-Write-Host (Get-Location).Path -ForegroundColor White
-Write-Host ""
-Write-Host "Arac kontrolu:" -ForegroundColor Cyan
-
-function Get-FirstExistingPath {
-    param([string[]]$Candidates)
-
-    foreach ($candidate in $Candidates) {
-        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
-            return $candidate
-        }
-    }
-
-    return $null
-}
-
-function Write-ToolVersion {
+function Write-LauncherLog {
     param(
-        [string]$Name,
-        [string]$Path,
-        [string[]]$Arguments = @("--version")
+        [string]$EventName,
+        [string]$Message = ""
     )
+    Ensure-Directory -Path $LogDir
+    $line = [string]::Format(
+        "{0:yyyy-MM-ddTHH:mm:ss.fffzzz} [INFO] request={1} event={2} {3}",
+        (Get-Date),
+        $LauncherRequestId,
+        $EventName,
+        $Message
+    )
+    Add-Content -LiteralPath $LogPath -Value $line -Encoding UTF8
+}
 
-    if (-not $Path) {
-        Write-Host "$Name bulunamadi" -ForegroundColor Yellow
-        return
+function Write-Heartbeat {
+    Ensure-Directory -Path $LockDir
+    $payload = @{
+        session_token = $LauncherRequestId
+        pid = $SessionPid
+        request_id = $LauncherRequestId
+        project_root = $ProjectRoot
+        last_heartbeat = (Get-Date).ToString("o")
+        process_name = (Get-Process -Id $SessionPid -ErrorAction SilentlyContinue).ProcessName
+        session_script = "project_terminal_session.ps1"
+        launched_by = "open_correct_terminal.ps1"
     }
+    $payload | ConvertTo-Json -Compress | Set-Content -LiteralPath $HeartbeatPath -Encoding UTF8
+}
 
-    Write-Host "$Name bulundu: $Path" -ForegroundColor DarkGray
+function Start-Frontend {
+    if (Test-Path -LiteralPath $SingletonScript) {
+        try {
+            & $SingletonScript
+            Write-LauncherLog "terminal_session_log" "frontend_startup_requested"
+        } catch {
+            Write-LauncherLog "terminal_session_log" "frontend_startup_failed"
+        }
+    } else {
+        Write-LauncherLog "terminal_session_log" "singleton_script_missing=$SingletonScript"
+    }
+}
+
+function Clear-OwnLock {
     try {
-        $output = & $Path @Arguments 2>$null
-        if ($output) {
-            $output | ForEach-Object { Write-Host $_ }
+        if (-not (Test-Path -LiteralPath $LockPath)) {
+            return
+        }
+        $lockRaw = Get-Content -Raw -LiteralPath $LockPath -ErrorAction SilentlyContinue
+        if (-not $lockRaw) {
+            return
+        }
+        $lock = $lockRaw | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($lock -and [int]$lock.pid -eq $SessionPid) {
+            Remove-Item -LiteralPath $LockPath -Force -ErrorAction SilentlyContinue
+            Write-LauncherLog "lock_cleanup" "session_closed pid=$SessionPid"
         }
     } catch {
-        Write-Host "$Name versiyon kontrolu okunamadi; arac yolu mevcut." -ForegroundColor Yellow
+        Write-LauncherLog "lock_cleanup_error" $_.Exception.Message
     }
 }
 
-if (Test-Path -LiteralPath $GitExe) {
-    Write-ToolVersion -Name "Git" -Path $GitExe
+try {
+    Ensure-Directory -Path $LogDir
+    Write-LauncherLog "session_started" "pid=$SessionPid request=$LauncherRequestId root=$ProjectRoot"
+    Write-Heartbeat
+    Write-LauncherLog "initial_heartbeat_written" "pid=$SessionPid"
     try {
-        $gitStatus = & $GitExe status --short 2>$null
-        if ($gitStatus) {
-            $gitStatus | ForEach-Object { Write-Host $_ }
-        } else {
-            Write-Host "Git calisma agaci temiz." -ForegroundColor Green
-        }
+        $Host.UI.RawUI.WindowTitle = $WindowTitle
     } catch {
-        Write-Host "Git status okunamadi; terminal yine dogru proje klasorunde acildi." -ForegroundColor Yellow
+        Write-LauncherLog "session_window_title_warning" $_.Exception.Message
     }
-} else {
-    Write-Host "Git bulunamadi: $GitExe" -ForegroundColor Yellow
+
+    Set-Location -LiteralPath $ProjectRoot
+    Clear-Host
+
+    Write-Host "LOKAL BILGISAYAR KONTROL PANELI" -ForegroundColor Green
+    Write-Host "Proje klasoru: $ProjectRoot"
+    Write-Host "Terminal Session PID: $SessionPid"
+    if ($LauncherRequestId) {
+        Write-Host "Launcher Request ID: $LauncherRequestId"
+    }
+    Write-Host ""
+    Write-Host $NoExitMessage -ForegroundColor Yellow
+
+    Start-Frontend
+
+    Write-LauncherLog "session_ready"
+
+    while ($true) {
+        Write-Heartbeat
+        Write-LauncherLog "heartbeat_written" "pid=$SessionPid"
+        Start-Sleep -Seconds 5
+    }
+} finally {
+    Clear-OwnLock
+    Write-LauncherLog "session_closed"
 }
-
-$NodeExe = Get-FirstExistingPath $NodeExeCandidates
-Write-ToolVersion -Name "Node" -Path $NodeExe
-
-$NpmCmd = Get-FirstExistingPath $NpmCmdCandidates
-Write-ToolVersion -Name "npm" -Path $NpmCmd
-
-$CargoExe = Get-FirstExistingPath $CargoExeCandidates
-Write-ToolVersion -Name "cargo" -Path $CargoExe
-
-$SqliteExe = Get-FirstExistingPath $SqliteExeCandidates
-Write-ToolVersion -Name "sqlite3" -Path $SqliteExe
-
-Write-Host ""
-Write-Host "Hazir. Bu terminal LOKAL BILGISAYAR KONTROL PANELI icin dogru terminaldir." -ForegroundColor Green
-
-if ($MutexAcquired) {
-    $SessionMutex.ReleaseMutex()
-}
-$SessionMutex.Dispose()
