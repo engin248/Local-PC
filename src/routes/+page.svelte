@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import TaskTabs from "../components/TaskTabs.svelte";
@@ -31,12 +31,15 @@
   let aiProviderHealth = $state<any[]>([]);
   let systemConnectorHealth = $state<any[]>([]);
 
-  let activeSection = $state("planning"); // "planning", "decisions", "security", "connections", "execution"
+  let activeSection = $state("planning");
+  let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
   let globalError = $state<string | null>(null);
   let alarmEvents = $state<any[]>([]);
   let voiceRepliesEnabled = $state(true);
   let voiceAvailable = $state(true);
   let lastSpokenVoiceKey = "";
+  let speechQueue = $state<{ text: string; key: string }[]>([]);
+  let isSpeaking = $state(false);
 
   let audioCtx: AudioContext | null = null;
   let alarmInterval: any = null;
@@ -102,32 +105,35 @@
         audioCtx.resume();
       }
       
-      if (alarmInterval) clearInterval(alarmInterval);
+      if (alarmInterval) {
+        clearInterval(alarmInterval);
+        alarmInterval = null;
+      }
       
-      let state = false;
-      alarmInterval = setInterval(() => {
-        if (!globalError) {
-          stopSiren();
-          return;
-        }
-        
-        const osc = audioCtx!.createOscillator();
-        const gain = audioCtx!.createGain();
-        
-        osc.connect(gain);
-        gain.connect(audioCtx!.destination);
-        
-        osc.type = "sine";
-        const freq = state ? 880 : 1100;
-        osc.frequency.setValueAtTime(freq, audioCtx!.currentTime);
-        
-        gain.gain.setValueAtTime(0.06, audioCtx!.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx!.currentTime + 0.22);
-        
-        osc.start();
-        osc.stop(audioCtx!.currentTime + 0.25);
-        state = !state;
-      }, 250);
+      // Çift bip uyarısı çal ve bitir (Sürekli kafa ütüleyen döngüyü engeller!)
+      const playBeep = (delay: number, freq: number) => {
+        setTimeout(() => {
+          if (!audioCtx) return;
+          try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.18);
+          } catch (err) {
+            console.error("Beep calinamadi:", err);
+          }
+        }, delay);
+      };
+
+      // Tatlı bir çift uyarı melodisi çal (Cevap sesini bastırmaz ve kafa karıştırmaz)
+      playBeep(0, 880);
+      playBeep(180, 1100);
     } catch (e) {
       console.error("Siren sesi calisma hatasi:", e);
     }
@@ -168,10 +174,39 @@
 
     lastSpokenVoiceKey = key;
 
-    const synth = window.speechSynthesis;
-    synth.cancel();
+    // Eğer otomatik (force = false) bir durum güncellemesi tetiklendiyse veya alarm ise,
+    // kuyruktaki tüm eski bayat mesajları temizle ve çalan eski sesi iptal et.
+    // Bu sayede aynı anda sadece TEYİT EDİLMİŞ TEK BİR SES çalacaktır.
+    if (!force || key.startsWith("critical")) {
+      speechQueue = [];
+      isSpeaking = false;
+      window.speechSynthesis.cancel();
+    }
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Mesajı ses kuyruğuna ekle (Mesaj kaybını önler)
+    speechQueue.push({ text, key });
+
+    // Eğer şu an herhangi bir ses çalmıyorsa kuyruk işlemcisini başlat
+    if (!isSpeaking) {
+      processSpeechQueue();
+    }
+  }
+
+  function processSpeechQueue() {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+
+    const synth = window.speechSynthesis;
+
+    // Eğer kuyrukta çalacak ses kalmadıysa durumu sıfırla
+    if (speechQueue.length === 0) {
+      isSpeaking = false;
+      return;
+    }
+
+    isSpeaking = true;
+    const currentItem = speechQueue[0];
+
+    const utterance = new SpeechSynthesisUtterance(currentItem.text);
     const voices = synth.getVoices();
     const turkishVoice = voices.find((voice) => voice.lang.toLowerCase().startsWith("tr"));
 
@@ -183,12 +218,27 @@
       utterance.voice = turkishVoice;
     }
 
+    // Ses başarıyla bittiğinde kuyruktan çıkar ve sıradakine geç
+    utterance.onend = () => {
+      speechQueue.shift();
+      processSpeechQueue();
+    };
+
+    // Ses hatayla kesildiğinde veya çalmadığında da takılmaması için sıradakine geç
+    utterance.onerror = (e) => {
+      console.error("Speech Synthesis Error:", e);
+      speechQueue.shift();
+      processSpeechQueue();
+    };
+
     synth.speak(utterance);
   }
 
   function stopVoiceReply() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+      speechQueue = []; // Kuyruğu temizle
+      isSpeaking = false;
+      window.speechSynthesis.cancel(); // Mevcut çalmayı durdur
     }
   }
 
@@ -382,7 +432,20 @@
   </div>
 
   <div class="main-workspace">
-    <div class="workspace-header">
+        <div class="agent-status-bar">
+      <strong>AJAN DURUMLARI:</strong>
+      {#each aiProviderHealth as agent}
+        <span class="agent-badge" class:agent-ok={agent.enabled} class:agent-disabled={!agent.enabled}>
+          {agent.name.split(' ')[0]}
+          {#if agent.enabled}
+            <span class="status-dot green"></span>
+          {:else}
+            <span class="status-dot red"></span>
+          {/if}
+        </span>
+      {/each}
+    </div>
+      <div class="workspace-header">
       <div class="navigation-tabs">
         <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
         <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AĞACI & ALTERNATİFLER (GATE 2-4)</button>
@@ -458,8 +521,36 @@
       {/if}
     </div>
 
-    <div class="workspace-footer">
-      <LiveLog logs={logs} />
+        <div class="workspace-footer">
+      <div class="footer-tabs">
+        <button class="footer-tab-btn" class:active={footerTab === 'agent_stream'} onclick={() => footerTab = 'agent_stream'}>AJAN İLETİŞİM & RAPORLAR</button>
+        <button class="footer-tab-btn" class:active={footerTab === 'system_logs'} onclick={() => footerTab = 'system_logs'}>SİSTEM & AUDIT LOGLARI</button>
+      </div>
+      <div class="footer-content">
+        {#if footerTab === 'system_logs'}
+          <LiveLog logs={logs} />
+        {:else}
+          <div class="agent-stream-panel">
+             <!-- Ajan raporları ve niyetlerini göstereceğimiz yalıtılmış alan -->
+             <div class="stream-header">
+               <h4>Operasyonel Ajan Akışı</h4>
+               <p>Ajanların aldıkları kararlar ve ürettikleri raporlar teknik loglardan bağımsız olarak burada listelenir.</p>
+             </div>
+             <div class="stream-body">
+               {#if reports.length > 0}
+                 {#each reports as rep}
+                   <div class="agent-msg report-msg">
+                     <strong>[Rapor: {rep.report_type.toUpperCase()}]</strong>
+                     <pre>{rep.content}</pre>
+                   </div>
+                 {/each}
+               {:else}
+                 <div class="empty-stream">Henüz bir ajan raporu veya kararı bulunmuyor.</div>
+               {/if}
+             </div>
+          </div>
+        {/if}
+      </div>
     </div>
   </div>
 </div>
@@ -602,11 +693,7 @@
     flex-direction: column;
   }
 
-  .workspace-footer {
-    height: 250px;
-    border-top: 1px solid #1f1f21;
-    background: #111112;
-  }
+  
 
   .global-error-banner {
     display: flex;
@@ -748,4 +835,92 @@
       box-shadow: inset 0 0 40px rgba(255, 71, 71, 0.5);
     }
   }
+  .agent-status-bar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    background: #111113;
+    padding: 8px 16px;
+    border-bottom: 1px solid #2d2d31;
+    font-size: 12px;
+    color: #8d8d95;
+    overflow-x: auto;
+  }
+  .agent-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: #18181a;
+    border: 1px solid #2d2d31;
+    border-radius: 4px;
+    color: #f4f4f5;
+  }
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .status-dot.green { background: #47d18c; box-shadow: 0 0 5px #47d18c; }
+  .status-dot.red { background: #e03131; }
+  .workspace-footer {
+    height: 250px;
+    border-top: 1px solid #1f1f21;
+    background: #111112;
+    display: flex;
+    flex-direction: column;
+  }
+  .footer-tabs {
+    display: flex;
+    background: #0c0c0d;
+    border-bottom: 1px solid #1f1f21;
+  }
+  .footer-tab-btn {
+    background: none;
+    border: none;
+    color: #8d8d95;
+    padding: 8px 16px;
+    font-size: 11px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .footer-tab-btn.active {
+    color: #f4f4f5;
+    border-bottom-color: #0b74de;
+    background: #111112;
+  }
+  .footer-content {
+    flex: 1;
+    overflow: hidden;
+  }
+  .agent-stream-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 12px;
+  }
+  .stream-header {
+    border-bottom: 1px solid #2d2d31;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .stream-header h4 { margin: 0; color: #f2f2f4; font-size: 14px; }
+  .stream-header p { margin: 4px 0 0; color: #8d8d95; font-size: 12px; }
+  .stream-body {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .agent-msg {
+    background: #18181a;
+    border: 1px solid #2d2d31;
+    border-left: 3px solid #0b74de;
+    padding: 10px;
+    border-radius: 4px;
+  }
+  .agent-msg strong { display: block; margin-bottom: 6px; color: #47d18c; font-size: 12px; }
+  .agent-msg pre { margin: 0; font-family: monospace; font-size: 12px; color: #b8b8bf; white-space: pre-wrap; }
+  .empty-stream { color: #8d8d95; font-size: 13px; font-style: italic; }
 </style>
