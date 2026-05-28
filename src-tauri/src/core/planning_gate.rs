@@ -294,4 +294,26 @@ mod tests {
         save_plan(task_id, plan).unwrap();
         assert!(PlanningGate::validate_planning(task_id).is_err());
     }
+
+    #[test]
+    fn critical_plan_with_less_than_three_alternatives_fails() {
+        let task_id = "test_critical_less_than_three_alternatives";
+        let db = Database::new();
+        let conn = db.get_connection().unwrap();
+        let _ = conn.execute("DELETE FROM tasks WHERE id = ?1", params![task_id]);
+        conn.execute(
+            "INSERT INTO tasks (id, title, user_request, status, planning_status, execution_status, risk_level, approval_status)
+             VALUES (?1, 'Test', 'Test', 'pending', 'planning_incomplete', 'not_started', 'critical', 'pending_approval')",
+            params![task_id],
+        )
+        .unwrap();
+        let mut plan = valid_plan();
+        plan.risk_analysis = "critical".to_string();
+        plan.alternatives = vec![
+            "Yalnizca oku ve raporla".to_string(),
+            "Onayli ve rollback destekli uygula".to_string(),
+        ];
+        save_plan(task_id, plan).unwrap();
+        assert!(PlanningGate::validate_planning(task_id).is_err());
+    }
 }
