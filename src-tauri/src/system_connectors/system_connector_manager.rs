@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn sqlite_connector_opens_read_only() {
-        let db_path = std::env::temp_dir().join("lokal_panel_connector_health_test.db");
+        let db_path = std::env::temp_dir().join(format!("lokal_panel_connector_health_test_{}.db", std::process::id()));
         let _ = std::fs::remove_file(&db_path);
         let conn = Connection::open(&db_path).unwrap();
         conn.execute("CREATE TABLE health_test (id INTEGER)", [])

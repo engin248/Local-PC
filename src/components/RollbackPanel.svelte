@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   let { task, onRollback } = $props<{
     task: any;
     onRollback: () => void;
@@ -8,7 +8,7 @@
 <div class="rollback-panel-container">
   <h3>ROLLBACK & SNAPSHOT KORUMASI</h3>
 
-  {#if task && task.status === 'completed'}
+  {#if task && (task.status === 'completed' || task.status === 'in_progress')}
     <div class="status-box secured">
       <strong>Snapshot Koruma Güvencesi Aktif:</strong> Yazma öncesi alınan snapshot yedeği başarıyla `storage/snapshots` dizininde saklanmıştır.
       <div class="rollback-action">
@@ -26,45 +26,23 @@
 </div>
 
 <style>
-  .rollback-panel-container {
-    padding: 15px;
-    background: #181818;
-    color: #ccc;
-    border-bottom: 1px solid #333;
-  }
-  h3 { margin: 0 0 12px 0; font-size: 0.85rem; letter-spacing: 1px; color: #e0e0e0; }
-  .status-box {
-    padding: 12px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    line-height: 1.5;
-  }
-  .status-box.secured {
-    background: #1a332d;
-    border: 1px solid #4ec9b0;
-    color: #4ec9b0;
-  }
-  .status-box.rolled-back {
-    background: #3c2419;
-    border: 1px solid #ce9178;
-    color: #ce9178;
-  }
-  .rollback-action {
-    margin-top: 10px;
-    border-top: 1px solid #333;
-    padding-top: 10px;
-  }
+  
+  
+  
+  
+  
+  
   .rollback-action p { margin: 0 0 8px 0; color: #aaa; font-size: 0.75rem; }
-  .rollback-btn {
-    background: #ce9178;
-    color: #1e1e1e;
-    font-weight: bold;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.75rem;
-  }
-  .rollback-btn:hover { background: #dfa289; }
-  .empty-msg { text-align: center; color: #666; font-size: 0.8rem; padding: 20px 0; }
+  
+  
+  
+  .rollback-panel-container { padding: 20px; background: rgba(224, 49, 49, 0.03); border: 1px solid rgba(224, 49, 49, 0.2); border-radius: 6px; margin-top: 20px;}
+  h3 { color: #f03e3e; margin-top: 0; }
+  .status-box { padding: 15px; border-radius: 4px; border-left: 4px solid; }
+  .status-box.secured { background: #1a1a1c; border-color: #f03e3e; }
+  .status-box.rolled-back { background: #1a1a1c; border-color: #47d18c; }
+  .rollback-action { margin-top: 15px; text-align: center; }
+  .rollback-btn { padding: 12px 24px; background: #e03131; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; text-transform: uppercase; box-shadow: 0 4px 10px rgba(224,49,49,0.3); transition: all 0.2s;}
+  .rollback-btn:hover { background: #c92a2a; transform: scale(1.02); }
+  .empty-msg { color: #8d8d95; font-style: italic; }
 </style>

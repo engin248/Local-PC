@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   let { tasks = [], selectedTaskId = null, onSelect, onCreate } = $props<{
     tasks: any[];
     selectedTaskId: string | null;
@@ -11,10 +11,12 @@
   let selectedAgents = $state({ codex: true, oam: true, antigravity: false, cursor: false });
   let newRequest = $state("");
 
-  function handleCreate(e: Event) {
+    function handleCreate(e: Event) {
     e.preventDefault();
     if (!newTitle || !newRequest) return;
-    let agentTags = Object.entries(selectedAgents).filter(([_, v]) => v).map(([k, _]) => k.toUpperCase()).join(","); onCreate(newTitle, `"[${newTaskType}] [Agentler: ${agentTags}] `" + newRequest);
+    let agentTags = Object.entries(selectedAgents).filter(([_, v]) => v).map(([k, _]) => k.toUpperCase()).join(",");
+    let finalRequest = `[${newTaskType}] [Ajanlar: ${agentTags}] ${newRequest}`;
+    onCreate(newTitle, finalRequest);
     newTitle = "";
     newRequest = "";
   }

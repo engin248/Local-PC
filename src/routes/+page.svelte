@@ -923,4 +923,9 @@
   .agent-msg strong { display: block; margin-bottom: 6px; color: #47d18c; font-size: 12px; }
   .agent-msg pre { margin: 0; font-family: monospace; font-size: 12px; color: #b8b8bf; white-space: pre-wrap; }
   .empty-stream { color: #8d8d95; font-size: 13px; font-style: italic; }
+  .progress-bar-container { display: flex; align-items: center; justify-content: center; padding: 12px 20px; background: #0c0c0d; border-bottom: 1px solid #1f1f21; }
+  .progress-step { font-size: 11px; font-weight: bold; color: #555; padding: 4px 10px; border-radius: 12px; background: #18181a; border: 1px solid #2d2d31; }
+  .progress-step.active { color: #fff; background: #0b74de; border-color: #0b74de; }
+  .progress-step.done { color: #47d18c; border-color: #47d18c; }
+  .progress-line { flex: 1; height: 2px; background: #2d2d31; margin: 0 10px; max-width: 50px; }
 </style>
