@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "root": "ai_workflow",
+  "platforms": {
+    "codex": {
+      "role": "implementation_owner",
+      "inbox": "ai_workflow/platforms/codex/inbox",
+      "outbox": "ai_workflow/platforms/codex/outbox",
+      "allowed_actions": [
+        "read_task",
+        "write_patch",
+        "run_local_tests",
+        "write_implementation_report"
+      ]
+    },
+    "open_agent_manager": {
+      "role": "chief_inspector",
+      "inbox": "ai_workflow/platforms/open_agent_manager/inbox",
+      "outbox": "ai_workflow/platforms/open_agent_manager/outbox",
+      "allowed_actions": [
+        "read_reports",
+        "inspect_scope",
+        "verify_evidence",
+        "write_audit_report"
+      ]
+    },
+    "antigravity": {
+      "role": "secondary_review",
+      "inbox": "ai_workflow/platforms/antigravity/inbox",
+      "outbox": "ai_workflow/platforms/antigravity/outbox",
+      "allowed_actions": [
+        "read_reports",
+        "risk_analysis",
+        "second_opinion",
+        "write_review_report"
+      ]
+    },
+    "cursor": {
+      "role": "code_line_inspection",
+      "inbox": "ai_workflow/platforms/cursor/inbox",
+      "outbox": "ai_workflow/platforms/cursor/outbox",
+      "allowed_actions": [
+        "read_code",
+        "line_check",
+        "file_reference_check",
+        "write_code_review_report"
+      ]
+    },
+    "perplexity": {
+      "role": "external_technical_research",
+      "inbox": "ai_workflow/platforms/perplexity/inbox",
+      "outbox": "ai_workflow/platforms/perplexity/outbox",
+      "allowed_actions": [
+        "external_research",
+        "source_verification",
+        "technical_practice_check",
+        "write_research_report"
+      ]
+    },
+    "verdent": {
+      "role": "product_operations_review",
+      "inbox": "ai_workflow/platforms/verdent/inbox",
+      "outbox": "ai_workflow/platforms/verdent/outbox",
+      "allowed_actions": [
+        "product_review",
+        "operations_review",
+        "user_impact_assessment",
+        "write_operations_report"
+      ]
+    }
+  },
+  "shared_paths": {
+    "tasks": "ai_workflow/tasks",
+    "collected_reports": "ai_workflow/collected_reports",
+    "locks": "ai_workflow/locks",
+    "archive": "ai_workflow/archive",
+    "final_for_chat": "ai_workflow/final_for_chat"
+  }
+}
