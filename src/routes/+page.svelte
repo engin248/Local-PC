@@ -431,7 +431,16 @@
     />
   </div>
 
-  <div class="main-workspace">
+    <div class="main-workspace">
+      <div class="progress-bar-container">
+         <div class="progress-step" class:active={activeSection === 'planning'} class:done={activeSection !== 'planning'}>1. PLANLAMA (Gate 1)</div>
+         <div class="progress-line"></div>
+         <div class="progress-step" class:active={activeSection === 'decisions'} class:done={activeSection === 'security' || activeSection === 'execution'}>2. KARAR (Gate 2-4)</div>
+         <div class="progress-line"></div>
+         <div class="progress-step" class:active={activeSection === 'security'} class:done={activeSection === 'execution'}>3. ONAY (Gate 5-7)</div>
+         <div class="progress-line"></div>
+         <div class="progress-step" class:active={activeSection === 'execution'}>4. TEST & RAPOR (Gate 8)</div>
+      </div>
         <div class="agent-status-bar">
       <strong>AJAN DURUMLARI:</strong>
       {#each aiProviderHealth as agent}
