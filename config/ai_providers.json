@@ -110,5 +110,88 @@
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
     }
+  }  ,{
+    "id": "codex",
+    "name": "Codex (Tek Uygulayıcı)",
+    "type": "agent",
+    "base_url": "http://127.0.0.1:8081",
+    "api_key_env": "CODEX_API_KEY",
+    "model": "codex-agent-v1",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "critical",
+    "allowed_task_types": ["code_edit", "patch_apply"],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "oam",
+    "name": "Open Agent Manager (Baş Müfettiş)",
+    "type": "agent",
+    "base_url": "http://127.0.0.1:8082",
+    "api_key_env": "OAM_API_KEY",
+    "model": "oam-v1",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "high",
+    "allowed_task_types": ["audit", "review"],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "antigravity",
+    "name": "Antigravity (Destek Analiz)",
+    "type": "agent",
+    "base_url": "http://127.0.0.1:8083",
+    "api_key_env": "ANTIGRAVITY_API_KEY",
+    "model": "antigravity-v1",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "high",
+    "allowed_task_types": ["cross_check", "alternative_suggest"],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "cursor",
+    "name": "Cursor (Kod Okuma/Dosya)",
+    "type": "agent",
+    "base_url": "http://127.0.0.1:8084",
+    "api_key_env": "CURSOR_API_KEY",
+    "model": "cursor-v1",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": ["file_read", "line_check"],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
   }
 ]
