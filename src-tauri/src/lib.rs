@@ -121,7 +121,7 @@ struct LogItem {
 #[tauri::command]
 fn get_task_logs_cmd(task_id: String) -> Result<Vec<LogItem>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, timestamp, level, message, gate_name FROM execution_logs WHERE task_id = ?1 ORDER BY timestamp ASC")
+    let mut stmt = conn.prepare("SELECT CAST(id AS TEXT), timestamp, level, message, gate_name FROM execution_logs WHERE task_id = ?1 ORDER BY timestamp ASC")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -157,7 +157,7 @@ struct DecisionUiNode {
 #[tauri::command]
 fn get_decisions_cmd(task_id: String) -> Result<Vec<DecisionUiNode>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, authorized_decider_id, status, selected_option, reason, level, required_approval FROM decision_nodes WHERE task_id = ?1 ORDER BY level ASC")
+    let mut stmt = conn.prepare("SELECT id, authorized_decider_id, status, selected_option, reason, level, CAST(required_approval AS TEXT) FROM decision_nodes WHERE task_id = ?1 ORDER BY level ASC")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
