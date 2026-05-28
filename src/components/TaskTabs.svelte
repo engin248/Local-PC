@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   let { tasks = [], selectedTaskId = null, onSelect, onCreate } = $props<{
     tasks: any[];
     selectedTaskId: string | null;
@@ -7,12 +7,14 @@
   }>();
 
   let newTitle = $state("");
+  let newTaskType = $state("Analiz");
+  let selectedAgents = $state({ codex: true, oam: true, antigravity: false, cursor: false });
   let newRequest = $state("");
 
   function handleCreate(e: Event) {
     e.preventDefault();
     if (!newTitle || !newRequest) return;
-    onCreate(newTitle, newRequest);
+    let agentTags = Object.entries(selectedAgents).filter(([_, v]) => v).map(([k, _]) => k.toUpperCase()).join(","); onCreate(newTitle, `"[${newTaskType}] [Agentler: ${agentTags}] `" + newRequest);
     newTitle = "";
     newRequest = "";
   }
@@ -36,7 +38,23 @@
   <div class="new-task-form">
     <h4>YENİ İŞLEM BAŞLAT</h4>
     <form onsubmit={handleCreate}>
-      <input placeholder="Görev Başlığı" bind:value={newTitle} />
+                  <input placeholder="Görev Başlığı" bind:value={newTitle} />
+      <select bind:value={newTaskType} class="task-type-select">
+        <option value="Analiz">Sadece Analiz</option>
+        <option value="Kod Yazma">Kod Değişikliği / Yazma</option>
+        <option value="Araştırma">Dış İnternet Araştırması</option>
+        <option value="Sistem">Sistem Taraması</option>
+      </select>
+      
+      
+      <div class="agent-selectors">
+        <span>Ajan Atamaları:</span>
+        <label><input type="checkbox" bind:checked={selectedAgents.codex} /> Codex</label>
+        <label><input type="checkbox" bind:checked={selectedAgents.oam} /> OAM</label>
+        <label><input type="checkbox" bind:checked={selectedAgents.antigravity} /> AntiGrav</label>
+        <label><input type="checkbox" bind:checked={selectedAgents.cursor} /> Cursor</label>
+      </div>
+
       <textarea placeholder="Kullanıcı Talebi..." bind:value={newRequest}></textarea>
       <button type="submit">Görev Kaydet (Intake)</button>
     </form>
@@ -138,4 +156,8 @@
     border-radius: 4px;
   }
   form button:hover { background: #4c4c4c; }
+  .task-type-select { width: 100%; background: #252526; border: 1px solid #3c3c3c; color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; }
+  .agent-selectors { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.75rem; background: #18181a; padding: 8px; border: 1px solid #333; border-radius: 4px; align-items: center; color: #ccc;}
+  .agent-selectors span { width: 100%; font-weight: bold; color: #8d8d95; }
+  .agent-selectors label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 </style>
