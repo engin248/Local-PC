@@ -36,7 +36,7 @@ pub(crate) fn validate_ai_providers(
             .ok_or_else(|| format!("AI provider type alanı eksik: {}", id))?;
         if !matches!(
             provider_type,
-            "openai_compatible" | "gemini" | "perplexity" | "verdent" | "custom_api"
+            "openai_compatible" | "gemini" | "perplexity" | "verdent" | "custom_api" | "local"
         ) {
             push_error(
                 issues,

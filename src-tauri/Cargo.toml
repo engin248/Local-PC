@@ -17,6 +17,7 @@ rusqlite = { version = "0.29", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.4", features = ["v4"] }
 sha2 = "0.10"
+ureq = { version = "2.10", default-features = false, features = ["tls", "json"] }
 
 [features]
 # default to custom protocol for security

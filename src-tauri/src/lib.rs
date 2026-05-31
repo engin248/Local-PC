@@ -81,7 +81,7 @@ fn get_system_connector_health_cmd(
 #[tauri::command]
 fn get_tasks_cmd() -> Result<Vec<Task>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status, created_at FROM tasks ORDER BY created_at DESC")
+    let mut stmt = conn.prepare("SELECT CAST(id AS TEXT), title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status, created_at FROM tasks ORDER BY created_at DESC")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -98,6 +98,109 @@ fn get_tasks_cmd() -> Result<Vec<Task>, String> {
                 risk_level: row.get(8)?,
                 approval_status: row.get(9)?,
                 created_at: row.get(10)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut list = Vec::new();
+    for item in rows {
+        list.push(item.map_err(|e| e.to_string())?);
+    }
+    Ok(list)
+}
+
+#[tauri::command]
+fn get_task_breakdowns_cmd(task_id: String) -> Result<Vec<crate::core::task_decomposer::TaskBreakdown>, String> {
+    crate::core::task_decomposer::TaskDecomposer::get_breakdowns(&task_id)
+}
+
+#[derive(Serialize, Deserialize)]
+struct OperationPackageUi {
+    id: String,
+    package_order: i32,
+    package_type: String,
+    subject: String,
+    sub_topic: String,
+    criterion: String,
+    sub_criterion: String,
+    accepted_truth: String,
+    selected_best_alternative: String,
+    operation_sequence: String,
+    technology: String,
+    impact_area: String,
+    control_point: String,
+    control_criteria: String,
+    test_plan: String,
+    rollback_plan: String,
+    executor_role: String,
+    correctness_guard_role: String,
+    controller_role: String,
+    independent_verifier_role: String,
+    final_approver_role: String,
+    status: String,
+}
+
+#[tauri::command]
+fn get_swarm_allocations_cmd(
+    task_id: String,
+) -> Result<Vec<crate::core::ai_workflow_manager::SwarmAllocation>, String> {
+    crate::core::ai_workflow_manager::AiWorkflowManager::list_allocations(&task_id)
+}
+
+#[tauri::command]
+fn get_asker_motoru_status_cmd() -> Result<crate::core::asker_motoru_bridge::AskerMotoruBridgeReport, String> {
+    Ok(crate::core::asker_motoru_bridge::AskerMotoruBridge::scan_status_files())
+}
+
+#[tauri::command]
+fn sync_supabase_cmd(limit: Option<usize>) -> Result<crate::storage::supabase_sync::SupabaseSyncStatus, String> {
+    crate::storage::supabase_sync::SupabaseSync::sync_recent_tasks(limit.unwrap_or(20))
+}
+
+#[tauri::command]
+fn get_db_size_cmd() -> Result<u64, String> {
+    crate::storage::log_rotation::LogRotation::db_size_bytes()
+}
+
+#[tauri::command]
+fn get_operation_packages_cmd(task_id: String) -> Result<Vec<OperationPackageUi>, String> {
+    let conn = init_db().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        "SELECT CAST(id AS TEXT), package_order, package_type, subject, sub_topic, criterion, sub_criterion,
+                accepted_truth, selected_best_alternative, operation_sequence, technology, impact_area,
+                control_point, control_criteria, test_plan, rollback_plan, executor_role,
+                correctness_guard_role, controller_role, independent_verifier_role, final_approver_role, status
+         FROM operation_packages
+         WHERE task_id = ?1
+         ORDER BY package_order ASC",
+    )
+    .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map(rusqlite::params![task_id], |row| {
+            Ok(OperationPackageUi {
+                id: row.get(0)?,
+                package_order: row.get(1)?,
+                package_type: row.get(2)?,
+                subject: row.get(3)?,
+                sub_topic: row.get(4)?,
+                criterion: row.get(5)?,
+                sub_criterion: row.get(6)?,
+                accepted_truth: row.get(7)?,
+                selected_best_alternative: row.get(8)?,
+                operation_sequence: row.get(9)?,
+                technology: row.get(10)?,
+                impact_area: row.get(11)?,
+                control_point: row.get(12)?,
+                control_criteria: row.get(13)?,
+                test_plan: row.get(14)?,
+                rollback_plan: row.get(15)?,
+                executor_role: row.get(16)?,
+                correctness_guard_role: row.get(17)?,
+                controller_role: row.get(18)?,
+                independent_verifier_role: row.get(19)?,
+                final_approver_role: row.get(20)?,
+                status: row.get(21)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -157,11 +260,12 @@ struct DecisionUiNode {
 #[tauri::command]
 fn get_decisions_cmd(task_id: String) -> Result<Vec<DecisionUiNode>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, authorized_decider_id, status, selected_option, reason, level, CAST(required_approval AS TEXT) FROM decision_nodes WHERE task_id = ?1 ORDER BY level ASC")
+    let mut stmt = conn.prepare("SELECT CAST(id AS TEXT), authorized_decider_id, status, selected_option, reason, level, required_approval FROM decision_nodes WHERE task_id = ?1 ORDER BY level ASC")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
         .query_map(rusqlite::params![task_id], |row| {
+            let req_app: Option<i32> = row.get(6)?;
             Ok(DecisionUiNode {
                 id: row.get(0)?,
                 authorized_decider_id: row.get(1)?,
@@ -169,7 +273,7 @@ fn get_decisions_cmd(task_id: String) -> Result<Vec<DecisionUiNode>, String> {
                 selected_option: row.get(3)?,
                 reason: row.get(4)?,
                 level: row.get(5)?,
-                required_approval: row.get(6)?,
+                required_approval: req_app.map(|v| v.to_string()),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -198,7 +302,7 @@ struct AlternativeUi {
 fn get_alternatives_cmd(task_id: String) -> Result<Vec<AlternativeUi>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
     let mut stmt = conn.prepare(
-        "SELECT a.id, a.decision_node_id, a.title, a.description, a.accuracy_score, a.safety_score, a.dependency_score, a.selected, a.reason 
+        "SELECT CAST(a.id AS TEXT), CAST(a.decision_node_id AS TEXT), a.title, a.description, a.accuracy_score, a.safety_score, a.dependency_score, a.selected, a.reason 
          FROM alternatives a
          INNER JOIN decision_nodes d ON a.decision_node_id = d.id
          WHERE d.task_id = ?1"
@@ -241,7 +345,7 @@ struct ApprovalUi {
 #[tauri::command]
 fn get_approvals_cmd(task_id: String) -> Result<Vec<ApprovalUi>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, action, risk_level, status, approver_id, approver_role, approval_source FROM approvals WHERE task_id = ?1")
+    let mut stmt = conn.prepare("SELECT CAST(id AS TEXT), action, risk_level, status, approver_id, approver_role, approval_source FROM approvals WHERE task_id = ?1")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -277,7 +381,7 @@ struct CheckpointUi {
 fn get_checkpoints_cmd(task_id: String) -> Result<Vec<CheckpointUi>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, checkpoint_type, status, result FROM checkpoints WHERE task_id = ?1")
+        .prepare("SELECT CAST(id AS TEXT), checkpoint_type, status, result FROM checkpoints WHERE task_id = ?1")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -310,7 +414,7 @@ struct TestUi {
 #[tauri::command]
 fn get_tests_cmd(task_id: String) -> Result<Vec<TestUi>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare("SELECT id, test_name, expected_result, actual_result, status FROM tests WHERE task_id = ?1")
+    let mut stmt = conn.prepare("SELECT CAST(id AS TEXT), test_name, expected_result, actual_result, status FROM tests WHERE task_id = ?1")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -343,7 +447,7 @@ struct ReportUi {
 fn get_reports_cmd(task_id: String) -> Result<Vec<ReportUi>, String> {
     let conn = init_db().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, report_type, content FROM reports WHERE task_id = ?1")
+        .prepare("SELECT CAST(id AS TEXT), report_type, content FROM reports WHERE task_id = ?1")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -392,7 +496,13 @@ pub fn run() {
             get_approvals_cmd,
             get_checkpoints_cmd,
             get_tests_cmd,
-            get_reports_cmd
+            get_reports_cmd,
+            get_task_breakdowns_cmd,
+            get_operation_packages_cmd,
+            get_swarm_allocations_cmd,
+            get_asker_motoru_status_cmd,
+            sync_supabase_cmd,
+            get_db_size_cmd
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| eprintln!("Tauri uygulamasi calistirilamadi: {}", e));

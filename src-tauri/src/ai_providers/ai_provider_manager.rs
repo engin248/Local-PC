@@ -47,7 +47,15 @@ impl AIProviderManager {
             };
 
             if api_key_present {
-                status = "available".to_string();
+                match Self::check_tcp_connection(&config.base_url, 3) {
+                    Ok(_) => {
+                        status = "available".to_string();
+                    }
+                    Err(e) => {
+                        status = "connection_failed".to_string();
+                        last_error = Some(e);
+                    }
+                }
             } else {
                 status = "missing_api_key".to_string();
                 last_error = Some(format!(
@@ -70,6 +78,58 @@ impl AIProviderManager {
             allowed_task_types: config.allowed_task_types.clone(),
             last_error,
             last_checked_at: Self::now_string(),
+        }
+    }
+
+    fn check_tcp_connection(url_str: &str, timeout_secs: u64) -> Result<(), String> {
+        use std::net::{TcpStream, ToSocketAddrs};
+        use std::time::Duration;
+
+        let without_protocol = if let Some(stripped) = url_str.strip_prefix("https://") {
+            stripped
+        } else if let Some(stripped) = url_str.strip_prefix("http://") {
+            stripped
+        } else {
+            url_str
+        };
+
+        let authority = without_protocol.split('/').next().unwrap_or(without_protocol);
+
+        let (host, port) = if let Some(pos) = authority.find(':') {
+            let (h, p) = authority.split_at(pos);
+            (h, p.trim_start_matches(':'))
+        } else {
+            if url_str.starts_with("https://") {
+                (authority, "443")
+            } else {
+                (authority, "80")
+            }
+        };
+
+        let addr_str = format!("{}:{}", host, port);
+        let socket_addrs = addr_str
+            .to_socket_addrs()
+            .map_err(|e| format!("Adres çözümlenemedi ({}): {}", addr_str, e))?;
+
+        let mut success = false;
+        let mut last_err = "Host adresi bulunamadı".to_string();
+
+        for addr in socket_addrs {
+            match TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs)) {
+                Ok(_) => {
+                    success = true;
+                    break;
+                }
+                Err(e) => {
+                    last_err = format!("Bağlantı zaman aşımına uğradı veya reddedildi ({}): {}", addr, e);
+                }
+            }
+        }
+
+        if success {
+            Ok(())
+        } else {
+            Err(last_err)
         }
     }
 
@@ -116,6 +176,68 @@ impl AIProviderManager {
             Ok(duration) => duration.as_secs().to_string(),
             Err(_) => "0".to_string(),
         }
+    }
+
+    pub fn select_with_failover() -> Result<(AIProviderConfig, String), String> {
+        let configs = Self::load_configs()?;
+        if configs.is_empty() {
+            return Err("ai_providers.json boş.".to_string());
+        }
+
+        let order = Self::load_failover_order()?;
+        let mut trail = Vec::new();
+
+        for provider_id in &order {
+            let Some(config) = configs.iter().find(|c| &c.id == provider_id) else {
+                continue;
+            };
+            let health = Self::health_check(config);
+            trail.push(format!("{}:{}", config.id, health.status));
+            if matches!(
+                health.status.as_str(),
+                "available" | "disabled" | "missing_api_key"
+            ) {
+                return Ok((
+                    config.clone(),
+                    format!("failover_route={}; trail={}", config.id, trail.join(" -> ")),
+                ));
+            }
+        }
+
+        let fallback = configs[0].clone();
+        let fallback_id = fallback.id.clone();
+        Ok((
+            fallback,
+            format!(
+                "failover_route=fallback_first:{}; trail={}",
+                fallback_id,
+                trail.join(" -> ")
+            ),
+        ))
+    }
+
+    fn load_failover_order() -> Result<Vec<String>, String> {
+        let path = DependencyAnalyzer::get_config_path("failover_policy.json")?;
+        let data = fs::read_to_string(&path)
+            .map_err(|e| format!("failover_policy.json okunamadı: {}", e))?;
+        let value: serde_json::Value =
+            serde_json::from_str(&data).map_err(|e| format!("failover_policy.json geçersiz: {}", e))?;
+        let mut order = Vec::new();
+        if let Some(arr) = value.get("primary_order").and_then(|v| v.as_array()) {
+            for item in arr {
+                if let Some(id) = item.as_str() {
+                    order.push(id.to_string());
+                }
+            }
+        }
+        if order.is_empty() {
+            order = vec![
+                "chatgpt".to_string(),
+                "gemini".to_string(),
+                "ollama".to_string(),
+            ];
+        }
+        Ok(order)
     }
 }
 

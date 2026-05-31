@@ -80,17 +80,24 @@ impl SystemConnectorManager {
                     }
                 },
                 "api" | "live_api" => {
-                    if config
-                        .base_url
-                        .as_deref()
-                        .map(str::trim)
-                        .unwrap_or("")
-                        .is_empty()
-                    {
-                        status = "error".to_string();
-                        last_error = Some("base_url boş.".to_string());
+                    if let Some(ref base_url) = config.base_url {
+                        if base_url.trim().is_empty() {
+                            status = "error".to_string();
+                            last_error = Some("base_url boş.".to_string());
+                        } else {
+                            match Self::check_tcp_connection(base_url, 3) {
+                                Ok(_) => {
+                                    status = "available".to_string();
+                                }
+                                Err(e) => {
+                                    status = "connection_failed".to_string();
+                                    last_error = Some(e);
+                                }
+                            }
+                        }
                     } else {
-                        status = "read_only_configured".to_string();
+                        status = "error".to_string();
+                        last_error = Some("base_url tanımsız.".to_string());
                     }
                 }
                 "terminal" => {
@@ -124,6 +131,58 @@ impl SystemConnectorManager {
             status,
             last_error,
             last_checked_at: Self::now_string(),
+        }
+    }
+
+    fn check_tcp_connection(url_str: &str, timeout_secs: u64) -> Result<(), String> {
+        use std::net::{TcpStream, ToSocketAddrs};
+        use std::time::Duration;
+
+        let without_protocol = if let Some(stripped) = url_str.strip_prefix("https://") {
+            stripped
+        } else if let Some(stripped) = url_str.strip_prefix("http://") {
+            stripped
+        } else {
+            url_str
+        };
+
+        let authority = without_protocol.split('/').next().unwrap_or(without_protocol);
+
+        let (host, port) = if let Some(pos) = authority.find(':') {
+            let (h, p) = authority.split_at(pos);
+            (h, p.trim_start_matches(':'))
+        } else {
+            if url_str.starts_with("https://") {
+                (authority, "443")
+            } else {
+                (authority, "80")
+            }
+        };
+
+        let addr_str = format!("{}:{}", host, port);
+        let socket_addrs = addr_str
+            .to_socket_addrs()
+            .map_err(|e| format!("Adres çözümlenemedi ({}): {}", addr_str, e))?;
+
+        let mut success = false;
+        let mut last_err = "Host adresi bulunamadı".to_string();
+
+        for addr in socket_addrs {
+            match TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs)) {
+                Ok(_) => {
+                    success = true;
+                    break;
+                }
+                Err(e) => {
+                    last_err = format!("Bağlantı zaman aşımına uğradı veya reddedildi ({}): {}", addr, e);
+                }
+            }
+        }
+
+        if success {
+            Ok(())
+        } else {
+            Err(last_err)
         }
     }
 

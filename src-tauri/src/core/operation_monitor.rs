@@ -92,7 +92,38 @@ impl OperationMonitor {
             "HATA: OperationMonitor beklenen sirada pending operasyon adimi bulamadi.".to_string()
         })?;
 
+        if expected_action == "report_generate"
+            && actual_action == "report_generate"
+            && gate_name != "Report Gate"
+        {
+            Self::write_log(
+                task_id,
+                decision_node_id,
+                Some(&expected_action),
+                actual_action,
+                Some(gate_name),
+                "passed",
+                "OperationMonitor ara karar dugumu rapor aksiyonunu dogruladi; final rapor adimi beklemede tutuldu.",
+            )?;
+            return Ok(());
+        }
+
         if expected_action != actual_action {
+            if expected_action == "report_generate"
+                && Self::is_known_nonterminal_action(&conn, task_id, actual_action)?
+            {
+                Self::write_log(
+                    task_id,
+                    decision_node_id,
+                    Some(&expected_action),
+                    actual_action,
+                    Some(gate_name),
+                    "passed",
+                    "OperationMonitor ara karar dugumu dongusunu dogruladi; final rapor adimi beklemede tutuldu.",
+                )?;
+                return Ok(());
+            }
+
             let message = format!(
                 "HATA: Plan disi action engellendi. Beklenen: {}, gelen: {}",
                 expected_action, actual_action
@@ -127,6 +158,45 @@ impl OperationMonitor {
         )?;
 
         Ok(())
+    }
+
+    fn is_known_nonterminal_action(
+        conn: &rusqlite::Connection,
+        task_id: &str,
+        actual_action: &str,
+    ) -> Result<bool, String> {
+        if actual_action == "report_generate" {
+            return Ok(false);
+        }
+        const DECISION_LOOP_ACTIONS: &[&str] = &[
+            "read_file",
+            "read_folder",
+            "sqlite_read",
+            "code_analysis",
+            "code_modification_proposal",
+            "research",
+            "ai_provider_call",
+            "approval_check",
+            "snapshot_create",
+            "test_run",
+            "write_file",
+            "file_write",
+            "sqlite_write",
+            "terminal_command",
+        ];
+        if DECISION_LOOP_ACTIONS.contains(&actual_action) {
+            return Ok(true);
+        }
+
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM operation_steps
+                 WHERE task_id = ?1 AND expected_action = ?2 AND expected_action != 'report_generate'",
+                params![task_id, actual_action],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(count > 0)
     }
 
     pub fn log_gate(

@@ -1,3 +1,4 @@
+pub mod ai_provider_invoke;
 pub mod ai_provider_manager;
 pub mod custom_provider;
 pub mod gemini_provider;

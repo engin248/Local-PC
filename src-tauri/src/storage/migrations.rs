@@ -31,6 +31,24 @@ pub fn get_migrations() -> Vec<&'static str> {
             decision_node_required TEXT,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
+        // Alternatives generated for every atomic task part before execution.
+        r#"CREATE TABLE IF NOT EXISTS task_breakdown_alternatives (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            breakdown_id TEXT NOT NULL,
+            alternative_order INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            accepted_correct INTEGER NOT NULL DEFAULT 0,
+            selected_best INTEGER NOT NULL DEFAULT 0,
+            selection_reason TEXT NOT NULL,
+            control_criteria TEXT NOT NULL,
+            test_criteria TEXT NOT NULL,
+            rollback_note TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY(breakdown_id) REFERENCES task_breakdown(id) ON DELETE CASCADE
+        );"#,
         // Decision Nodes Table
         r#"CREATE TABLE IF NOT EXISTS decision_nodes (
             id TEXT PRIMARY KEY,
@@ -209,6 +227,33 @@ pub fn get_migrations() -> Vec<&'static str> {
             step_order INTEGER NOT NULL,
             expected_action TEXT NOT NULL,
             description TEXT NOT NULL,
+            status TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
+        );"#,
+        r#"CREATE TABLE IF NOT EXISTS operation_packages (
+            id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            package_order INTEGER NOT NULL,
+            package_type TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            sub_topic TEXT NOT NULL,
+            criterion TEXT NOT NULL,
+            sub_criterion TEXT NOT NULL,
+            accepted_truth TEXT NOT NULL,
+            selected_best_alternative TEXT NOT NULL,
+            operation_sequence TEXT NOT NULL,
+            technology TEXT NOT NULL,
+            impact_area TEXT NOT NULL,
+            control_point TEXT NOT NULL,
+            control_criteria TEXT NOT NULL,
+            test_plan TEXT NOT NULL,
+            rollback_plan TEXT NOT NULL,
+            executor_role TEXT NOT NULL,
+            correctness_guard_role TEXT NOT NULL,
+            controller_role TEXT NOT NULL,
+            independent_verifier_role TEXT NOT NULL,
+            final_approver_role TEXT NOT NULL,
             status TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE

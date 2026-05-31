@@ -24,305 +24,139 @@ pub struct TaskDecomposer;
 impl TaskDecomposer {
     pub fn decompose_task(task_id: &str, user_request: &str) -> Result<Vec<TaskBreakdown>, String> {
         let mut breakdowns = Vec::new();
+        let db = Database::new();
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
 
-        // Dynamically split user_request into sentences or lines
+        let existing_nodes: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM decision_nodes WHERE task_id = ?1",
+                params![task_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if existing_nodes == 0 {
+            conn.execute(
+                "DELETE FROM task_breakdown_alternatives WHERE task_id = ?1",
+                params![task_id],
+            )
+            .map_err(|e| e.to_string())?;
+            conn.execute("DELETE FROM task_breakdown WHERE task_id = ?1", params![task_id])
+                .map_err(|e| e.to_string())?;
+        }
+
         let lines: Vec<&str> = user_request
             .split(&['.', '\n', ';'][..])
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect();
 
-        // Fallback to real local-control steps if user_request is too short.
         let lines = if lines.is_empty() {
             vec![
-                "Kullanıcı talimatını ve hedef etki alanını doğrula.",
-                "Yetki matrisi atamasını doğrula.",
-                "Alternatifleri risk ve geri alınabilirlik kriterleriyle derecelendir.",
-                "Gerçek hedef için snapshot ve rollback yedeği oluştur.",
-                "Test ve bütünlük kontrollerini tamamla.",
+                "Kullanici talimatini ve hedef etki alanini dogrula",
+                "Konu, alt konu, kriter ve alt kriter cikar",
+                "Her parca icin real hayat alternatiflerini cikar",
+                "Dogru yaklasimi ve en iyi uygulanabilir alternatifi sec",
+                "Plan, test ve rollback ile alt birime verilecek operasyon paketini hazirla",
             ]
         } else {
             lines
         };
 
-        let default_steps = [
+        let atomic_phases = [
             (
-                "Görev Analizi",
-                "Proje Analizi",
-                "Sistem Kriteri",
-                "Giriş Doğruluğu",
+                "Cozumleme",
+                "Konu/alt konu/kriter/alt kriter cikarimi",
+                "Parcalama Derinligi",
+                "En kucuk uygulanabilir parca",
             ),
             (
-                "Karar Yetkilendirme",
-                "Yetki Seçimi",
-                "Kriter Eşleşmesi",
-                "Matris Onayı",
+                "Alternatif Analizi",
+                "Real hayat alternatiflerini cikar",
+                "Alternatif Kapsami",
+                "Her parca icin alternatif",
             ),
             (
-                "Alternatif Analiz",
-                "Alternatif Seçimi",
-                "Puanlama Kriteri",
-                "Risk Derecesi",
+                "Dogru Secimi",
+                "Kabul edilmis dogrulari belirle",
+                "Dogru Yaklasim Kriteri",
+                "Dogru once, hiz sonra",
             ),
             (
-                "Güvenlik ve Onay",
-                "Snapshot Hazırlığı",
-                "Geri Alma Kriteri",
-                "Kullanıcı Onayı",
+                "Uygulanabilir Secim",
+                "En iyi alternatifi sec",
+                "Uygulanabilirlik Kriteri",
+                "Teknoloji/etki/rollback uyumu",
             ),
             (
-                "Operasyon Testi",
-                "Uygulama Testleri",
-                "Bütünlük Kontrolü",
-                "Rapor Derleme",
+                "Kontrol ve Onay",
+                "Kontrol, bagimsiz dogrulama ve son onay",
+                "Rol Ayrimi Kriteri",
+                "Yapan kontrol edenden ayridir",
             ),
         ];
 
-        let db = Database::new();
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
-
+        let mut sequence: i32 = 1;
         for (i, line) in lines.into_iter().enumerate() {
             let line_lower = line.to_lowercase();
-
-            // Otonom Anahtar Kelime Analizi ve Kategorizasyon
-            let (topic, subtopic_default, crit, subcrit) = if line_lower.contains("dosya")
-                || line_lower.contains("file")
-                || line_lower.contains("folder")
-                || line_lower.contains("klasör")
-                || line_lower.contains("yazma")
-            {
-                (
-                    "Dosya Sistemi Operasyonu",
-                    "Dosya/Klasör Modifikasyonu",
-                    "Fiziksel Veri Kriteri",
-                    "Dosya Değişiklik Kontrolü",
-                )
-            } else if line_lower.contains("veritabanı")
-                || line_lower.contains("db")
-                || line_lower.contains("sqlite")
-                || line_lower.contains("tablo")
-                || line_lower.contains("sql")
-            {
-                (
-                    "Veritabanı İşlemi",
-                    "SQLite Şema Analizi",
-                    "Tablo Bütünlük Kriteri",
-                    "Kayıt Doğrulaması",
-                )
-            } else if line_lower.contains("yetki")
-                || line_lower.contains("onay")
-                || line_lower.contains("matrix")
-                || line_lower.contains("permission")
-                || line_lower.contains("decider")
-            {
-                (
-                    "Karar Yetkilendirme",
-                    "Yetki Seçimi",
-                    "Kriter Eşleşmesi",
-                    "Matris Onayı",
-                )
-            } else if line_lower.contains("risk")
-                || line_lower.contains("güvenlik")
-                || line_lower.contains("safety")
-                || line_lower.contains("bariyer")
-            {
-                (
-                    "Risk Değerlendirmesi",
-                    "Kural Analizi",
-                    "Güvenlik Bariyeri",
-                    "Risk Derecesi Kontrolü",
-                )
-            } else if line_lower.contains("test")
-                || line_lower.contains("kontrol")
-                || line_lower.contains("bütünlük")
-                || line_lower.contains("doğrulama")
-            {
-                (
-                    "Operasyon Testi",
-                    "Uygulama Testleri",
-                    "Bütünlük Kontrolü",
-                    "Rapor Derleme",
-                )
-            } else {
-                // Varsayılan Akış (Geriye Dönük Uyumluluk için Rotasyon)
-                let step_idx = i % default_steps.len();
-                default_steps[step_idx]
-            };
-
-            // Derinleştirilmiş Otonom Kategorizasyon ve Kapsam Analizi
-            let mut detected_categories = Vec::new();
-            if line_lower.contains("canlı sistem")
-                || line_lower.contains("live")
-                || line_lower.contains("production")
-            {
-                detected_categories.push("Canlı Sistem");
-            }
-            if line_lower.contains("api")
-                || line_lower.contains("http")
-                || line_lower.contains("bağlantı")
-            {
-                detected_categories.push("API");
-            }
-            if line_lower.contains("veritabanı")
-                || line_lower.contains("db")
-                || line_lower.contains("sqlite")
-            {
-                detected_categories.push("Veritabanı");
-            }
-            if line_lower.contains("stok") || line_lower.contains("inventory") {
-                detected_categories.push("Stok");
-            }
-            if line_lower.contains("sipariş") || line_lower.contains("order") {
-                detected_categories.push("Sipariş");
-            }
-            if line_lower.contains("üretim") || line_lower.contains("production") {
-                detected_categories.push("Üretim");
-            }
-            if line_lower.contains("müşteri")
-                || line_lower.contains("kvkk")
-                || line_lower.contains("customer")
-            {
-                detected_categories.push("Müşteri Verisi");
-            }
-            if line_lower.contains("finans")
-                || line_lower.contains("para")
-                || line_lower.contains("maliyet")
-            {
-                detected_categories.push("Finansal Veri");
-            }
-            if line_lower.contains("yazma") || line_lower.contains("write") {
-                detected_categories.push("Dosya Yazma");
-            }
-            if line_lower.contains("sil")
-                || line_lower.contains("delete")
-                || line_lower.contains("remove")
-            {
-                detected_categories.push("Dosya Silme");
-            }
-            if line_lower.contains("terminal")
-                || line_lower.contains("komut")
-                || line_lower.contains("cmd")
-                || line_lower.contains("bash")
-            {
-                detected_categories.push("Terminal Komutu");
-            }
-            if line_lower.contains("onay") || line_lower.contains("approval") {
-                detected_categories.push("Onay Gereksinimi");
-            }
-            if line_lower.contains("rollback")
-                || line_lower.contains("yedek")
-                || line_lower.contains("snapshot")
-                || line_lower.contains("geri")
-            {
-                detected_categories.push("Rollback/Snapshot");
-            }
-            if line_lower.contains("test")
-                || line_lower.contains("kontrol")
-                || line_lower.contains("bütünlük")
-            {
-                detected_categories.push("Test/Bütünlük");
-            }
-
-            // Otonom Ön Risk Etiketi, Muhtemel Konnektör ve Karar Düğümü Analizi
-            let risk_pre_label = if line_lower.contains("sil")
-                || line_lower.contains("canlı sistem")
-                || line_lower.contains("terminal")
-            {
-                "CRITICAL"
-            } else if line_lower.contains("yazma")
-                || line_lower.contains("api")
-                || line_lower.contains("üretim")
-                || line_lower.contains("finans")
-            {
-                "HIGH"
-            } else if line_lower.contains("veritabanı")
-                || line_lower.contains("stok")
-                || line_lower.contains("müşteri")
-            {
-                "MEDIUM"
-            } else {
-                "LOW"
-            };
-
-            let probable_connector = if line_lower.contains("api") || line_lower.contains("http") {
-                "api_connector"
-            } else if line_lower.contains("veritabanı")
-                || line_lower.contains("db")
-                || line_lower.contains("sqlite")
-            {
-                "sqlite_connector"
-            } else if line_lower.contains("dosya")
-                || line_lower.contains("folder")
-                || line_lower.contains("klasör")
-            {
-                "file_connector"
-            } else if line_lower.contains("terminal") || line_lower.contains("komut") {
-                "terminal_connector"
-            } else if line_lower.contains("rapor") || line_lower.contains("report") {
-                "report_manager"
-            } else {
-                "user_instruction"
-            };
-
+            let (topic, subtopic, criterion, subcriterion) = classify_line(&line_lower);
+            let risk_pre_label = classify_risk(&line_lower);
+            let probable_connector = classify_connector(&line_lower);
             let decision_node_required = if risk_pre_label == "CRITICAL"
                 || risk_pre_label == "HIGH"
                 || line_lower.contains("onay")
             {
-                "Evet (Kullanıcı Onayı Zorunlu)"
+                "Evet (Kullanici Onayi Zorunlu)"
             } else {
                 "Evet (Otonom Yetkilendirme)"
             };
 
-            let dynamic_subtopic = if detected_categories.is_empty() {
-                format!(
-                    "Dinamik: {} [Ön Risk: {}, Konnektör: {}, Karar Düğümü: {}]",
-                    subtopic_default, risk_pre_label, probable_connector, decision_node_required
-                )
-            } else {
-                format!(
-                    "Dinamik: {} [Ön Risk: {}, Konnektör: {}, Karar Düğümü: {}]",
-                    detected_categories.join(" + "),
-                    risk_pre_label,
-                    probable_connector,
-                    decision_node_required
-                )
-            };
-
-            let breakdown = TaskBreakdown {
+            let parent = TaskBreakdown {
                 id: Uuid::new_v4().to_string(),
                 task_id: task_id.to_string(),
                 parent_id: None,
-                level: (i + 1) as i32,
-                topic: format!("{} (Adım {})", topic, i + 1),
-                subtopic: dynamic_subtopic,
-                criterion: crit.to_string(),
-                subcriterion: subcrit.to_string(),
+                level: sequence,
+                topic: format!("{} (Ana Parca {})", topic, i + 1),
+                subtopic: format!(
+                    "{} [On Risk: {}; Konnektor: {}; Karar Dugumu: {}]",
+                    subtopic, risk_pre_label, probable_connector, decision_node_required
+                ),
+                criterion: criterion.to_string(),
+                subcriterion: subcriterion.to_string(),
                 description: Some(line.to_string()),
                 risk_pre_label: Some(risk_pre_label.to_string()),
                 probable_connector: Some(probable_connector.to_string()),
                 decision_node_required: Some(decision_node_required.to_string()),
             };
+            insert_breakdown(&conn, &parent)?;
+            insert_part_alternatives(&conn, &parent)?;
+            let parent_id = parent.id.clone();
+            breakdowns.push(parent);
+            sequence += 1;
 
-            conn.execute(
-                "INSERT INTO task_breakdown (id, task_id, parent_id, level, topic, subtopic, criterion, subcriterion, description, risk_pre_label, probable_connector, decision_node_required)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-                params![
-                    breakdown.id,
-                    breakdown.task_id,
-                    breakdown.parent_id,
-                    breakdown.level,
-                    breakdown.topic,
-                    breakdown.subtopic,
-                    breakdown.criterion,
-                    breakdown.subcriterion,
-                    breakdown.description,
-                    breakdown.risk_pre_label,
-                    breakdown.probable_connector,
-                    breakdown.decision_node_required
-                ],
-            ).map_err(|e| e.to_string())?;
-
-            breakdowns.push(breakdown);
+            for (phase, phase_subtopic, phase_criterion, phase_subcriterion) in atomic_phases {
+                let child = TaskBreakdown {
+                    id: Uuid::new_v4().to_string(),
+                    task_id: task_id.to_string(),
+                    parent_id: Some(parent_id.clone()),
+                    level: sequence,
+                    topic: format!("{} / {}", topic, phase),
+                    subtopic: format!(
+                        "{} [Kaynak Parca: {}; Alternatif Politikasi: her parca icin real hayat alternatifleri]",
+                        phase_subtopic,
+                        i + 1
+                    ),
+                    criterion: phase_criterion.to_string(),
+                    subcriterion: phase_subcriterion.to_string(),
+                    description: Some(format!("{} -> {}", line, phase)),
+                    risk_pre_label: Some(risk_pre_label.to_string()),
+                    probable_connector: Some(probable_connector.to_string()),
+                    decision_node_required: Some(decision_node_required.to_string()),
+                };
+                insert_breakdown(&conn, &child)?;
+                insert_part_alternatives(&conn, &child)?;
+                breakdowns.push(child);
+                sequence += 1;
+            }
         }
 
         Ok(breakdowns)
@@ -331,7 +165,7 @@ impl TaskDecomposer {
     pub fn get_breakdowns(task_id: &str) -> Result<Vec<TaskBreakdown>, String> {
         let db = Database::new();
         let conn = db.get_connection().map_err(|e| e.to_string())?;
-        let mut stmt = conn.prepare("SELECT id, task_id, parent_id, level, topic, subtopic, criterion, subcriterion, description, risk_pre_label, probable_connector, decision_node_required FROM task_breakdown WHERE task_id = ?1")
+        let mut stmt = conn.prepare("SELECT id, task_id, parent_id, level, topic, subtopic, criterion, subcriterion, description, risk_pre_label, probable_connector, decision_node_required FROM task_breakdown WHERE task_id = ?1 ORDER BY level ASC")
             .map_err(|e| e.to_string())?;
 
         let rows = stmt
@@ -360,4 +194,172 @@ impl TaskDecomposer {
 
         Ok(breakdowns)
     }
+}
+
+fn insert_breakdown(conn: &rusqlite::Connection, breakdown: &TaskBreakdown) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO task_breakdown (id, task_id, parent_id, level, topic, subtopic, criterion, subcriterion, description, risk_pre_label, probable_connector, decision_node_required)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        params![
+            breakdown.id,
+            breakdown.task_id,
+            breakdown.parent_id,
+            breakdown.level,
+            breakdown.topic,
+            breakdown.subtopic,
+            breakdown.criterion,
+            breakdown.subcriterion,
+            breakdown.description,
+            breakdown.risk_pre_label,
+            breakdown.probable_connector,
+            breakdown.decision_node_required
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn insert_part_alternatives(
+    conn: &rusqlite::Connection,
+    breakdown: &TaskBreakdown,
+) -> Result<(), String> {
+    let alternatives = [
+        (
+            "Sadece oku ve raporla",
+            "Parcayi degistirmeden analiz eder; yan etki olusturmaz.",
+            1,
+            0,
+            "Kabul edilmis dogru yaklasim olarak veri guvenligi ve geri alinabilirlik korunur.",
+        ),
+        (
+            "Uygulama yapma, manuel operasyon plani uret",
+            "Parca icin insan tarafindan uygulanabilir plan hazirlar ve otomatik etkiyi durdurur.",
+            1,
+            0,
+            "Yuksek belirsizlik veya kritik riskte en guvenli gercek hayat alternatifidir.",
+        ),
+        (
+            "Onayli, kontrollu ve rollback destekli uygula",
+            "Plan, teknoloji, etki alani, kontrol noktasi, test ve rollback tamamlandiktan sonra uygular.",
+            1,
+            1,
+            "Dogru kabul edilmis guvenlik ilkeleriyle birlikte uygulanabilir en iyi secenektir.",
+        ),
+        (
+            "Onaysiz ve rollback'siz dogrudan uygula",
+            "Hizli ama kontrolsuz uygulama yapar; standartlara aykiridir ve elenir.",
+            0,
+            0,
+            "Kontrol, test, onay ve rollback kriterlerini saglamadigi icin reddedilir.",
+        ),
+    ];
+
+    for (idx, (title, description, accepted_correct, selected_best, reason)) in
+        alternatives.iter().enumerate()
+    {
+        conn.execute(
+            "INSERT INTO task_breakdown_alternatives
+             (id, task_id, breakdown_id, alternative_order, title, description, accepted_correct,
+              selected_best, selection_reason, control_criteria, test_criteria, rollback_note)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                Uuid::new_v4().to_string(),
+                breakdown.task_id,
+                breakdown.id,
+                (idx + 1) as i32,
+                title,
+                description,
+                accepted_correct,
+                selected_best,
+                reason,
+                format!(
+                    "{} / {} / {} / {} kontrol edildi",
+                    breakdown.topic, breakdown.subtopic, breakdown.criterion, breakdown.subcriterion
+                ),
+                "Gercek test kriteri plan paketinde tanimli olmadan yurutme baslamaz",
+                "Snapshot/geri alma plani plan paketinde tanimli olmadan yurutme baslamaz"
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn classify_line(line_lower: &str) -> (&'static str, &'static str, &'static str, &'static str) {
+    if contains_any(line_lower, &["dosya", "file", "folder", "klasor", "klasör", "yazma"]) {
+        (
+            "Dosya Sistemi Operasyonu",
+            "Dosya/Klasor Modifikasyonu",
+            "Fiziksel Veri Kriteri",
+            "Dosya Degisiklik Kontrolu",
+        )
+    } else if contains_any(line_lower, &["veritabani", "veritabanı", "db", "sqlite", "tablo", "sql"]) {
+        (
+            "Veritabani Islemi",
+            "SQLite Sema Analizi",
+            "Tablo Butunluk Kriteri",
+            "Kayit Dogrulamasi",
+        )
+    } else if contains_any(line_lower, &["yetki", "onay", "matrix", "permission", "decider"]) {
+        (
+            "Karar Yetkilendirme",
+            "Yetki Secimi",
+            "Kriter Eslesmesi",
+            "Matris Onayi",
+        )
+    } else if contains_any(line_lower, &["risk", "guvenlik", "güvenlik", "safety", "bariyer"]) {
+        (
+            "Risk Degerlendirmesi",
+            "Kural Analizi",
+            "Guvenlik Bariyeri",
+            "Risk Derecesi Kontrolu",
+        )
+    } else if contains_any(line_lower, &["test", "kontrol", "butunluk", "bütünlük", "dogrulama", "doğrulama"]) {
+        (
+            "Operasyon Testi",
+            "Uygulama Testleri",
+            "Butunluk Kontrolu",
+            "Rapor Derleme",
+        )
+    } else {
+        (
+            "Gorev Analizi",
+            "Proje Analizi",
+            "Sistem Kriteri",
+            "Giris Dogrulugu",
+        )
+    }
+}
+
+fn classify_risk(line_lower: &str) -> &'static str {
+    if contains_any(line_lower, &["sil", "delete", "remove", "canli sistem", "canlı sistem", "terminal"]) {
+        "CRITICAL"
+    } else if contains_any(line_lower, &["yazma", "api", "uretim", "üretim", "finans"]) {
+        "HIGH"
+    } else if contains_any(line_lower, &["veritabani", "veritabanı", "db", "stok", "musteri", "müşteri"]) {
+        "MEDIUM"
+    } else {
+        "LOW"
+    }
+}
+
+fn classify_connector(line_lower: &str) -> &'static str {
+    if contains_any(line_lower, &["api", "http"]) {
+        "api_connector"
+    } else if contains_any(line_lower, &["veritabani", "veritabanı", "db", "sqlite"]) {
+        "sqlite_connector"
+    } else if contains_any(line_lower, &["dosya", "file", "folder", "klasor", "klasör"]) {
+        "file_connector"
+    } else if contains_any(line_lower, &["terminal", "komut", "cmd"]) {
+        "terminal_connector"
+    } else if contains_any(line_lower, &["rapor", "report"]) {
+        "report_manager"
+    } else {
+        "user_instruction"
+    }
+}
+
+fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+    needles.iter().any(|needle| haystack.contains(needle))
 }

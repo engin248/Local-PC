@@ -113,7 +113,7 @@
   }  ,{
     "id": "codex",
     "name": "Codex (Tek Uygulayıcı)",
-    "type": "agent",
+    "type": "local",
     "base_url": "http://127.0.0.1:8081",
     "api_key_env": "CODEX_API_KEY",
     "model": "codex-agent-v1",
@@ -134,7 +134,7 @@
   {
     "id": "oam",
     "name": "Open Agent Manager (Baş Müfettiş)",
-    "type": "agent",
+    "type": "local",
     "base_url": "http://127.0.0.1:8082",
     "api_key_env": "OAM_API_KEY",
     "model": "oam-v1",
@@ -155,7 +155,7 @@
   {
     "id": "antigravity",
     "name": "Antigravity (Destek Analiz)",
-    "type": "agent",
+    "type": "local",
     "base_url": "http://127.0.0.1:8083",
     "api_key_env": "ANTIGRAVITY_API_KEY",
     "model": "antigravity-v1",
@@ -176,7 +176,7 @@
   {
     "id": "cursor",
     "name": "Cursor (Kod Okuma/Dosya)",
-    "type": "agent",
+    "type": "local",
     "base_url": "http://127.0.0.1:8084",
     "api_key_env": "CURSOR_API_KEY",
     "model": "cursor-v1",

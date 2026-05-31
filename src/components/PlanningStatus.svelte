@@ -11,7 +11,12 @@
   let sub_topic = $state("Yetkili Onay Kapılı Yazma");
   let criterion = $state("Tam Geri Alınabilirlik");
   let sub_criterion = $state("Snapshot-Bazlı Rollback");
-  let alternatives = $state(["Yedek alıp kullanıcı onayıyla yazma", "Yedeksiz doğrudan üzerine yazma", "Harici betikle yazma"]);
+  let alternatives = $state([
+    "Sadece oku ve raporla",
+    "Uygulama yapma, manuel plan üret",
+    "Onaylı, kontrollü ve rollback destekli uygula",
+    "Onaysız ve rollback'siz doğrudan uygula - elenen alternatif"
+  ]);
   let risk_analysis = $state("high");
   let impact_area = $state("storage/app.db");
   let technology_selection = $state("Tauri, Rust, SQLite, Svelte");
@@ -19,10 +24,26 @@
   let checkpoints = $state(["Planlama kapısı kontrolü", "Yetki eşleştirme kontrolü", "Risk analiz kontrolü"]);
   let test_criteria = $state(["file_exists:storage/app.db"]);
   let rollback_plan = $state("Değişiklikten önce gerçek hedef snapshot'ı alınır; hata halinde kayıtlı snapshot hedefe geri yüklenir.");
-  let operation_plan = $state("Adım 1: Klasör oku, Adım 2: Onay al, Adım 3: Snapshot al, Adım 4: Dosya yaz, Adım 5: Doğrula");
+  let operation_plan = $state("action:code_analysis, action:approval_check, action:snapshot_create, action:test_run, action:report_generate");
   let authorized_deciders = $state(["local_projects", "local_app_db", "user"]);
   let accepted_correct_approach_reason = $state("Genel doğru yaklaşım kullanıcı iradesini, veri gizliliğini, rollback ve test edilebilirliği korur.");
   let selected_best_option_reason = $state("Seçilen en iyi seçenek mevcut sistemle uyumlu, düşük riskli, rollback destekli ve test edilebilirdir.");
+  let operation_sequence = $state([
+    "Çözümleme yap",
+    "Kabul edilmiş doğruyu seç",
+    "Her kriter için en iyi alternatifi seç",
+    "Uygulama paketini alt birime ver",
+    "Kontrol et",
+    "Bağımsız doğrula",
+    "Son onay ver"
+  ]);
+  let control_criteria = $state(["Plan var", "Etki alanı var", "Teknoloji var", "Test var", "Rollback var"]);
+  let executor_role = $state("executor");
+  let correctness_guard_role = $state("correctness_guard");
+  let controller_role = $state("controller");
+  let independent_verifier_role = $state("independent_verifier");
+  let final_approver_role = $state("final_approver");
+  let per_part_alternative_policy = $state("Her atomik parça için gerçek hayattaki tüm makul alternatifler aynı kriterlerle değerlendirilir ve veritabanına kaydedilir.");
 
   function parseCommaList(value: string) {
     return value
@@ -57,21 +78,29 @@
       operation_plan,
       authorized_deciders,
       accepted_correct_approach_reason,
-      selected_best_option_reason
+      selected_best_option_reason,
+      operation_sequence,
+      control_criteria,
+      executor_role,
+      correctness_guard_role,
+      controller_role,
+      independent_verifier_role,
+      final_approver_role,
+      per_part_alternative_policy
     });
   }
 </script>
 
 <div class="planning-container">
-  <h3>PLANLAMA STANDARDI & KİLİT AÇMA FORMU (17/17 ZORUNLU ALAN)</h3>
+  <h3>PLANLAMA STANDARDI & KİLİT AÇMA FORMU (MİMARİ ZORUNLU ALANLAR)</h3>
   
   {#if task?.planning_status === 'planning_complete'}
     <div class="success-alert">
-      <strong>PLAN ONAYLANDI:</strong> 17 zorunlu planlama alanı girildi, kilit açıldı ve doğrulanmış karar altyapısı hazırlandı.
+      <strong>PLAN ONAYLANDI:</strong> Mimari zorunlu alanlar, rol ayrımı, test ve rollback doğrulandı; operasyon paketi veritabanına kaydedildi.
     </div>
   {:else}
     <div class="warning-alert">
-      <strong>PLANLAMA KİLİDİ AKTİF:</strong> Aşağıdaki 17 alanı doldurup kaydetmeden Execution Engine çalışmayacaktır.
+      <strong>PLANLAMA KİLİDİ AKTİF:</strong> Plan, işlem sırası, teknoloji, etki alanı, kontrol kriterleri, test ve rollback olmadan Execution Engine çalışmaz.
     </div>
   {/if}
 
@@ -158,10 +187,42 @@
         <label for="best-option-reason">Seçilen En İyi Seçenek Gerekçesi</label>
         <input id="best-option-reason" bind:value={selected_best_option_reason} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
+      <div class="field wide">
+        <label for="operation-sequence">İşlem Sırası (Virgülle Ayırın)</label>
+        <input id="operation-sequence" value={operation_sequence.join(', ')} oninput={(event) => operation_sequence = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field wide">
+        <label for="control-criteria">Kontrol Kriterleri (Virgülle Ayırın)</label>
+        <input id="control-criteria" value={control_criteria.join(', ')} oninput={(event) => control_criteria = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field">
+        <label for="executor-role">İşlemi Yapan Rol</label>
+        <input id="executor-role" bind:value={executor_role} required disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field">
+        <label for="guard-role">Doğru Yapılmasını Sağlayan Rol</label>
+        <input id="guard-role" bind:value={correctness_guard_role} required disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field">
+        <label for="controller-role">Kontrol Eden Rol</label>
+        <input id="controller-role" bind:value={controller_role} required disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field">
+        <label for="verifier-role">Bağımsız Doğrulayan Rol</label>
+        <input id="verifier-role" bind:value={independent_verifier_role} required disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field">
+        <label for="approver-role">Son Onay Veren Rol</label>
+        <input id="approver-role" bind:value={final_approver_role} required disabled={task?.planning_status === 'planning_complete'} />
+      </div>
+      <div class="field wide">
+        <label for="alternative-policy">Her Parça İçin Alternatif Politikası</label>
+        <input id="alternative-policy" bind:value={per_part_alternative_policy} required disabled={task?.planning_status === 'planning_complete'} />
+      </div>
     </div>
 
     {#if task?.planning_status !== 'planning_complete'}
-      <button type="submit" class="submit-plan-btn">17/17 Planı Gönder & Kilidi Kaldır</button>
+      <button type="submit" class="submit-plan-btn">Mimari Planı Gönder & Kilidi Kaldır</button>
     {/if}
   </form>
 </div>
@@ -207,6 +268,7 @@
     flex-direction: column;
     gap: 4px;
   }
+  .field.wide { grid-column: 1 / -1; }
   label { font-size: 0.7rem; color: #888; text-transform: uppercase; }
   input, select {
     padding: 6px;

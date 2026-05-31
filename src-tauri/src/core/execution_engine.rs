@@ -1,3 +1,4 @@
+use crate::core::action_executor::ActionExecutor;
 use crate::core::alternative_analyzer::AlternativeAnalyzer;
 use crate::core::approval_manager::ApprovalManager;
 use crate::core::audit_logger::AuditLogger;
@@ -769,6 +770,15 @@ impl ExecutionEngine {
                 None,
             )?;
 
+            ActionExecutor::dispatch_after_gates(
+                task_id,
+                node_id,
+                action,
+                &target_path,
+                context,
+                &risk.risk_level,
+            )?;
+
             // Update node status to completed in DB
             conn.execute(
                 "UPDATE decision_nodes SET status = 'completed' WHERE id = ?1",
@@ -961,6 +971,7 @@ mod tests {
                 "Yalnizca oku ve raporla".to_string(),
                 "Uygulama yapma, manuel plan uret".to_string(),
                 "Onayli ve rollback destekli uygula".to_string(),
+                "Onaysiz ve rollback'siz dogrudan uygulama - elenen alternatif".to_string(),
             ],
             risk_analysis: "high".to_string(),
             impact_area: test_log_str.clone(),
@@ -970,7 +981,7 @@ mod tests {
             test_criteria: vec!["file_exists:integration_test_target.txt".to_string()],
             rollback_plan: "Restore integration test target from snapshot backup".to_string(),
             operation_plan:
-                "action:code_analysis, action:snapshot_create, action:test_run, action:report_generate"
+                "action:code_analysis, action:snapshot_create, action:test_run, action:code_modification_proposal, action:report_generate"
                     .to_string(),
             authorized_deciders: vec!["Admin".to_string(), "Security Officer".to_string()],
             accepted_correct_approach_reason:
@@ -978,6 +989,24 @@ mod tests {
                     .to_string(),
             selected_best_option_reason:
                 "Secilen en iyi secenek mevcut test hedefiyle uyumlu, geri alinabilir ve dogrulanabilir."
+                    .to_string(),
+            operation_sequence: vec![
+                "Cozumleme yap".to_string(),
+                "Kabul edilmis dogruyu sec".to_string(),
+                "En iyi uygulanabilir alternatifi sec".to_string(),
+                "Uygulama paketini alt birime ver".to_string(),
+                "Kontrol et".to_string(),
+                "Bagimsiz dogrula".to_string(),
+                "Son onay ver".to_string(),
+            ],
+            control_criteria: vec!["Plan var".to_string(), "Rollback var".to_string()],
+            executor_role: "executor".to_string(),
+            correctness_guard_role: "correctness_guard".to_string(),
+            controller_role: "controller".to_string(),
+            independent_verifier_role: "independent_verifier".to_string(),
+            final_approver_role: "final_approver".to_string(),
+            per_part_alternative_policy:
+                "Her atomik parca icin real hayattaki tum makul alternatifler ayni kriterlerle degerlendirilir."
                     .to_string(),
         };
 

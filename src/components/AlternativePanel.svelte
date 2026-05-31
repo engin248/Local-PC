@@ -48,12 +48,6 @@
     border-bottom: 1px solid #333;
   }
   h3 { margin: 0 0 12px 0; font-size: 0.85rem; letter-spacing: 1px; color: #e0e0e0; }
-  
-  
-  
-  
-  
-  .score { font-family: monospace; font-weight: bold; }
   .badge {
     font-size: 0.65rem;
     padding: 2px 5px;

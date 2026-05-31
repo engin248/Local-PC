@@ -66,6 +66,36 @@ impl TaskIntake {
             ],
         ).map_err(|e| e.to_string())?;
 
+        let breakdowns = crate::core::task_decomposer::TaskDecomposer::decompose_task(
+            &task.id,
+            &task.user_request,
+        )?;
+        let max_risk = if breakdowns.iter().any(|b| b.risk_pre_label.as_deref() == Some("CRITICAL")) {
+            "critical"
+        } else if breakdowns.iter().any(|b| b.risk_pre_label.as_deref() == Some("HIGH")) {
+            "high"
+        } else if breakdowns.iter().any(|b| b.risk_pre_label.as_deref() == Some("MEDIUM")) {
+            "medium"
+        } else {
+            "low"
+        };
+        conn.execute(
+            "UPDATE tasks SET risk_level = ?1, current_gate = 'Task Decomposition Gate' WHERE id = ?2",
+            params![max_risk, task.id],
+        )
+        .map_err(|e| e.to_string())?;
+
+        let _swarm = crate::core::ai_workflow_manager::AiWorkflowManager::allocate_task(
+            &task.id,
+            &task.title,
+            &task.user_request,
+            max_risk,
+            None,
+        );
+
+        let mut task = task;
+        task.risk_level = max_risk.to_string();
+        task.current_gate = Some("Task Decomposition Gate".to_string());
         Ok(task)
     }
 

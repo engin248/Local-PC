@@ -1,165 +1,101 @@
-<script lang="ts">
-  let { tasks = [], selectedTaskId = null, onSelect, onCreate } = $props<{
-    tasks: any[];
-    selectedTaskId: string | null;
-    onSelect: (id: string) => void;
-    onCreate: (title: string, req: string) => void;
-  }>();
-
-  let newTitle = $state("");
-  let newTaskType = $state("Analiz");
-  let selectedAgents = $state({ codex: true, oam: true, antigravity: false, cursor: false });
-  let newRequest = $state("");
-
-    function handleCreate(e: Event) {
-    e.preventDefault();
-    if (!newTitle || !newRequest) return;
-    let agentTags = Object.entries(selectedAgents).filter(([_, v]) => v).map(([k, _]) => k.toUpperCase()).join(",");
-    let finalRequest = `[${newTaskType}] [Ajanlar: ${agentTags}] ${newRequest}`;
-    onCreate(newTitle, finalRequest);
-    newTitle = "";
-    newRequest = "";
-  }
+﻿<script lang="ts">
+  export let tasks: any[] = [];
+  export let selectedTaskId: string | null = null;
+  export let onSelect: (id: string | null) => void;
 </script>
 
-<div class="task-tabs-container">
-  <h3>İŞLEM SEKMELERİ</h3>
-  <div class="tabs-list">
-    {#each tasks as task}
-      <button 
-        class="tab-btn" 
-        class:active={selectedTaskId === task.id} 
-        onclick={() => onSelect(task.id)}
-      >
-        <span class="id">[{task.id.substring(5, 11)}]</span> {task.title}
-        <span class="status-badge {task.status}">{task.status}</span>
-      </button>
+<div class="task-list">
+  <div class="task-list-header">
+    <h3>Mevcut Operasyonlar</h3>
+    <button class="new-task-btn" on:click={() => onSelect(null)}>+ YENİ İŞLEM BAŞLAT</button>
+  </div>
+  <ul>
+    {#each tasks as t}
+      <li class:active={t.id === selectedTaskId}>
+        <button
+          type="button"
+          class="task-select-btn"
+          on:click={() => onSelect(t.id)}
+          aria-current={t.id === selectedTaskId ? "true" : undefined}
+        >
+        <div class="task-info">
+          <span class="title">{t.title}</span>
+          <span class="status {t.status}">{t.status.replace('_', ' ')}</span>
+        </div>
+        </button>
+      </li>
     {/each}
-  </div>
-
-  <div class="new-task-form">
-    <h4>YENİ İŞLEM BAŞLAT</h4>
-    <form onsubmit={handleCreate}>
-                  <input placeholder="Görev Başlığı" bind:value={newTitle} />
-      <select bind:value={newTaskType} class="task-type-select">
-        <option value="Analiz">Sadece Analiz</option>
-        <option value="Kod Yazma">Kod Değişikliği / Yazma</option>
-        <option value="Araştırma">Dış İnternet Araştırması</option>
-        <option value="Sistem">Sistem Taraması</option>
-      </select>
-      
-      
-      <div class="agent-selectors">
-        <span>Ajan Atamaları:</span>
-        <label><input type="checkbox" bind:checked={selectedAgents.codex} /> Codex</label>
-        <label><input type="checkbox" bind:checked={selectedAgents.oam} /> OAM</label>
-        <label><input type="checkbox" bind:checked={selectedAgents.antigravity} /> AntiGrav</label>
-        <label><input type="checkbox" bind:checked={selectedAgents.cursor} /> Cursor</label>
-      </div>
-
-      <textarea placeholder="Kullanıcı Talebi..." bind:value={newRequest}></textarea>
-      <button type="submit">Görev Kaydet (Intake)</button>
-    </form>
-  </div>
+    {#if tasks.length === 0}
+      <li class="empty-msg">Henüz görev yok.</li>
+    {/if}
+  </ul>
 </div>
 
 <style>
-  .task-tabs-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 10px;
-    background: #1e1e1e;
-    border-right: 1px solid #333;
-    color: #ccc;
-  }
-  h3, h4 {
-    margin: 5px 0 10px 0;
-    font-size: 0.85rem;
-    letter-spacing: 1px;
-    border-bottom: 1px solid #444;
-    padding-bottom: 5px;
-    color: #e0e0e0;
-  }
-  .tabs-list {
+  .task-list {
     flex: 1;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 5px;
   }
-  .tab-btn {
-    text-align: left;
-    background: #252526;
-    border: 1px solid #3c3c3c;
-    color: #aaa;
+  .task-list-header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
+    border-bottom: 1px solid #1f1f21;
+  }
+  .task-list-header h3 {
+    margin: 0;
+    color: #f4f4f5;
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+  .new-task-btn {
+    background: #0b74de;
+    color: white;
+    border: none;
     padding: 10px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.8rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .tab-btn:hover {
-    background: #2d2d2d;
-    color: #fff;
-  }
-  .tab-btn.active {
-    background: #007acc;
-    color: white;
-    border-color: #0098ff;
-  }
-  .id {
-    font-family: monospace;
     font-weight: bold;
+    transition: background 0.2s;
   }
-  .status-badge {
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    font-weight: bold;
-    background: #444;
-    color: #eee;
+  .new-task-btn:hover { background: #005bb5; }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1;
   }
-  .status-badge.completed { background: #4ec9b0; color: #1e1e1e; }
-  .status-badge.failed { background: #f44747; color: #fff; }
-  .status-badge.executing { background: #dcdcaa; color: #1e1e1e; }
-  .status-badge.planning_incomplete { background: #ce9178; color: white; }
-  
-  .new-task-form {
-    margin-top: 15px;
-    border-top: 1px solid #444;
-    padding-top: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  li {
+    border-bottom: 1px solid #1f1f21;
+    transition: background 0.2s;
   }
-  input, textarea {
+  li:hover { background: #1a1a1c; }
+  li.active {
+    background: #18181a;
+    border-left: 3px solid #0b74de;
+  }
+  .task-info { display: flex; flex-direction: column; gap: 5px; }
+  .task-select-btn {
     width: 100%;
-    padding: 8px;
-    background: #252526;
-    border: 1px solid #3c3c3c;
-    color: white;
-    font-size: 0.8rem;
-    border-radius: 4px;
-    box-sizing: border-box;
-  }
-  textarea { height: 60px; resize: none; }
-  form button {
-    width: 100%;
-    padding: 8px;
-    background: #3c3c3c;
-    border: 1px solid #555;
-    color: white;
+    padding: 15px;
+    background: transparent;
+    border: 0;
+    text-align: left;
     cursor: pointer;
-    font-size: 0.8rem;
-    border-radius: 4px;
+    font: inherit;
   }
-  form button:hover { background: #4c4c4c; }
-  .task-type-select { width: 100%; background: #252526; border: 1px solid #3c3c3c; color: white; padding: 8px; border-radius: 4px; font-size: 0.8rem; }
-  .agent-selectors { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.75rem; background: #18181a; padding: 8px; border: 1px solid #333; border-radius: 4px; align-items: center; color: #ccc;}
-  .agent-selectors span { width: 100%; font-weight: bold; color: #8d8d95; }
-  .agent-selectors label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .task-select-btn:focus-visible {
+    outline: 2px solid #0b74de;
+    outline-offset: -2px;
+  }
+  .title { color: #f4f4f5; font-weight: 500; font-size: 14px; }
+  .status { font-size: 11px; text-transform: uppercase; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; width: fit-content; }
+  .status.pending { background: #3b3b40; color: #a1a1aa; }
+  .status.in_progress { background: rgba(11,116,222,0.1); color: #0b74de; }
+  .status.completed { background: rgba(71,209,140,0.1); color: #47d18c; }
+  .empty-msg { color: #8d8d95; text-align: center; padding: 20px; font-style: italic; cursor: default; }
+  .empty-msg:hover { background: transparent; }
 </style>

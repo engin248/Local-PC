@@ -26,6 +26,22 @@ pub struct PlanningStandardInput {
     pub accepted_correct_approach_reason: String,
     #[serde(default)]
     pub selected_best_option_reason: String,
+    #[serde(default)]
+    pub operation_sequence: Vec<String>,
+    #[serde(default)]
+    pub control_criteria: Vec<String>,
+    #[serde(default)]
+    pub executor_role: String,
+    #[serde(default)]
+    pub correctness_guard_role: String,
+    #[serde(default)]
+    pub controller_role: String,
+    #[serde(default)]
+    pub independent_verifier_role: String,
+    #[serde(default)]
+    pub final_approver_role: String,
+    #[serde(default)]
+    pub per_part_alternative_policy: String,
 }
 
 pub fn save_plan(task_id: &str, plan: PlanningStandardInput) -> Result<(), String> {
@@ -56,7 +72,8 @@ pub fn save_plan(task_id: &str, plan: PlanningStandardInput) -> Result<(), Strin
         && !plan.authorized_deciders.iter().any(|d| d.trim().is_empty());
     let principle_complete = PlanningGate::validate_principle_reasons(&plan).is_ok();
     let risk_complete = PlanningGate::validate_risk_requirements(&plan).is_ok();
-    let is_complete = base_complete && principle_complete && risk_complete;
+    let architecture_complete = PlanningGate::validate_architecture_requirements(&plan).is_ok();
+    let is_complete = base_complete && principle_complete && risk_complete && architecture_complete;
 
     let status = if is_complete {
         "planning_complete"
@@ -84,6 +101,7 @@ pub fn save_plan(task_id: &str, plan: PlanningStandardInput) -> Result<(), Strin
 
     if is_complete {
         PlanningGate::save_principle_evaluation(task_id, None, &plan)?;
+        PlanningGate::save_operation_package(task_id, &plan)?;
     }
 
     Ok(())
@@ -133,6 +151,7 @@ impl PlanningGate {
         }
         Self::validate_principle_reasons(&plan)?;
         Self::validate_risk_requirements(&plan)?;
+        Self::validate_architecture_requirements(&plan)?;
 
         Ok(())
     }
@@ -196,6 +215,41 @@ impl PlanningGate {
         Ok(())
     }
 
+    fn validate_architecture_requirements(plan: &PlanningStandardInput) -> Result<(), String> {
+        if plan.alternatives.len() < 4 {
+            return Err("HATA: Her parca icin real hayat alternatifleri zorunlu; en az 4 alternatif gerekir.".to_string());
+        }
+        if plan.operation_sequence.len() < 5 {
+            return Err("HATA: Islem sirasi; cozumleme, dogru secimi, uygulama, kontrol, bagimsiz dogrulama ve son onayi kapsamalidir.".to_string());
+        }
+        if plan.control_criteria.is_empty() {
+            return Err("HATA: Kontrol kriterleri olmadan islem paketi alt birime verilemez.".to_string());
+        }
+        let required_roles = [
+            ("executor_role", &plan.executor_role),
+            ("correctness_guard_role", &plan.correctness_guard_role),
+            ("controller_role", &plan.controller_role),
+            ("independent_verifier_role", &plan.independent_verifier_role),
+            ("final_approver_role", &plan.final_approver_role),
+        ];
+        for (name, value) in required_roles.iter() {
+            if value.trim().is_empty() {
+                return Err(format!("HATA: {} zorunludur. Yapan, dogrulugu saglayan, kontrol eden, bagimsiz dogrulayan ve son onay veren ayrilmalidir.", name));
+            }
+        }
+        let mut unique_roles = std::collections::BTreeSet::new();
+        for (_, value) in required_roles.iter() {
+            unique_roles.insert(value.trim().to_lowercase());
+        }
+        if unique_roles.len() < required_roles.len() {
+            return Err("HATA: Rol ayrimi ihlal edildi; gorevi yapan, kontrol eden, bagimsiz dogrulayan ve son onay veren ayni olamaz.".to_string());
+        }
+        if plan.per_part_alternative_policy.trim().len() < 20 {
+            return Err("HATA: Her parca icin alternatif uretme politikasi acik yazilmalidir.".to_string());
+        }
+        Ok(())
+    }
+
     fn save_principle_evaluation(
         task_id: &str,
         decision_node_id: Option<&str>,
@@ -218,6 +272,104 @@ impl PlanningGate {
         .map_err(|e| e.to_string())?;
         Ok(())
     }
+
+    fn save_operation_package(task_id: &str, plan: &PlanningStandardInput) -> Result<(), String> {
+        let db = Database::new();
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+
+        conn.execute("DELETE FROM operation_packages WHERE task_id = ?1", params![task_id])
+            .map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM operation_steps WHERE task_id = ?1", params![task_id])
+            .map_err(|e| e.to_string())?;
+
+        let selected_best_alternative = plan
+            .alternatives
+            .iter()
+            .find(|alt| {
+                let lower = alt.to_lowercase();
+                lower.contains("onay")
+                    && (lower.contains("rollback") || lower.contains("geri"))
+                    && (lower.contains("kontrol") || lower.contains("test"))
+            })
+            .or_else(|| plan.alternatives.iter().find(|alt| alt.to_lowercase().contains("rollback")))
+            .or_else(|| plan.alternatives.first())
+            .cloned()
+            .unwrap_or_else(|| "Secilmis uygulanabilir alternatif yok".to_string());
+        let control_point = plan
+            .checkpoints
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "Kontrol noktasi yok".to_string());
+        let control_criteria = serde_json::to_string(&plan.control_criteria)
+            .map_err(|e| format!("Kontrol kriterleri JSON'a cevrilemedi: {}", e))?;
+        let test_plan = serde_json::to_string(&plan.test_criteria)
+            .map_err(|e| format!("Test plani JSON'a cevrilemedi: {}", e))?;
+        let operation_sequence = serde_json::to_string(&plan.operation_sequence)
+            .map_err(|e| format!("Islem sirasi JSON'a cevrilemedi: {}", e))?;
+
+        conn.execute(
+            "INSERT INTO operation_packages
+             (id, task_id, package_order, package_type, subject, sub_topic, criterion, sub_criterion,
+              accepted_truth, selected_best_alternative, operation_sequence, technology, impact_area,
+              control_point, control_criteria, test_plan, rollback_plan, executor_role,
+              correctness_guard_role, controller_role, independent_verifier_role, final_approver_role, status)
+             VALUES (?1, ?2, 1, 'analysis_and_execution_contract', ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, 'ready_for_subunit')",
+            params![
+                Uuid::new_v4().to_string(),
+                task_id,
+                &plan.topic,
+                &plan.sub_topic,
+                &plan.criterion,
+                &plan.sub_criterion,
+                &plan.accepted_correct_approach_reason,
+                &selected_best_alternative,
+                &operation_sequence,
+                &plan.technology_selection,
+                &plan.impact_area,
+                &control_point,
+                &control_criteria,
+                &test_plan,
+                &plan.rollback_plan,
+                &plan.executor_role,
+                &plan.correctness_guard_role,
+                &plan.controller_role,
+                &plan.independent_verifier_role,
+                &plan.final_approver_role
+            ],
+        )
+        .map_err(|e| e.to_string())?;
+
+        for (idx, step) in plan.operation_sequence.iter().enumerate() {
+            conn.execute(
+                "INSERT INTO operation_steps
+                 (id, task_id, step_order, expected_action, description, status, operation_type,
+                  technology, impact_area, control_point, control_criteria, test_plan, rollback_plan,
+                  executor_role, correctness_guard_role, controller_role, independent_verifier_role, final_approver_role)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 'ready', 'packaged_subunit_step', ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                params![
+                    Uuid::new_v4().to_string(),
+                    task_id,
+                    (idx + 1) as i32,
+                    step,
+                    format!("Alt birime verilecek islem adimi: {}", step),
+                    &plan.technology_selection,
+                    &plan.impact_area,
+                    &control_point,
+                    &control_criteria,
+                    &test_plan,
+                    &plan.rollback_plan,
+                    &plan.executor_role,
+                    &plan.correctness_guard_role,
+                    &plan.controller_role,
+                    &plan.independent_verifier_role,
+                    &plan.final_approver_role
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -238,6 +390,7 @@ mod tests {
                 "Yalnizca oku ve raporla".to_string(),
                 "Uygulama yapma, manuel plan uret".to_string(),
                 "Onayli ve rollback destekli uygula".to_string(),
+                "Onaysiz ve rollback'siz dogrudan uygulama - elenen alternatif".to_string(),
             ],
             risk_analysis: "high".to_string(),
             impact_area: "storage/app.db".to_string(),
@@ -247,7 +400,7 @@ mod tests {
             test_criteria: vec!["file_exists:storage/app.db".to_string()],
             rollback_plan: "Degisiklik oncesi gercek snapshot alinir ve hata halinde geri yuklenir."
                 .to_string(),
-            operation_plan: "action:code_analysis, action:snapshot_create, action:test_run, action:report_generate"
+            operation_plan: "action:code_analysis, action:snapshot_create, action:test_run, action:code_modification_proposal, action:report_generate"
                 .to_string(),
             authorized_deciders: vec!["user".to_string()],
             accepted_correct_approach_reason:
@@ -255,6 +408,24 @@ mod tests {
                     .to_string(),
             selected_best_option_reason:
                 "Secilen en iyi secenek mevcut sistemle uyumlu ve test edilebilir oldugu icin uygundur."
+                    .to_string(),
+            operation_sequence: vec![
+                "Cozumleme yap".to_string(),
+                "Kabul edilmis dogruyu sec".to_string(),
+                "En iyi uygulanabilir alternatifi sec".to_string(),
+                "Uygula".to_string(),
+                "Kontrol et".to_string(),
+                "Bagimsiz dogrula".to_string(),
+                "Son onay ver".to_string(),
+            ],
+            control_criteria: vec!["Plan var".to_string(), "Rollback var".to_string()],
+            executor_role: "executor".to_string(),
+            correctness_guard_role: "correctness_guard".to_string(),
+            controller_role: "controller".to_string(),
+            independent_verifier_role: "independent_verifier".to_string(),
+            final_approver_role: "final_approver".to_string(),
+            per_part_alternative_policy:
+                "Her atomik parca icin real hayattaki tum makul alternatifler ayni kriterlerle degerlendirilir."
                     .to_string(),
         }
     }

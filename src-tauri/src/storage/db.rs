@@ -80,6 +80,18 @@ impl Database {
             "accepted_correct_approach_reason TEXT",
         )?;
         Self::add_column_if_missing(conn, "alternatives", "selected_best_option_reason TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "operation_type TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "technology TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "impact_area TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "control_point TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "control_criteria TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "test_plan TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "rollback_plan TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "executor_role TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "correctness_guard_role TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "controller_role TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "independent_verifier_role TEXT")?;
+        Self::add_column_if_missing(conn, "operation_steps", "final_approver_role TEXT")?;
         Ok(())
     }
 
@@ -104,5 +116,7 @@ pub fn init_db() -> Result<Connection> {
 
 pub fn initialize_database() -> Result<()> {
     let db = Database::new();
-    db.run_migrations()
+    db.run_migrations()?;
+    let _ = crate::storage::log_rotation::LogRotation::run_if_needed();
+    Ok(())
 }
