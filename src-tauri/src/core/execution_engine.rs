@@ -27,7 +27,6 @@ pub struct ExecutionResult {
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub enum RunMode {
     ReadOnly,
-    Test,
     ApprovedExecution,
 }
 
@@ -913,6 +912,7 @@ impl ExecutionEngine {
 mod tests {
     use super::*;
     use crate::core::approval_manager::ApprovalManager;
+    use crate::core::dependency_analyzer::DependencyAnalyzer;
     use crate::core::planning_gate::{save_plan, PlanningStandardInput};
     use crate::storage::db::Database;
 
@@ -959,7 +959,7 @@ mod tests {
         ).unwrap();
 
         // 2. Save complete planning standard inputs to satisfy the planning gate
-        let plan = PlanningStandardInput {
+        let mut plan = PlanningStandardInput {
             task_definition: "Integration Test Task Definition".to_string(),
             purpose: "To test the full 8-gate Triple-Lock pipeline".to_string(),
             scope: "Lokal ve Güvenli Test".to_string(),
@@ -980,9 +980,7 @@ mod tests {
             checkpoints: vec!["Checkpoint 1".to_string(), "Checkpoint 2".to_string()],
             test_criteria: vec!["file_exists:integration_test_target.txt".to_string()],
             rollback_plan: "Restore integration test target from snapshot backup".to_string(),
-            operation_plan:
-                "action:code_analysis, action:snapshot_create, action:test_run, action:code_modification_proposal, action:report_generate"
-                    .to_string(),
+            operation_plan: String::new(),
             authorized_deciders: vec!["Admin".to_string(), "Security Officer".to_string()],
             accepted_correct_approach_reason:
                 "Genel dogru yaklasim kullanici onayi, rollback, test ve veri guvenligini korur."
@@ -1010,8 +1008,6 @@ mod tests {
                     .to_string(),
         };
 
-        save_plan(task_id, plan).unwrap();
-
         // 3. Decompose task and build tree to generate nodes
         let breakdowns = crate::core::task_decomposer::TaskDecomposer::decompose_task(
             task_id,
@@ -1032,6 +1028,10 @@ mod tests {
         .unwrap();
         let matrix_data = std::fs::read_to_string(&matrix_path).unwrap();
         let matrix: serde_json::Value = serde_json::from_str(&matrix_data).unwrap();
+        let risk_rules_path = DependencyAnalyzer::get_config_path("risk_rules.json").unwrap();
+        let risk_rules_data = std::fs::read_to_string(&risk_rules_path).unwrap();
+        let risk_rules: serde_json::Value = serde_json::from_str(&risk_rules_data).unwrap();
+        let mut inferred_plan_actions: Vec<String> = Vec::new();
 
         // 4. Create and approve 2 distinct approvals to satisfy the Lock 2 check (approved_count >= 2) per node
         for node in &nodes {
@@ -1052,40 +1052,77 @@ mod tests {
             } else {
                 "terminal_command"
             };
+            inferred_plan_actions.push(format!("action:{}", action));
+            let requires_approval = if let Some(risk_level) = risk_rules
+                .get("action_mappings")
+                .and_then(|action_mappings| action_mappings.get(action))
+                .and_then(|action_cfg| action_cfg.get("level"))
+                .and_then(|level| level.as_str())
+            {
+                risk_rules
+                    .get("levels")
+                    .and_then(|levels| levels.get(risk_level))
+                    .and_then(|level_cfg| level_cfg.get("requires_approval"))
+                    .and_then(|required| required.as_bool())
+                    .unwrap_or(false)
+            } else {
+                false
+            };
+            if requires_approval {
+                inferred_plan_actions.push("action:approval_check".to_string());
+            }
+            inferred_plan_actions.push("action:snapshot_create".to_string());
+            inferred_plan_actions.push("action:test_run".to_string());
 
             // Insert first approval by user_1
-            let approval1_id =
-                ApprovalManager::request_approval(task_id, Some(node_id), action, "high").unwrap();
+            let approval1_id = ApprovalManager::request_approval(
+                task_id,
+                Some(node_id),
+                action,
+                "high",
+            )
+            .unwrap();
             conn.execute(
                 "UPDATE approvals SET approver_id = 'user_1', approver_role = 'admin', approval_source = 'database', approved_at = CURRENT_TIMESTAMP, status = 'approved' WHERE id = ?1",
                 params![approval1_id]
             ).unwrap();
 
             // Insert second approval by user_2
-            let approval2_id =
-                ApprovalManager::request_approval(task_id, Some(node_id), action, "high").unwrap();
+            let approval2_id = ApprovalManager::request_approval(
+                task_id,
+                Some(node_id),
+                action,
+                "high",
+            )
+            .unwrap();
             conn.execute(
                 "UPDATE approvals SET approver_id = 'user_2', approver_role = 'security_officer', approval_source = 'database', approved_at = CURRENT_TIMESTAMP, status = 'approved' WHERE id = ?1",
                 params![approval2_id]
             ).unwrap();
         }
+        inferred_plan_actions.push("action:report_generate".to_string());
+        plan.operation_plan = inferred_plan_actions.join(", ");
+        save_plan(task_id, plan).unwrap();
 
         // 5. Fetch task from db
         let task = crate::core::task_intake::TaskIntake::get_task(task_id).unwrap();
 
         // 6. Establish strict test context
         let context = ExecutionContext {
-            run_mode: RunMode::Test,
+            run_mode: RunMode::ApprovedExecution,
             current_user_id: Some("test_runner".to_string()),
             approval_source: ApprovalSource::DatabaseOnly,
             allowed_actions: vec![
                 "file_write".to_string(),
                 "write_file".to_string(),
                 "sqlite_write".to_string(),
-                "code_analysis".to_string(),
-                "code_modification_proposal".to_string(),
-                "research".to_string(),
+                "snapshot_create".to_string(),
                 "terminal_command".to_string(),
+                "code_modification_proposal".to_string(),
+                "code_analysis".to_string(),
+                "research".to_string(),
+                "ai_provider_call".to_string(),
+                "test_run".to_string(),
             ],
             read_only: false,
         };

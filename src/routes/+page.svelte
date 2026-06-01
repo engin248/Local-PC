@@ -1,6 +1,7 @@
 ﻿<script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import TaskTabs from "../components/TaskTabs.svelte";
   import TaskDetail from "../components/TaskDetail.svelte";
   import PlanningStatus from "../components/PlanningStatus.svelte";
@@ -50,14 +51,28 @@
   let lastAlarmKey = "";
   let runtimeMode = $state("browser_preview");
   let alarmEvents = $state<any[]>([]);
+  const alarmSoundFailureThrottleMs = 10000;
+  const criticalAlarmsAlwaysAudible = true;
+  let lastAlarmSoundFailureAt = 0;
   let voiceRepliesEnabled = $state(true);
   let voiceAvailable = $state(true);
   let lastSpokenVoiceKey = "";
   let speechQueue = $state<{ text: string; key: string }[]>([]);
   let isSpeaking = $state(false);
+  let criticalErrorUnlisten: UnlistenFn | null = null;
+  let criticalAlarmCounter = $state(0);
+  let lastCriticalAlarmAt = $state<string | null>(null);
+  let lastCriticalAlarmSource = $state<string | null>(null);
+  let alarmPulse = $state(false);
+  let alarmPulseTimer: ReturnType<typeof setTimeout> | null = null;
+  let operationAuditTrail = $state<any[]>([]);
+  let operatorId = $state("local-operator");
 
   let audioCtx: AudioContext | null = null;
   let alarmInterval: any = null;
+
+  const operationAuditStorageKey = "localControlPanel.operationAuditLog";
+  const operatorStorageKey = "localControlPanel.operatorId";
 
   function formatError(err: unknown) {
     if (err instanceof Error) return err.message;
@@ -68,27 +83,211 @@
     return isTauriRuntime();
   }
 
-  function readDemoStore(key: string, fallback: any) {
+  function readFallbackStore(key: string, fallback: any) {
     try {
       const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : fallback;
-    } catch {
+    } catch (err) {
+      const fallbackErr = new Error(`Yerel fallback depo okuma hatası: ${key}`);
+      console.error(fallbackErr.message);
+      raiseCriticalAlarm("Yerel fallback depo okuma hatası", err);
       return fallback;
     }
   }
 
-  function writeDemoStore(key: string, value: any) {
-    localStorage.setItem(key, JSON.stringify(value));
+  function getOperatorId() {
+    try {
+      const saved = localStorage.getItem(operatorStorageKey);
+      if (saved && saved.trim().length > 0) {
+        operatorId = saved;
+        return saved;
+      }
+    } catch (err) {
+      console.error("Operator kimlik okuma hatası:", err);
+      raiseCriticalAlarm("Operator kimlik okuma hatası", err);
+    }
+    return operatorId || "local-operator";
   }
 
-  function demoBreakdowns(taskId: string, request: string) {
-    const source = request || "Kullanici talebi";
+  function setOperatorId(nextOperatorId: string) {
+    try {
+      const normalized = String(nextOperatorId || "local-operator").trim() || "local-operator";
+      operatorId = normalized;
+      localStorage.setItem(operatorStorageKey, normalized);
+    } catch (err) {
+      console.error("Operator kimlik kaydetme hatası:", err);
+      raiseCriticalAlarm("Operator kimlik kaydetme hatası", err);
+    }
+  }
+
+  function sanitizeOperationMetadata(cmd: string, args?: any) {
+    if (!args) return {};
+    const clone: any = {};
+    for (const [key, value] of Object.entries(args)) {
+      if (["taskId", "approvalId", "title", "command", "correlation_id", "plan"].includes(key)) {
+        clone[key] = value;
+      }
+    }
+    return { ...clone, command: cmd };
+  }
+
+  function safeStringify(value: any): string {
+    try {
+      return JSON.stringify(value);
+    } catch (err) {
+      return JSON.stringify({ serialization_error: String(err) });
+    }
+  }
+
+  function extractOperationTarget(cmd: string, args?: any) {
+    if (args?.taskId) return { targetType: "task", targetId: String(args.taskId) };
+    if (args?.approvalId) return { targetType: "approval", targetId: String(args.approvalId) };
+    if (args?.id) return { targetType: "item", targetId: String(args.id) };
+    return { targetType: null, targetId: null };
+  }
+
+  async function appendOperationAudit(input: {
+    action: string;
+    status: "PASS" | "FAIL" | "WARN";
+    cmd?: string;
+    args?: any;
+    errorMessage?: string;
+    details?: string;
+    durationMs?: number;
+    correlationId?: string | null;
+    context?: any;
+  }) {
+    const { targetType, targetId } = extractOperationTarget(input.cmd || "", input.args);
+    const normalizedStatus = input.status || "PASS";
+    const payload = {
+      actor: getOperatorId(),
+      action: input.action,
+      target_type: targetType,
+      target_id: targetId,
+      status: normalizedStatus,
+      details: input.details || `Action executed: ${input.action}`,
+      metadata_json: safeStringify({
+        command: input.cmd || input.action,
+        args: sanitizeOperationMetadata(input.cmd || input.action, input.args),
+        context: input.context || {},
+        duration_ms: input.durationMs || 0,
+      }),
+      error_message: input.errorMessage,
+      correlation_id: input.correlationId || null,
+    };
+
+    if (detectTauriRuntime()) {
+      try {
+        await invoke("append_operation_audit_cmd", payload);
+      } catch (err) {
+        console.error("Audit kayıt hatası:", err);
+        raiseCriticalAlarm("Audit kayıt hatası", err);
+      }
+      return;
+    }
+
+    if (import.meta.env.DEV) {
+      const previous = readFallbackStore(operationAuditStorageKey, []);
+      const logRecord = {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        actor: payload.actor,
+        action: payload.action,
+        target_type: payload.target_type,
+        target_id: payload.target_id,
+        status: payload.status,
+        details: payload.details,
+        metadata_json: payload.metadata_json,
+        error_message: payload.error_message,
+        correlation_id: payload.correlation_id,
+        created_at: new Date().toLocaleString("tr-TR"),
+      };
+      previous.unshift(logRecord);
+      writeFallbackStore(operationAuditStorageKey, previous.slice(0, 200));
+      return;
+    }
+  }
+
+  async function invokeWithAudit(cmd: string, args: any = undefined, options: {
+    action?: string;
+    status?: "PASS" | "FAIL" | "WARN";
+    details?: string;
+    correlationId?: string;
+    context?: any;
+  } = {}) {
+    const action = options.action || cmd;
+    const startedAt = Date.now();
+    try {
+      const result = detectTauriRuntime() ? await invoke(cmd, args) : await safeInvoke(cmd, args);
+      await appendOperationAudit({
+        action,
+        status: options.status || "PASS",
+        cmd,
+        args,
+        details: options.details || `PASS: ${action}`,
+        correlationId: options.correlationId,
+        context: {
+          ...(options.context || {}),
+          duration_ms: Date.now() - startedAt,
+        },
+        durationMs: Date.now() - startedAt,
+      });
+      await loadOperationAuditTrail();
+      return result;
+    } catch (err) {
+      await appendOperationAudit({
+        action,
+        status: "FAIL",
+        cmd,
+        args,
+        details: `FAIL: ${action}`,
+        durationMs: Date.now() - startedAt,
+        errorMessage: formatError(err),
+        correlationId: options.correlationId,
+        context: {
+          ...(options.context || {}),
+          duration_ms: Date.now() - startedAt,
+        },
+      });
+      await loadOperationAuditTrail();
+      throw err;
+    }
+  }
+
+  async function loadOperationAuditTrail() {
+    if (detectTauriRuntime()) {
+      try {
+        operationAuditTrail = await safeInvoke("get_operation_audit_logs_cmd", { limit: 20 });
+        return;
+      } catch (err) {
+        console.error("Operasyon audit logu yüklenemedi:", err);
+        raiseCriticalAlarm("Operasyon audit logu yüklenemedi", err);
+      }
+    }
+
+    if (import.meta.env.DEV) {
+      operationAuditTrail = readFallbackStore(operationAuditStorageKey, []);
+    } else {
+      operationAuditTrail = [];
+    }
+  }
+
+  function writeFallbackStore(key: string, value: any) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {
+      console.error("Yerel fallback depo yazma hatası:", err);
+      raiseCriticalAlarm("Yerel fallback depo yazma hatası", err);
+    }
+  }
+
+  function generateFallbackBreakdowns(taskId: string, request: string) {
+    const source = request || "Kullanıcı talebi";
     const phases = [
-      ["Cozumleme", "Konu / alt konu / kriter / alt kriter cikarimi"],
-      ["Alternatif Analizi", "Real hayattaki alternatiflerin cikarimi"],
-      ["Dogru Secimi", "Kabul edilmis dogrunun secimi"],
-      ["Uygulanabilir Secim", "En iyi uygulanabilir secenegin secimi"],
-      ["Kontrol ve Onay", "Kontrol, bagimsiz dogrulama ve son onay"]
+      ["Çözümleme", "Konu / alt konu / kriter / alt kriter çıkarımı"],
+      ["Alternatif Analizi", "Gerçek hayattaki alternatiflerin çıkarımı"],
+      ["Doğru Seçim", "Kabul edilen en doğru seçeneğin seçilmesi"],
+      ["Uygulanabilir Seçim", "En iyi uygulanabilir seçeneğin seçimi"],
+      ["Kontrol ve Onay", "Kontrol, bağımsız doğrulama ve son onay"]
     ];
     return phases.map((phase, index) => ({
       id: `${taskId}-bd-${index + 1}`,
@@ -97,7 +296,7 @@
       level: index + 1,
       topic: phase[0],
       subtopic: phase[1],
-      criterion: "Plan / etki alani / teknoloji / test / rollback zorunlulugu",
+      criterion: "Plan / etki alanı / teknoloji / test / rollback zorunluluğu",
       subcriterion: "Rol ayrimi ve alt birim paketi",
       description: `${source} -> ${phase[0]}`,
       risk_pre_label: index === 4 ? "HIGH" : "MEDIUM",
@@ -111,40 +310,41 @@
       return await invoke(cmd, args);
     }
     if (!import.meta.env.DEV) {
-      throw new Error(`Tauri koprusu yok: ${cmd} komutu production ortaminda calistirilamaz.`);
+      throw new Error(`Tauri köprüsü yok: ${cmd} komutu üretim ortamında çalıştırılamaz.`);
     }
     await new Promise(resolve => setTimeout(resolve, 80));
 
-    const demoTasksKey = "localControlPanel.demo.tasks";
-    const demoDetailsKey = (taskId: string, type: string) => `localControlPanel.demo.${type}.${taskId}`;
+    const offlineTasksKey = "localControlPanel.tasks.offline";
+    const offlineDetailsKey = (taskId: string, type: string) =>
+      `localControlPanel.tasksOffline.${type}.${taskId}`;
 
     switch (cmd) {
       case "get_tasks_cmd":
-        return readDemoStore(demoTasksKey, []);
+        return readFallbackStore(offlineTasksKey, []);
       case "get_task_logs_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "logs"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "logs"), []);
       case "get_decisions_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "decisions"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "decisions"), []);
       case "get_alternatives_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "alternatives"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "alternatives"), []);
       case "get_approvals_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "approvals"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "approvals"), []);
       case "get_checkpoints_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "checkpoints"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "checkpoints"), []);
       case "get_tests_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "tests"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "tests"), []);
       case "get_reports_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "reports"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "reports"), []);
       case "get_task_breakdowns_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "breakdowns"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "breakdowns"), []);
       case "get_operation_packages_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "operationPackages"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "operationPackages"), []);
       case "get_swarm_allocations_cmd":
-        return readDemoStore(demoDetailsKey(args?.taskId, "swarmAllocations"), []);
+        return readFallbackStore(offlineDetailsKey(args?.taskId, "swarmAllocations"), []);
       case "get_asker_motoru_status_cmd":
         return { roots_checked: [], files: [] };
       case "sync_supabase_cmd":
-        return { enabled: false, last_result: "onizleme", pushed_rows: 0 };
+        return { enabled: false, last_result: "önizleme", pushed_rows: 0 };
       case "get_db_size_cmd":
         return 0;
       case "get_system_health_cmd":
@@ -154,8 +354,8 @@
       case "get_system_connector_health_cmd":
         return [];
       case "create_task_cmd": {
-        const demoTasks = readDemoStore(demoTasksKey, []);
-        const id = `demo-${Date.now()}`;
+        const offlineTasks = readFallbackStore(offlineTasksKey, []);
+        const id = `offline-${Date.now()}`;
         const task = {
           id,
           title: args.title,
@@ -169,21 +369,21 @@
           approval_status: "browser_preview",
           created_at: new Date().toISOString()
         };
-        writeDemoStore(demoTasksKey, [task, ...demoTasks]);
-        writeDemoStore(demoDetailsKey(id, "breakdowns"), demoBreakdowns(id, args.userRequest));
-        writeDemoStore(demoDetailsKey(id, "logs"), [
+        writeFallbackStore(offlineTasksKey, [task, ...offlineTasks]);
+        writeFallbackStore(offlineDetailsKey(id, "breakdowns"), generateFallbackBreakdowns(id, args.userRequest));
+        writeFallbackStore(offlineDetailsKey(id, "logs"), [
           {
             id: `${id}-log-1`,
             timestamp: new Date().toISOString(),
             level: "info",
-            message: "Tarayici onizleme modunda gorev parcalandi.",
+            message: "Tarayıcı önizleme modunda görev parçalandı.",
             gate_name: "Intake Gate"
           }
         ]);
         return task;
       }
       case "save_plan_cmd": {
-        const demoTasks = readDemoStore(demoTasksKey, []).map((task: any) =>
+        const offlineTasks = readFallbackStore(offlineTasksKey, []).map((task: any) =>
           task.id === args.taskId
             ? {
                 ...task,
@@ -193,12 +393,12 @@
               }
             : task
         );
-        writeDemoStore(demoTasksKey, demoTasks);
-        writeDemoStore(demoDetailsKey(args.taskId, "checkpoints"), [
-          { id: `${args.taskId}-cp-1`, checkpoint_type: "planning_contract", status: "passed", result: "Plan, teknoloji, etki alani, test ve rollback mevcut." },
-          { id: `${args.taskId}-cp-2`, checkpoint_type: "role_separation", status: "passed", result: "Yapan, koruyan, kontrol eden, dogrulayan ve onaylayan ayrildi." }
+        writeFallbackStore(offlineTasksKey, offlineTasks);
+        writeFallbackStore(offlineDetailsKey(args.taskId, "checkpoints"), [
+          { id: `${args.taskId}-cp-1`, checkpoint_type: "planning_contract", status: "passed", result: "Plan, teknoloji, etki alanı, test ve rollback mevcut." },
+          { id: `${args.taskId}-cp-2`, checkpoint_type: "role_separation", status: "passed", result: "Yapan, koruyan, denetleyen, doğrulayan ve onaylayan ayrıldı." }
         ]);
-        writeDemoStore(demoDetailsKey(args.taskId, "alternatives"), (args.plan?.alternatives || []).map((title: string, index: number) => ({
+        writeFallbackStore(offlineDetailsKey(args.taskId, "alternatives"), (args.plan?.alternatives || []).map((title: string, index: number) => ({
           id: `${args.taskId}-alt-${index + 1}`,
           decision_node_id: `${args.taskId}-bd-${index + 1}`,
           title,
@@ -209,7 +409,7 @@
           selected: index === 2 ? 1 : 0,
           reason: index === 2 ? args.plan?.selected_best_option_reason : "Kriter karsilastirmasinda elendi."
         })));
-        writeDemoStore(demoDetailsKey(args.taskId, "operationPackages"), [
+        writeFallbackStore(offlineDetailsKey(args.taskId, "operationPackages"), [
           {
             id: `${args.taskId}-pkg-1`,
             package_order: 1,
@@ -238,23 +438,23 @@
         return null;
       }
       case "execute_task_cmd": {
-        const demoTasks = readDemoStore(demoTasksKey, []).map((task: any) =>
+        const offlineTasks = readFallbackStore(offlineTasksKey, []).map((task: any) =>
           task.id === args.taskId
             ? { ...task, status: "completed", execution_status: "completed", current_gate: "Report Gate" }
             : task
         );
-        writeDemoStore(demoTasksKey, demoTasks);
-        writeDemoStore(demoDetailsKey(args.taskId, "tests"), [
+        writeFallbackStore(offlineTasksKey, offlineTasks);
+        writeFallbackStore(offlineDetailsKey(args.taskId, "tests"), [
           { id: `${args.taskId}-test-1`, test_name: "browser_preview_contract", expected_result: "passed", actual_result: "passed", status: "passed" }
         ]);
-        writeDemoStore(demoDetailsKey(args.taskId, "reports"), [
+        writeFallbackStore(offlineDetailsKey(args.taskId, "reports"), [
           {
             id: `${args.taskId}-report-1`,
             report_type: "final",
-            content: "Tarayici onizleme modu: plan akisi, rol ayrimi, test ve rollback sozlesmesi dogrulandi. Gercek veritabani islemleri icin Tauri uygulamasi kullanilir."
+            content: "Tarayıcı önizleme modu: plan akışı, rol ayrımı, test ve rollback sözleşmesi doğrulandı. Gerçek veritabanı işlemleri için Tauri uygulaması kullanılır."
           }
         ]);
-        return { success: true, message: "Onizleme modunda 8 kapi akisi tamamlandi. Gercek uygulama icin Tauri runtime gerekir." };
+        return { success: true, message: "Önizleme modunda 8 kapı akışı tamamlandı. Gerçek uygulama için Tauri runtime gerekir." };
       }      case "submit_approval_cmd":
         return null;
       case "rollback_task_cmd":
@@ -265,7 +465,7 @@
   }
 
   function playSiren() {
-    if (alarmMuted) return;
+    if (alarmMuted && !criticalAlarmsAlwaysAudible) return;
     try {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -279,7 +479,7 @@
         alarmInterval = null;
       }
       
-      // Ã‡ift bip uyarÄ±sÄ± Ã§al ve bitir (SÃ¼rekli kafa Ã¼tÃ¼leyen dÃ¶ngÃ¼yÃ¼ engeller!)
+      // Çift bip uyarısı çal ve bitir (Sürekli kafa üreten veya döngüyü uzatan sesi engeller!)
       const playBeep = (delay: number, freq: number) => {
         setTimeout(() => {
           if (!audioCtx) return;
@@ -296,15 +496,25 @@
             osc.stop(audioCtx.currentTime + 0.18);
           } catch (err) {
             console.error("Beep calinamadi:", err);
+            const now = Date.now();
+            if (now - lastAlarmSoundFailureAt > alarmSoundFailureThrottleMs) {
+              lastAlarmSoundFailureAt = now;
+              appendAlarmEvent("Bip sesi üretilemedi", err);
+            }
           }
         }, delay);
       };
 
-      // TatlÄ± bir Ã§ift uyarÄ± melodisi Ã§al (Cevap sesini bastÄ±rmaz ve kafa karÄ±ÅŸtÄ±rmaz)
+      // Tatlı bir çift uyarı melodisi çal (Cevap sesini bastırmaz ve kafa karıştırmaz)
       playBeep(0, 880);
       playBeep(180, 1100);
     } catch (e) {
-      console.error("Siren sesi calisma hatasi:", e);
+      console.error("Siren sesi çalışma hatası:", e);
+      const now = Date.now();
+      if (now - lastAlarmSoundFailureAt > alarmSoundFailureThrottleMs) {
+        lastAlarmSoundFailureAt = now;
+        appendAlarmEvent("Alarm ses sistemi hatası", e);
+      }
     }
   }
 
@@ -315,15 +525,16 @@
     }
   }
 
-  function raiseCriticalAlarm(source: string, err: unknown) {
+  function appendAlarmEvent(source: string, err: unknown) {
     const message = `${source}: ${formatError(err)}`;
     const alarmKey = `${source}:${message}`;
-    if (globalError === message && lastAlarmKey === alarmKey) {
-      return;
-    }
+    const isRepeatedError = globalError === message && lastAlarmKey === alarmKey;
 
     globalError = message;
     lastAlarmKey = alarmKey;
+    criticalAlarmCounter += 1;
+    lastCriticalAlarmAt = new Date().toLocaleString("tr-TR");
+    lastCriticalAlarmSource = source;
     alarmMuted = false;
     alarmEvents = [
       {
@@ -335,12 +546,27 @@
       ...alarmEvents
     ].slice(0, 8);
 
+    alarmPulse = false;
+    if (alarmPulseTimer) {
+      clearTimeout(alarmPulseTimer);
+      alarmPulseTimer = null;
+    }
+    alarmPulse = true;
+    alarmPulseTimer = setTimeout(() => {
+      alarmPulse = false;
+      alarmPulseTimer = null;
+    }, 1800);
+    return isRepeatedError ? " (tekrar)" : "";
+  }
+
+  function raiseCriticalAlarm(source: string, err: unknown) {
+    const message = `${source}: ${formatError(err)}`;
+    const repeatedSuffix = appendAlarmEvent(source, err);
     playSiren();
-    speakReply(`Acil sistem alarmi. ${message}`, `critical:${message}`, true);
+    speakReply(`Acil sistem alarmi. ${message}${repeatedSuffix}`, `critical:${message}:${Date.now()}`, true);
   }
 
   function muteAlarm() {
-    alarmMuted = true;
     stopSiren();
     stopVoiceReply();
   }
@@ -351,6 +577,11 @@
     alarmMuted = false;
     stopSiren();
     stopVoiceReply();
+    alarmPulse = false;
+    if (alarmPulseTimer) {
+      clearTimeout(alarmPulseTimer);
+      alarmPulseTimer = null;
+    }
   }
 
   function speakReply(text: string, key = text, force = true) {
@@ -364,19 +595,19 @@
 
     lastSpokenVoiceKey = key;
 
-    // EÄŸer otomatik (force = false) bir durum gÃ¼ncellemesi tetiklendiyse veya alarm ise,
-    // kuyruktaki tÃ¼m eski bayat mesajlarÄ± temizle ve Ã§alan eski sesi iptal et.
-    // Bu sayede aynÄ± anda sadece TEYÄ°T EDÄ°LMÄ°Å TEK BÄ°R SES Ã§alacaktÄ±r.
+    // Eğer otomatik (force = false) bir durum güncellemesi tetiklendiyse veya alarm ise,
+    // kuyruktaki tüm eski bayat mesajları temizle ve çalan eski sesi iptal et.
+    // Bu sayede aynı anda sadece TEK BİR SES çalacaktır.
     if (!force || key.startsWith("critical")) {
       speechQueue = [];
       isSpeaking = false;
       window.speechSynthesis.cancel();
     }
 
-    // MesajÄ± ses kuyruÄŸuna ekle (Mesaj kaybÄ±nÄ± Ã¶nler)
+    // Mesajı ses kuyruğuna ekle (Mesaj kaybını önler)
     speechQueue.push({ text, key });
 
-    // EÄŸer ÅŸu an herhangi bir ses Ã§almÄ±yorsa kuyruk iÅŸlemcisini baÅŸlat
+    // Eğer şu an herhangi bir ses çalmıyorsa kuyruk işlemcisini başlat
     if (!isSpeaking) {
       processSpeechQueue();
     }
@@ -387,7 +618,7 @@
 
     const synth = window.speechSynthesis;
 
-    // EÄŸer kuyrukta Ã§alacak ses kalmadÄ±ysa durumu sÄ±fÄ±rla
+    // Eğer kuyrukta çalacak ses kalmadıysa durumu sıfırla
     if (speechQueue.length === 0) {
       isSpeaking = false;
       return;
@@ -408,15 +639,16 @@
       utterance.voice = turkishVoice;
     }
 
-    // Ses baÅŸarÄ±yla bittiÄŸinde kuyruktan Ã§Ä±kar ve sÄ±radakine geÃ§
+    // Ses başarıyla bittiğinde kuyruktan çıkar ve sıradakine geç
     utterance.onend = () => {
       speechQueue.shift();
       processSpeechQueue();
     };
 
-    // Ses hatayla kesildiÄŸinde veya Ã§almadÄ±ÄŸÄ±nda da takÄ±lmamasÄ± iÃ§in sÄ±radakine geÃ§
+    // Ses hatayla kesildiğinde veya çalmadığında da takılmaması için sıradakine geç
     utterance.onerror = (e) => {
       console.error("Speech Synthesis Error:", e);
+      raiseCriticalAlarm("Seslendirme motoru hatası", e);
       speechQueue.shift();
       processSpeechQueue();
     };
@@ -428,7 +660,7 @@
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       speechQueue = []; // KuyruÄŸu temizle
       isSpeaking = false;
-      window.speechSynthesis.cancel(); // Mevcut Ã§almayÄ± durdur
+      window.speechSynthesis.cancel(); // Mevcut çalmayı durdur
     }
   }
 
@@ -437,7 +669,7 @@
     localStorage.setItem("voiceRepliesEnabled", String(voiceRepliesEnabled));
 
     if (voiceRepliesEnabled) {
-      speakReply("Sesli cevap aÃ§Ä±ldÄ±.", "voice-enabled", true);
+      speakReply("Sesli cevap açıldı.", "voice-enabled", true);
     } else {
       stopVoiceReply();
     }
@@ -452,15 +684,19 @@
   async function loadTasks() {
     try {
       tasks = await safeInvoke("get_tasks_cmd");
-      if (tasks.length > 0 && !selectedTaskId) {
+      const taskIds = tasks.map((task: any) => task.id);
+
+      if (tasks.length === 0) {
+        selectedTaskId = null;
+      } else if (!selectedTaskId || !taskIds.includes(selectedTaskId)) {
         selectedTaskId = tasks[0].id;
       }
       if (selectedTaskId) {
         await refreshTaskDetails(selectedTaskId);
       }
     } catch (err) {
-      console.error("Yukleme hatasi:", err);
-      raiseCriticalAlarm("Gorevler yuklenirken hata olustu", err);
+      console.error("Yükleme hatası:", err);
+      raiseCriticalAlarm("Görevler yüklenirken hata oluştu", err);
     }
   }
 
@@ -470,12 +706,12 @@
       const blockers = issues.filter((issue) => issue.severity === "error");
       if (blockers.length > 0) {
         raiseCriticalAlarm(
-          "Sistem kok dogrulamasi basarisiz",
+          "Sistem sağlık kontrolü başarısız",
           blockers.map((issue) => `${issue.code}: ${issue.message}`).join(" | ")
         );
       }
     } catch (err) {
-      raiseCriticalAlarm("Sistem kok dogrulamasi calistirilamadi", err);
+      raiseCriticalAlarm("Sistem sağlık kontrolü çalıştırılamadı", err);
     }
   }
 
@@ -486,8 +722,8 @@
       askerMotoruStatus = await safeInvoke("get_asker_motoru_status_cmd");
       dbSizeBytes = await safeInvoke("get_db_size_cmd");
     } catch (err) {
-      console.error("Baglanti health-check hatasi:", err);
-      raiseCriticalAlarm("Baglanti health-check sirasinda hata olustu", err);
+      console.error("Bağlantı health-check hatası:", err);
+      raiseCriticalAlarm("Bağlantı health-check sırasında hata oluştu", err);
     }
   }
 
@@ -504,8 +740,8 @@
       operationPackages = await safeInvoke("get_operation_packages_cmd", { taskId });
       swarmAllocations = await safeInvoke("get_swarm_allocations_cmd", { taskId });
     } catch (err) {
-      console.error("Detay yukleme hatasi:", err);
-      raiseCriticalAlarm("Gorev detaylari yuklenirken hata olustu", err);
+      console.error("Detay yükleme hatası:", err);
+      raiseCriticalAlarm("Görev detayları yüklenirken hata oluştu", err);
     }
   }
 
@@ -519,23 +755,40 @@
 
   async function handleCreateTask(title: string, userRequest: string) {
     try {
-      const newTask: any = await safeInvoke("create_task_cmd", { title, userRequest });
+      const beforeTotal = tasks.length;
+      const newTask: any = await invokeWithAudit("create_task_cmd", { title, userRequest }, {
+        action: "create_task",
+        details: `Task created: ${title}`,
+        context: {
+          before: { task_count: beforeTotal },
+          after: { title, user_request: userRequest },
+        },
+      });
       selectedTaskId = newTask.id;
       await loadTasks();
-      speakReply("Gorev kaydedildi. Kesin cevap icin planlama ve guvenlik kapilari bekleniyor.", `task-created:${newTask.id}`, true);
+      await loadOperationAuditTrail();
+      speakReply("Görev kaydedildi. Kesin cevap için planlama ve güvenlik kapıları bekleniyor.", `task-created:${newTask.id}`, true);
     } catch (err) {
-      console.error("Gorev olusturulamadi:", err);
-      raiseCriticalAlarm("Gorev olusturulamadi", err);
+      console.error("Görev oluşturulamadı:", err);
+      raiseCriticalAlarm("Görev oluşturulamadı", err);
     }
   }
 
   async function handleSavePlan(planInput: any) {
     if (!selectedTaskId) return;
     try {
-      await safeInvoke("save_plan_cmd", { taskId: selectedTaskId, plan: planInput });
+      await invokeWithAudit("save_plan_cmd", { taskId: selectedTaskId, plan: planInput }, {
+        action: "save_plan",
+        details: `Plan saved for task ${selectedTaskId}`,
+        context: {
+          before: { task_id: selectedTaskId, status: selectedTask?.status || "unknown" },
+          after: { risk_level: planInput?.risk_analysis, plan_summary: Object.keys(planInput || {}).length },
+        },
+      });
       await loadTasks();
-      speakReply("Plan kaydedildi. Planlama alanlari dogrulandi.", `plan-saved:${selectedTaskId}`, true);
-      alert("Plan kaydedildi, 17/17 alan dogrulandi.");
+      await loadOperationAuditTrail();
+      speakReply("Plan kaydedildi. Planlama alanları doğrulandı.", `plan-saved:${selectedTaskId}`, true);
+      alert("Plan kaydedildi, 17/17 alan doğrulandı.");
     } catch (err) {
       console.error("Plan kaydedilemedi:", err);
       raiseCriticalAlarm("Plan kaydedilemedi", err);
@@ -545,67 +798,164 @@
   async function handleExecute() {
     if (!selectedTaskId) return;
     try {
-      const res: any = await safeInvoke("execute_task_cmd", { taskId: selectedTaskId });
+      const beforeTask = selectedTask;
+      const res: any = await invokeWithAudit("execute_task_cmd", { taskId: selectedTaskId });
       await loadTasks();
-      speakReply(res.message || "Yurutme tamamlandi.", `execution:${selectedTaskId}:${res.message || ""}`, true);
+      await refreshTaskDetails(selectedTaskId);
+      const afterTask = selectedTask;
+      await loadOperationAuditTrail();
+      await appendOperationAudit({
+        action: "execute_task_result",
+        cmd: "execute_task_cmd",
+        status: res?.success ? "PASS" : "WARN",
+        args: { taskId: selectedTaskId },
+        details: `Execution for task ${selectedTaskId} => ${res?.success ? "success" : "not-ok"} (${res?.message || "no message"})`,
+        context: {
+          before: beforeTask,
+          after: afterTask,
+          result: res,
+        },
+      });
+      speakReply(res.message || "Yürütme tamamlandı.", `execution:${selectedTaskId}:${res.message || ""}`, true);
       alert(res.message);
     } catch (err) {
-      console.error("Yurutme hatasi:", err);
-      raiseCriticalAlarm("Yurutme sirasinda hata olustu", err);
+      console.error("Yürütme hatası:", err);
+      raiseCriticalAlarm("Yürütme sırasında hata oluştu", err);
       await loadTasks();
     }
   }
 
   async function handleApproval(approvalId: string, approve: boolean, userNote: string, approverId: string, approverRole: string) {
     try {
-      await safeInvoke("submit_approval_cmd", { approvalId, approve, userNote, approverId, approverRole });
+      await invokeWithAudit("submit_approval_cmd", { approvalId, approve, userNote, approverId, approverRole }, {
+        action: "submit_approval",
+        details: `${approve ? "Approve" : "Reject"} approval ${approvalId}`,
+        context: {
+          before: { status: approvals.find((approval: any) => approval.id === approvalId)?.status || "unknown" },
+          after: { approval_id: approvalId, approve, approver_role: approverRole },
+        },
+      });
       await loadTasks();
-      speakReply(approve ? "Islem onaylandi." : "Islem reddedildi.", `approval:${approvalId}:${approve}`, true);
-      alert(approve ? "Islem onaylandi." : "Islem reddedildi.");
+      await loadOperationAuditTrail();
+      speakReply(approve ? "İşlem onaylandı." : "İşlem reddedildi.", `approval:${approvalId}:${approve}`, true);
+      alert(approve ? "İşlem onaylandı." : "İşlem reddedildi.");
     } catch (err) {
-      console.error("Onay gonderme hatasi:", err);
-      raiseCriticalAlarm("Onay islemi sirasinda hata olustu", err);
+      console.error("Onay gönderme hatası:", err);
+      raiseCriticalAlarm("Onay işlemi sırasında hata oluştu", err);
     }
   }
 
   async function handleRollback() {
     if (!selectedTaskId) return;
     try {
-      const success: boolean = await safeInvoke("rollback_task_cmd", { taskId: selectedTaskId });
+      const beforeTask = selectedTask;
+      const success: boolean = await invokeWithAudit("rollback_task_cmd", { taskId: selectedTaskId });
       await loadTasks();
-      speakReply(success ? "Rollback basariyla tamamlandi." : "Geri alinacak bir snapshot bulunamadi.", `rollback:${selectedTaskId}:${success}`, true);
-      alert(success ? "Rollback basariyla tamamlandi!" : "Geri alinacak bir snapshot bulunamadi.");
+      await refreshTaskDetails(selectedTaskId);
+      const afterTask = selectedTask;
+      await loadOperationAuditTrail();
+      await appendOperationAudit({
+        action: "rollback_task_result",
+        cmd: "rollback_task_cmd",
+        status: success ? "PASS" : "WARN",
+        args: { taskId: selectedTaskId },
+        details: success ? `Rollback completed for ${selectedTaskId}` : `Rollback failed/no snapshot for ${selectedTaskId}`,
+        context: {
+          before: beforeTask,
+          after: afterTask,
+          success,
+        },
+      });
+      speakReply(success ? "Rollback başarıyla tamamlandı." : "Geri alınacak bir snapshot bulunamadı.", `rollback:${selectedTaskId}:${success}`, true);
+      alert(success ? "Rollback başarıyla tamamlandı!" : "Geri alınacak bir snapshot bulunamadı.");
     } catch (err) {
-      console.error("Rollback hatasi:", err);
-      raiseCriticalAlarm("Rollback islemi sirasinda hata olustu", err);
+      console.error("Rollback hatası:", err);
+      raiseCriticalAlarm("Rollback işlemi sırasında hata oluştu", err);
     }
   }
 
-  // 3 saniyede bir log ve durum gÃ¼ncellemesi yapalÄ±m (canlÄ± izleme)
+  // 3 saniyede bir log ve durum güncellemesi yapalım (canlı izleme)
   onMount(() => {
     runtimeMode = isTauriRuntime() ? "tauri_runtime" : "browser_preview";
+    let isMounted = true;
+    setOperatorId(getOperatorId());
 
     const savedVoiceSetting = localStorage.getItem("voiceRepliesEnabled");
     if (savedVoiceSetting !== null) {
       voiceRepliesEnabled = savedVoiceSetting === "true";
     }
 
-    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has("alarmTest")) {
-      raiseCriticalAlarm(
-        "Otomatik gorsel alarm testi",
-        "Test amacli hata enjeksiyonu: alarm banner, aktif hata kayitlari ve sesli kritik alarm akisi dogrulaniyor."
-      );
+    const globalErrorHandler = (event: ErrorEvent) => {
+      const detail = event.error instanceof Error ? event.error.message : String(event.message || event.error || "Bilinmeyen hata");
+      raiseCriticalAlarm("Beklenmeyen istemci hatası", detail);
+    };
+
+    const unhandledRejectionHandler = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const detail = reason instanceof Error ? reason.message : String(reason || "Bilinmeyen promise hatası");
+      raiseCriticalAlarm("İşlenmemiş Promise hatası", detail);
+    };
+
+    const resourceErrorHandler = (event: ErrorEvent) => {
+      if (event.error) return;
+      const detail = event.message || "Kaynak yükleme hatası";
+      raiseCriticalAlarm("Kaynak yükleme hatası", detail);
+    };
+
+    window.addEventListener("error", globalErrorHandler);
+    window.addEventListener("error", resourceErrorHandler, true);
+    window.addEventListener("unhandledrejection", unhandledRejectionHandler);
+
+    void (async () => {
+      if (!isTauriRuntime() || !isMounted) return;
+      try {
+        const unlisten = await listen("critical-error", (event) => {
+          const payload = event.payload as Record<string, unknown>;
+          const source = typeof payload.source === "string" ? payload.source : typeof payload.command === "string" ? payload.command : "Backend kritik hata";
+          const message = typeof payload.message === "string"
+            ? payload.message
+            : typeof payload.error === "string"
+              ? payload.error
+              : JSON.stringify(payload);
+          const command = typeof payload.command === "string" ? payload.command : "";
+          raiseCriticalAlarm(source, message);
+        });
+
+        if (!isMounted) {
+          unlisten();
+          return;
+        }
+
+        criticalErrorUnlisten = unlisten;
+    } catch (error) {
+      console.error("Tauri kritik hata dinleyicisi kurulamadı:", error);
+      raiseCriticalAlarm("Kritik hata dinleyicisi başlatılamadı", error);
     }
+  })();
 
     checkSystemHealth();
     refreshConnectionHealth(true);
     loadTasks();
+    loadOperationAuditTrail();
     const interval = setInterval(() => {
-      if (selectedTaskId) {
-        loadTasks();
-      }
+      loadTasks();
+      loadOperationAuditTrail();
     }, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      if (criticalErrorUnlisten) {
+        criticalErrorUnlisten();
+        criticalErrorUnlisten = null;
+      }
+      window.removeEventListener("error", globalErrorHandler);
+      window.removeEventListener("error", resourceErrorHandler, true);
+      window.removeEventListener("unhandledrejection", unhandledRejectionHandler);
+      if (alarmPulseTimer) {
+        clearTimeout(alarmPulseTimer);
+        alarmPulseTimer = null;
+      }
+    };
   });
 </script>
 
@@ -658,9 +1008,19 @@
       <div class="workspace-header">
       <div class="runtime-banner" class:real={runtimeMode === "tauri_runtime"}>
         {#if runtimeMode === "tauri_runtime"}
-          GERCEK CALISMA MODU: Tauri koprusu aktif, veritabani ve sistem komutlari gercek kayda gider.
+          GERÇEK ÇALIŞMA MODU: Tauri köprüsü aktif, veritabanı ve sistem komutları gerçek kayda gider.
         {:else}
-          TARAYICI ONIZLEME MODU: localhost:200 arayuzu cevap verir; gercek veritabani/yazma islemleri icin Tauri uygulamasi kullanilir.
+          TARAYICI ÖNİZLEME MODU: localhost:200 arayüzü cevap verir; gerçek veritabanı/yazma işlemleri için Tauri uygulaması kullanılır.
+        {/if}
+      </div>
+      <div class="critical-alarm-indicator" class:active={!!globalError} class:idle={criticalAlarmCounter === 0} class:pulsing={alarmPulse}>
+        <span class="indicator-dot"></span>
+        {#if globalError}
+          <span>KRİTİK ALARM: {criticalAlarmCounter} olay (en son: {lastCriticalAlarmSource || "bilinmiyor"})</span>
+        {:else if criticalAlarmCounter > 0}
+          <span>Son kritik hata: {lastCriticalAlarmSource || "sistem"} ({lastCriticalAlarmAt})</span>
+        {:else}
+          <span>Kritik alarm hattı izleme: AKTİF</span>
         {/if}
       </div>
       <div class="navigation-tabs">
@@ -681,6 +1041,26 @@
         </button>
         <button class="voice-btn stop" disabled={!voiceAvailable} onclick={stopVoiceReply}>Cevap Sesini Durdur</button>
       </div>
+      <div class="operation-audit-mini-panel">
+        <div class="operation-audit-title">İŞLEM KAYIT ÖZETİ</div>
+        {#if !operationAuditTrail.length}
+          <div class="operation-audit-empty">Henüz işlem kaydı yok.</div>
+        {:else}
+      <div class="operation-audit-scroll">
+            {#each operationAuditTrail as audit}
+              <div class="operation-audit-row">
+                <span>{audit.created_at}</span>
+                <span>{audit.actor}</span>
+                <span>{audit.action}</span>
+                <span class="audit-details">{audit.details}</span>
+                <span class:pass={audit.status === 'PASS'} class:warn={audit.status === 'WARN'} class:fail={audit.status === 'FAIL'}>
+                  {audit.status}
+                </span>
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </div>
     </div>
 
     {#if globalError}
@@ -689,11 +1069,11 @@
         <div class="error-message">
           <strong>SISTEM HATASI TESPIT EDILDI</strong>
           <span>{globalError}</span>
-          <small>{alarmMuted ? "Alarm susturuldu; hata kaydi ekranda kalir." : "Ayni hata tekrar ederse ses yeniden baslatilmaz."}</small>
+            <small>{criticalAlarmsAlwaysAudible ? "Kritik alarm panosu ve sesli alarm her hata anında aktif." : "Aynı hata tekrarlanırsa ses otomatik olarak yeniden başlatılmaz."}</small>
         </div>
         <div class="alarm-actions">
-          <button class="alarm-action-btn" onclick={muteAlarm} disabled={alarmMuted}>Alarmi Sustur</button>
-          <button class="alarm-action-btn secondary" onclick={clearAlarm}>Hatayi Kapat</button>
+          <button class="alarm-action-btn" onclick={muteAlarm}>Geçici Sessizleştir</button>
+          <button class="alarm-action-btn secondary" onclick={clearAlarm}>Hata Kaydını Kapat</button>
         </div>
       </div>
 
@@ -772,10 +1152,10 @@
           <LiveLog logs={logs} />
         {:else}
           <div class="agent-stream-panel">
-             <!-- Ajan raporlarÄ± ve niyetlerini gÃ¶stereceÄŸimiz yalÄ±tÄ±lmÄ±ÅŸ alan -->
+             <!-- Ajan raporları ve niyetlerini göstereceğimiz yalıtılmış alan -->
              <div class="stream-header">
-               <h4>Operasyonel Ajan AkÄ±ÅŸÄ±</h4>
-               <p>AjanlarÄ±n aldÄ±klarÄ± kararlar ve Ã¼rettikleri raporlar teknik loglardan baÄŸÄ±msÄ±z olarak burada listelenir.</p>
+               <h4>Operasyonel Ajan Akışı</h4>
+               <p>Ajanların aldıkları kararlar ve ürettikleri raporlar teknik loglardan bağımsız olarak burada listelenir.</p>
              </div>
              <div class="stream-body">
                {#if reports.length > 0}
@@ -786,7 +1166,7 @@
                    </div>
                  {/each}
                {:else}
-                 <div class="empty-stream">HenÃ¼z bir ajan raporu veya kararÄ± bulunmuyor.</div>
+                 <div class="empty-stream">Henüz bir ajan raporu veya kararı bulunmuyor.</div>
                {/if}
              </div>
           </div>
@@ -910,6 +1290,63 @@
     border-left-color: #47d18c;
     background: #101d17;
     color: #47d18c;
+  }
+
+  .critical-alarm-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: fit-content;
+    min-height: 26px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid #2d2d31;
+    background: #1a1a1c;
+    color: #d5d5db;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .critical-alarm-indicator.active {
+    color: #ffd4d4;
+    border-color: rgba(244, 71, 71, 0.9);
+    background: rgba(244, 71, 71, 0.18);
+  }
+
+  .critical-alarm-indicator.idle {
+    color: #b5b5bd;
+    border-color: #2d2d31;
+    background: #151517;
+  }
+
+  .critical-alarm-indicator.pulsing {
+    animation: criticalIndicatorPulse 1.2s ease-in-out infinite;
+  }
+
+  .indicator-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #3dbf66;
+    box-shadow: 0 0 8px rgba(61, 191, 102, 0.7);
+    flex-shrink: 0;
+  }
+
+  .critical-alarm-indicator.active .indicator-dot {
+    background: #ff4747;
+    box-shadow: 0 0 12px rgba(255, 71, 71, 0.9);
+  }
+
+  @keyframes criticalIndicatorPulse {
+    0% {
+      box-shadow: 0 0 0px rgba(255, 71, 71, 0.0);
+    }
+    100% {
+      box-shadow: 0 0 16px rgba(255, 71, 71, 0.6);
+    }
   }
 
   .navigation-tabs {
@@ -1109,6 +1546,85 @@
     margin: 0;
     color: #f3c2c2;
     overflow-wrap: anywhere;
+  }
+
+  .operation-audit-mini-panel {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid #2c2c31;
+    border-radius: 8px;
+    background: #131316;
+    color: #cfd3dc;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .operation-audit-title {
+    color: #8fdaff;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    font-size: 11px;
+  }
+
+  .operation-audit-empty {
+    color: #8f8f98;
+    font-size: 10px;
+  }
+
+  .operation-audit-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 170px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .operation-audit-row {
+    display: grid;
+    grid-template-columns: 150px 130px 1fr 1fr 60px;
+    gap: 8px;
+    align-items: start;
+    font-size: 10px;
+    color: #dee3ec;
+  }
+
+  .operation-audit-row span:first-child {
+    color: #a0acbe;
+    font-family: ui-monospace, monospace;
+  }
+
+  .operation-audit-row span:nth-child(2) {
+    color: #ffe78a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .operation-audit-row span:nth-child(4) {
+    color: #f5f7fb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .operation-audit-row span:nth-child(5) {
+    font-weight: 800;
+    text-align: right;
+  }
+
+  .operation-audit-row .pass {
+    color: #7ee79c;
+  }
+
+  .operation-audit-row .warn {
+    color: #ffd27a;
+  }
+
+  .operation-audit-row .fail {
+    color: #ff9aa6;
   }
 
   @keyframes slideDown {

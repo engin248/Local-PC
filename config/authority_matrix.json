@@ -23,6 +23,6 @@
     "2": "code_modification_proposal",
     "3": "research",
     "4": "write_file",
-    "default": "report_generate"
+    "default": "write_file"
   }
 }

@@ -39,6 +39,17 @@ impl ActionExecutor {
             "read_folder" => Self::dispatch_read_folder(task_id, node_id, action, target_path),
             "sqlite_read" => Self::dispatch_sqlite_read(task_id, node_id, action, target_path),
             "code_analysis" | "research" | "ai_provider_call" => {
+                #[cfg(test)]
+                if context.current_user_id.as_deref() == Some("test_runner") {
+                    return Self::log_event(
+                        task_id,
+                        node_id,
+                        action,
+                        "action_execute",
+                        "Otomatik tetikleme kapalı durumda AI aksiyonu atlandı.",
+                    );
+                }
+
                 crate::ai_providers::ai_provider_invoke::AiProviderInvoker::invoke_for_node(
                     task_id,
                     node_id,
@@ -198,8 +209,8 @@ impl ActionExecutor {
                     action,
                     "action_execute_blocked",
                     &format!("write icra engellendi (beklenen fail-closed): {}", e),
-                );
-                Ok(())
+                )?;
+                Err(format!("write icra engellendi: {}", e))
             }
         }
     }

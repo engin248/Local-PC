@@ -19,3 +19,6 @@ node_modules
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 panel_dev_server.log
+/storage/*.log
+/storage/*.err
+/final_patch.diff

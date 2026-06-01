@@ -16,6 +16,7 @@ impl AiProviderInvoker {
     ) -> Result<(), String> {
         let (provider, route_note) = AIProviderManager::select_with_failover()?;
         let response = Self::query_provider(&provider, prompt)?;
+
         StatementCollector::collect_statement(
             node_id,
             "ai_provider_response",
@@ -26,10 +27,7 @@ impl AiProviderInvoker {
         AuditLogger::log_event(
             task_id,
             "info",
-            &format!(
-                "AI provider icra: {} ({})",
-                provider.id, route_note
-            ),
+            &format!("AI provider icra: {} ({})", provider.id, route_note),
             Some("Action Executor"),
             Some("action_execute"),
             Some(

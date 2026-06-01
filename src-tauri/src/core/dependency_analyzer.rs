@@ -1,4 +1,4 @@
-use crate::storage::db::Database;
+﻿use crate::storage::db::Database;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -101,16 +101,16 @@ impl DependencyAnalyzer {
                     .ok()
                     .and_then(|exe| exe.parent().map(Path::to_path_buf))
             })
-            .ok_or_else(|| "Kurulu uygulama veri dizini bulunamadı.".to_string())?;
+            .ok_or_else(|| "Kurulu uygulama veri dizini bulunamadÄ±.".to_string())?;
 
         Ok(local_app_data.join("com.engin.lokal-bilgisayar-kontrol-paneli"))
     }
 
     fn seed_runtime_config(root: &Path) -> Result<(), String> {
         fs::create_dir_all(root.join("config"))
-            .map_err(|e| format!("Runtime config dizini oluşturulamadı: {}", e))?;
+            .map_err(|e| format!("Runtime config dizini oluÅŸturulamadÄ±: {}", e))?;
         fs::create_dir_all(root.join("storage"))
-            .map_err(|e| format!("Runtime storage dizini oluşturulamadı: {}", e))?;
+            .map_err(|e| format!("Runtime storage dizini oluÅŸturulamadÄ±: {}", e))?;
 
         for (filename, content) in Self::embedded_config_files() {
             let target = root.join("config").join(filename);
@@ -118,11 +118,11 @@ impl DependencyAnalyzer {
                 if target.exists() {
                     let backup = target.with_extension("json.bak");
                     fs::copy(&target, backup).map_err(|e| {
-                        format!("Runtime config yedeği alınamadı ({}): {}", filename, e)
+                        format!("Runtime config yedeÄŸi alÄ±namadÄ± ({}): {}", filename, e)
                     })?;
                 }
                 fs::write(&target, content).map_err(|e| {
-                    format!("Runtime config dosyası yazılamadı ({}): {}", filename, e)
+                    format!("Runtime config dosyasÄ± yazÄ±lamadÄ± ({}): {}", filename, e)
                 })?;
             }
         }
@@ -171,6 +171,10 @@ impl DependencyAnalyzer {
     }
 
     fn runtime_config_contains_production_placeholder(value: &serde_json::Value) -> bool {
+        Self::contains_forbidden_production_text(value)
+    }
+
+    fn contains_forbidden_production_text(value: &serde_json::Value) -> bool {
         match value {
             serde_json::Value::String(text) => {
                 let lower = text.to_lowercase();
@@ -186,10 +190,10 @@ impl DependencyAnalyzer {
             }
             serde_json::Value::Array(items) => items
                 .iter()
-                .any(Self::runtime_config_contains_production_placeholder),
+                .any(Self::contains_forbidden_production_text),
             serde_json::Value::Object(map) => map
                 .values()
-                .any(Self::runtime_config_contains_production_placeholder),
+                .any(Self::contains_forbidden_production_text),
             _ => false,
         }
     }
@@ -238,7 +242,7 @@ impl DependencyAnalyzer {
         if candidate.exists() {
             Ok(candidate.to_string_lossy().into_owned())
         } else {
-            Err(format!("Yapılandırma dosyası ({}) bulunamadı. Lütfen config dizininin mevcut olduğunu kontrol edin.", filename))
+            Err(format!("YapÄ±landÄ±rma dosyasÄ± ({}) bulunamadÄ±. LÃ¼tfen config dizininin mevcut olduÄŸunu kontrol edin.", filename))
         }
     }
 
@@ -279,21 +283,21 @@ impl DependencyAnalyzer {
         config_path: &str,
     ) -> Result<DependencyAssessment, String> {
         let data = fs::read_to_string(config_path)
-            .map_err(|e| format!("system_connectors.json okunamadı: {}", e))?;
+            .map_err(|e| format!("system_connectors.json okunamadÄ±: {}", e))?;
 
         let connectors: Vec<SystemConnectorConfig> = serde_json::from_str(&data)
-            .map_err(|e| format!("system_connectors.json geçersiz JSON: {}", e))?;
+            .map_err(|e| format!("system_connectors.json geÃ§ersiz JSON: {}", e))?;
 
         let connector = connectors
             .iter()
             .find(|c| c.id == connector_id || c.connector_type == connector_id)
-            .ok_or_else(|| format!("Connector bulunamadı: {}", connector_id))?;
+            .ok_or_else(|| format!("Connector bulunamadÄ±: {}", connector_id))?;
 
         let enabled = connector.enabled.unwrap_or(false);
         let permissions = connector
             .permissions
             .clone()
-            .ok_or_else(|| format!("Connector permissions alanı eksik: {}", connector.id))?;
+            .ok_or_else(|| format!("Connector permissions alanÄ± eksik: {}", connector.id))?;
         let network_required = connector.network_required.unwrap_or(matches!(
             connector.connector_type.as_str(),
             "api" | "live_api"
@@ -332,7 +336,7 @@ impl DependencyAnalyzer {
         );
 
         let mut status = "available".to_string();
-        let mut reason = "Bağımlılık analizi tamamlandı.".to_string();
+        let mut reason = "BaÄŸÄ±mlÄ±lÄ±k analizi tamamlandÄ±.".to_string();
 
         if matches!(
             connector.connector_type.as_str(),
@@ -365,16 +369,16 @@ impl DependencyAnalyzer {
                     let resolved_path = resolved_path.replace("\\", "/");
 
                     if Path::new(&resolved_path).exists() {
-                        reason = format!("Lokal path erişilebilir: {}", resolved_path);
+                        reason = format!("Lokal path eriÅŸilebilir: {}", resolved_path);
                     } else {
                         status = "unavailable".to_string();
                         reason =
-                            format!("Lokal path bulunamadı veya erişilemedi: {}", resolved_path);
+                            format!("Lokal path bulunamadÄ± veya eriÅŸilemedi: {}", resolved_path);
                     }
                 }
                 None => {
                     status = "unavailable".to_string();
-                    reason = "Connector path alanı eksik.".to_string();
+                    reason = "Connector path alanÄ± eksik.".to_string();
                 }
             }
         }
@@ -424,7 +428,7 @@ impl DependencyAnalyzer {
             task_id,
             "info",
             &format!(
-                "Dinamik bağımlılık analizi yapıldı. Seviye: {}, Tip: {}",
+                "Dinamik baÄŸÄ±mlÄ±lÄ±k analizi yapÄ±ldÄ±. Seviye: {}, Tip: {}",
                 dependency_level, connector.connector_type
             ),
             Some("Dependency Analyzer"),
@@ -442,15 +446,15 @@ impl DependencyAnalyzer {
     ) -> Result<DependencyAssessment, String> {
         let config_path = Self::get_config_path("ai_providers.json")?;
         let data = fs::read_to_string(&config_path)
-            .map_err(|e| format!("ai_providers.json okunamadı: {}", e))?;
+            .map_err(|e| format!("ai_providers.json okunamadÄ±: {}", e))?;
 
         let providers: Vec<AIProviderConfig> = serde_json::from_str(&data)
-            .map_err(|e| format!("ai_providers.json geçersiz JSON: {}", e))?;
+            .map_err(|e| format!("ai_providers.json geÃ§ersiz JSON: {}", e))?;
 
         let provider = providers
             .iter()
             .find(|p| p.id == provider_id || p.provider_type == provider_id)
-            .ok_or_else(|| format!("AI Provider bulunamadı: {}", provider_id))?;
+            .ok_or_else(|| format!("AI Provider bulunamadÄ±: {}", provider_id))?;
 
         let enabled = provider.enabled.unwrap_or(false);
         let dependency_level = provider
@@ -474,7 +478,7 @@ impl DependencyAnalyzer {
                 "disabled".to_string()
             },
             reason: format!(
-                "AI Provider analizi tamamlandı. Model: {:?}",
+                "AI Provider analizi tamamlandÄ±. Model: {:?}",
                 provider.model
             ),
             network_required: true,
@@ -498,17 +502,17 @@ impl DependencyAnalyzer {
         technology_name: &str,
     ) -> Result<DependencyAssessment, String> {
         let (dep_level, status, reason) = match technology_name.to_lowercase().as_str() {
-            "rust" | "tauri" => ("low", "available", "Lokal güvenli derleme dili ve runtime."),
+            "rust" | "tauri" => ("low", "available", "Lokal gÃ¼venli derleme dili ve runtime."),
             "svelte" | "javascript" | "typescript" => {
-                ("low", "available", "Frontend UI kütüphanesi ve betik dili.")
+                ("low", "available", "Frontend UI kÃ¼tÃ¼phanesi ve betik dili.")
             }
-            "sqlite" => ("low", "available", "Lokal dosya tabanlı veritabanı."),
+            "sqlite" => ("low", "available", "Lokal dosya tabanlÄ± veritabanÄ±."),
             "postgresql" | "supabase" => (
                 "high",
                 "available",
-                "Harici ağ veya veritabanı sunucusu bağımlılığı.",
+                "Harici aÄŸ veya veritabanÄ± sunucusu baÄŸÄ±mlÄ±lÄ±ÄŸÄ±.",
             ),
-            _ => ("critical", "available", "Bilinmeyen teknoloji bağımlılığı."),
+            _ => ("critical", "available", "Bilinmeyen teknoloji baÄŸÄ±mlÄ±lÄ±ÄŸÄ±."),
         };
 
         let assessment = DependencyAssessment {
@@ -849,3 +853,4 @@ mod tests {
         let _ = std::fs::remove_file(exists_sqlite_file);
     }
 }
+

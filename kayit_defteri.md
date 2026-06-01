@@ -59,4 +59,24 @@ test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fin
 
 ---
 
+### [2026-06-01] 24 Backend Komutu & 5 UI Eylemi Operasyonel Envanter Denetimi ve Git Senkronizasyon Finalizasyonu
+
+#### Problem / İhtiyaç:
+Lokal Bilgisayar Kontrol Paneli'nin toplam işlem yüzeyinin (24 backend komutu + 5 UI eylemi) tam listesinin çıkarılması, canlı testlerinin yapılması, ağ ve log dosyalarının oluşturduğu git kirliliğinin temizlenerek tüm değişikliklerin buluta push edilmesi ve sıfır hata (Zero-Defect) durumunun tescillenmesi.
+
+#### Çözüm ve Teknik Uygulama:
+1. **İşlem Envanteri Denetimi (`OP_INVENTORY.md`):**
+   - Backend `lib.rs` içerisindeki 24 komut tek tek taranarak yerleri, işlevleri ve çalışma durumları listelendi.
+   - Frontend `+page.svelte` içerisindeki 5 ana kullanıcı aksiyonu haritalandırıldı.
+   - Sistem mimarisi 5 eksenden (Stratejik, Teknik, Operasyonel, Ekonomik, İnsan/Sürdürülebilirlik) analiz edilerek akademik bir rapor hazırlandı.
+2. **Git Temizliği ve Yapılandırma:**
+   - `.gitignore` dosyası güncellenerek `/storage/*.log`, `/storage/*.err` ve `/final_patch.diff` gibi geçici dosyalar kapsam dışı bırakıldı.
+   - 16 adet takip edilen dosyadaki modifikasyonlar test edilip git staging alanına alındı.
+3. **Test Doğrulama ve Entegrasyon:**
+   - `cargo test` komutuyla 42 backend birim testi ve 1 E2E entegrasyon testi olmak üzere 43 testin tamamı sıfır hata ile geçti.
+   - Değişiklikler git üzerinde taahhüt edilip uzak depoya (`https://github.com/engin248/Local-PC.git`) güvenli şekilde push edildi.
+
+---
+
 *Bu kayıt defteri, Kurucu Engin'in talimatı doğrultusunda açılmış olup, bundan sonra Lokal Bilgisayar Kontrol Paneli ile ilgili gerçekleştirilen tüm yapısal ve işlevsel operasyonlar bu dosyaya sırasıyla işlenecektir.*
+

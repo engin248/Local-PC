@@ -94,8 +94,24 @@ impl OperationMonitor {
 
         if expected_action == "report_generate"
             && actual_action == "report_generate"
-            && gate_name != "Report Gate"
         {
+            if gate_name != "Report Gate" {
+                let message = format!(
+                    "HATA: Rapor aksiyonu beklenmedik gate'de geldi. Beklenen: {}, gate: {}",
+                    expected_action, gate_name
+                );
+                Self::write_log(
+                    task_id,
+                    decision_node_id,
+                    Some(&expected_action),
+                    actual_action,
+                    Some(gate_name),
+                    "failed",
+                    &message,
+                )?;
+                return Err(message);
+            }
+
             Self::write_log(
                 task_id,
                 decision_node_id,
@@ -110,7 +126,7 @@ impl OperationMonitor {
 
         if expected_action != actual_action {
             if expected_action == "report_generate"
-                && Self::is_known_nonterminal_action(&conn, task_id, actual_action)?
+                && Self::is_known_nonterminal_action(&conn, task_id, actual_action, step_order)?
             {
                 Self::write_log(
                     task_id,
@@ -164,6 +180,7 @@ impl OperationMonitor {
         conn: &rusqlite::Connection,
         task_id: &str,
         actual_action: &str,
+        step_order: i32,
     ) -> Result<bool, String> {
         if actual_action == "report_generate" {
             return Ok(false);
@@ -179,20 +196,17 @@ impl OperationMonitor {
             "approval_check",
             "snapshot_create",
             "test_run",
-            "write_file",
-            "file_write",
-            "sqlite_write",
-            "terminal_command",
         ];
-        if DECISION_LOOP_ACTIONS.contains(&actual_action) {
-            return Ok(true);
+
+        if !DECISION_LOOP_ACTIONS.contains(&actual_action) {
+            return Ok(false);
         }
 
         let count: i32 = conn
             .query_row(
                 "SELECT COUNT(*) FROM operation_steps
-                 WHERE task_id = ?1 AND expected_action = ?2 AND expected_action != 'report_generate'",
-                params![task_id, actual_action],
+                 WHERE task_id = ?1 AND expected_action = ?2 AND status = 'pending' AND step_order > ?3",
+                params![task_id, actual_action, step_order],
                 |row| row.get(0),
             )
             .map_err(|e| e.to_string())?;
@@ -222,7 +236,7 @@ impl OperationMonitor {
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let pending_count: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM operation_steps WHERE task_id = ?1 AND status != 'completed'",
+                "SELECT COUNT(*) FROM operation_steps WHERE task_id = ?1 AND status != 'completed' AND expected_action != 'report_generate'",
                 params![task_id],
                 |row| row.get(0),
             )
@@ -339,3 +353,4 @@ mod tests {
         assert!(err.contains("Plan disi action"));
     }
 }
+

@@ -193,10 +193,7 @@ impl AIProviderManager {
             };
             let health = Self::health_check(config);
             trail.push(format!("{}:{}", config.id, health.status));
-            if matches!(
-                health.status.as_str(),
-                "available" | "disabled" | "missing_api_key"
-            ) {
+            if health.status == "available" {
                 return Ok((
                     config.clone(),
                     format!("failover_route={}; trail={}", config.id, trail.join(" -> ")),
@@ -204,15 +201,9 @@ impl AIProviderManager {
             }
         }
 
-        let fallback = configs[0].clone();
-        let fallback_id = fallback.id.clone();
-        Ok((
-            fallback,
-            format!(
-                "failover_route=fallback_first:{}; trail={}",
-                fallback_id,
-                trail.join(" -> ")
-            ),
+        Err(format!(
+            "Hicbir kullanima hazir AI provider bulunamadi: {}",
+            trail.join(" -> ")
         ))
     }
 

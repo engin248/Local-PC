@@ -25,9 +25,10 @@ impl TaskDecomposer {
     pub fn decompose_task(task_id: &str, user_request: &str) -> Result<Vec<TaskBreakdown>, String> {
         let mut breakdowns = Vec::new();
         let db = Database::new();
-        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut conn = db.get_connection().map_err(|e| e.to_string())?;
+        let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-        let existing_nodes: i64 = conn
+        let existing_nodes: i64 = tx
             .query_row(
                 "SELECT COUNT(*) FROM decision_nodes WHERE task_id = ?1",
                 params![task_id],
@@ -35,12 +36,12 @@ impl TaskDecomposer {
             )
             .map_err(|e| e.to_string())?;
         if existing_nodes == 0 {
-            conn.execute(
+            tx.execute(
                 "DELETE FROM task_breakdown_alternatives WHERE task_id = ?1",
                 params![task_id],
             )
             .map_err(|e| e.to_string())?;
-            conn.execute("DELETE FROM task_breakdown WHERE task_id = ?1", params![task_id])
+            tx.execute("DELETE FROM task_breakdown WHERE task_id = ?1", params![task_id])
                 .map_err(|e| e.to_string())?;
         }
 
@@ -50,6 +51,7 @@ impl TaskDecomposer {
             .filter(|s| !s.is_empty())
             .collect();
 
+        const MAX_TOP_LEVEL_LINES: usize = 12;
         let lines = if lines.is_empty() {
             vec![
                 "Kullanici talimatini ve hedef etki alanini dogrula",
@@ -61,6 +63,7 @@ impl TaskDecomposer {
         } else {
             lines
         };
+        let lines: Vec<&str> = lines.into_iter().take(MAX_TOP_LEVEL_LINES).collect();
 
         let atomic_phases = [
             (
@@ -127,8 +130,8 @@ impl TaskDecomposer {
                 probable_connector: Some(probable_connector.to_string()),
                 decision_node_required: Some(decision_node_required.to_string()),
             };
-            insert_breakdown(&conn, &parent)?;
-            insert_part_alternatives(&conn, &parent)?;
+            insert_breakdown_tx(&tx, &parent)?;
+            insert_part_alternatives_tx(&tx, &parent)?;
             let parent_id = parent.id.clone();
             breakdowns.push(parent);
             sequence += 1;
@@ -152,13 +155,14 @@ impl TaskDecomposer {
                     probable_connector: Some(probable_connector.to_string()),
                     decision_node_required: Some(decision_node_required.to_string()),
                 };
-                insert_breakdown(&conn, &child)?;
-                insert_part_alternatives(&conn, &child)?;
+                insert_breakdown_tx(&tx, &child)?;
+                insert_part_alternatives_tx(&tx, &child)?;
                 breakdowns.push(child);
                 sequence += 1;
             }
         }
 
+        tx.commit().map_err(|e| e.to_string())?;
         Ok(breakdowns)
     }
 
@@ -196,8 +200,11 @@ impl TaskDecomposer {
     }
 }
 
-fn insert_breakdown(conn: &rusqlite::Connection, breakdown: &TaskBreakdown) -> Result<(), String> {
-    conn.execute(
+fn insert_breakdown_tx(
+    tx: &rusqlite::Transaction<'_>,
+    breakdown: &TaskBreakdown,
+) -> Result<(), String> {
+    tx.execute(
         "INSERT INTO task_breakdown (id, task_id, parent_id, level, topic, subtopic, criterion, subcriterion, description, risk_pre_label, probable_connector, decision_node_required)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
@@ -219,8 +226,8 @@ fn insert_breakdown(conn: &rusqlite::Connection, breakdown: &TaskBreakdown) -> R
     Ok(())
 }
 
-fn insert_part_alternatives(
-    conn: &rusqlite::Connection,
+fn insert_part_alternatives_tx(
+    tx: &rusqlite::Transaction<'_>,
     breakdown: &TaskBreakdown,
 ) -> Result<(), String> {
     let alternatives = [
@@ -257,7 +264,7 @@ fn insert_part_alternatives(
     for (idx, (title, description, accepted_correct, selected_best, reason)) in
         alternatives.iter().enumerate()
     {
-        conn.execute(
+        tx.execute(
             "INSERT INTO task_breakdown_alternatives
              (id, task_id, breakdown_id, alternative_order, title, description, accepted_correct,
               selected_best, selection_reason, control_criteria, test_criteria, rollback_note)

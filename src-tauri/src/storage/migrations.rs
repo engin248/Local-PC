@@ -171,6 +171,20 @@ pub fn get_migrations() -> Vec<&'static str> {
             metadata_json TEXT,
             FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
         );"#,
+        // Operation Audit Events Table
+        r#"CREATE TABLE IF NOT EXISTS operation_audit_events (
+            id TEXT PRIMARY KEY,
+            actor TEXT NOT NULL,
+            action TEXT NOT NULL,
+            target_type TEXT,
+            target_id TEXT,
+            status TEXT NOT NULL CHECK(status IN ('PASS', 'FAIL', 'WARN')),
+            details TEXT,
+            metadata_json TEXT,
+            error_message TEXT,
+            correlation_id TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );"#,
         // Snapshots Table
         r#"CREATE TABLE IF NOT EXISTS snapshots (
             id TEXT PRIMARY KEY,
@@ -315,6 +329,8 @@ pub fn get_migrations() -> Vec<&'static str> {
             ON approvals(task_id, decision_node_id, action, risk_level, status);"#,
         r#"CREATE INDEX IF NOT EXISTS idx_approvals_authorized_signatures
             ON approvals(task_id, decision_node_id, action, risk_level, approver_id, approver_role, status);"#,
+        r#"CREATE INDEX IF NOT EXISTS idx_operation_audit_events_created_at
+            ON operation_audit_events(created_at DESC);"#,
     ]
 }
 

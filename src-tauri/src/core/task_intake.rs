@@ -85,13 +85,13 @@ impl TaskIntake {
         )
         .map_err(|e| e.to_string())?;
 
-        let _swarm = crate::core::ai_workflow_manager::AiWorkflowManager::allocate_task(
+        let _ = crate::core::ai_workflow_manager::AiWorkflowManager::allocate_task(
             &task.id,
             &task.title,
             &task.user_request,
             max_risk,
             None,
-        );
+        )?;
 
         let mut task = task;
         task.risk_level = max_risk.to_string();

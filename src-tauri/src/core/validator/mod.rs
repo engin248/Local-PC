@@ -1,4 +1,4 @@
-use crate::core::system_validator::SystemValidationIssue;
+﻿use crate::core::system_validator::SystemValidationIssue;
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -33,7 +33,7 @@ pub(crate) fn validate_action_set(
             push_error(
                 issues,
                 "POLICY_UNKNOWN_ACTION",
-                format!("{} bilinmeyen aksiyon içeriyor: {}", source, action),
+                format!("{} bilinmeyen aksiyon iÃ§eriyor: {}", source, action),
             );
         }
     }
@@ -101,3 +101,6 @@ pub(crate) fn is_write_like(action: &str) -> bool {
         || action == "terminal_command"
         || action == "live_system_update"
 }
+
+
+
