@@ -96,6 +96,21 @@ Kontrol paneline yerel yapay zeka yürütücüsü olan **Ollama** ve vektörel h
 
 ---
 
+### [2026-06-01] Deprese Edilmiş Verdent AI Sağlayıcısının Sistemden Kaldırılması
+
+#### Problem / İhtiyaç:
+Sistemde aktif bir API bağlantısı bulunmayan ve kullanımı sonlandırılan `verdent` yapay zeka sağlayıcısının `config/ai_providers.json` dosyasından temizlenerek sistemdeki gereksiz bağlantı yükünün kaldırılması ve tam doğruluğun sağlanması.
+
+#### Çözüm ve Teknik Uygulama:
+1. **Yapay Zeka Havuzunun Güncellenmesi:**
+   - `config/ai_providers.json` dosyasından `verdent` nesnesi tamamen kaldırıldı. Sistemdeki aktif yapay zeka sağlayıcı sayısı 9'dan **8'e** düşürüldü (ChatGPT, Gemini, Perplexity, Codex, OAM, Antigravity, Cursor, Ollama).
+2. **Doğrulama ve Git Dağıtımı:**
+   - Tüm Rust birim ve entegrasyon testleri sequential olarak koşturulup sıfır hata ile geçtiği doğrulandı.
+   - Değişiklikler git staging alanına eklenerek commmitlendi ve uzak depoya (`https://github.com/engin248/Local-PC.git`) güvenli şekilde push edildi.
+
+---
+
 *Bu kayıt defteri, Kurucu Engin'in talimatı doğrultusunda açılmış olup, bundan sonra Lokal Bilgisayar Kontrol Paneli ile ilgili gerçekleştirilen tüm yapısal ve işlevsel operasyonlar bu dosyaya sırasıyla işlenecektir.*
+
 
 
