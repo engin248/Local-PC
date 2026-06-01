@@ -62,5 +62,22 @@
     "rollback_required_actions": ["terminal_command"],
     "test_required_actions": ["terminal_command"],
     "read_only_default": true
+  },
+  {
+    "id": "pinecone_vector_db",
+    "name": "Pinecone Vektör Veritabanı",
+    "type": "api",
+    "base_url": "https://controller.pinecone.io",
+    "api_key_env": "PINECONE_API_KEY",
+    "permissions": ["read", "api_write_with_approval"],
+    "enabled": true,
+    "dependency_level": "medium",
+    "live_system": true,
+    "network_required": true,
+    "allowed_actions": ["api_read"],
+    "approval_required_actions": ["api_write"],
+    "rollback_required_actions": ["api_write"],
+    "test_required_actions": ["api_read", "api_write"],
+    "read_only_default": true
   }
 ]

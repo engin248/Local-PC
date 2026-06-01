@@ -78,5 +78,24 @@ Lokal Bilgisayar Kontrol Paneli'nin toplam işlem yüzeyinin (24 backend komutu 
 
 ---
 
+### [2026-06-01] Ollama LLM Sağlayıcısı ve Pinecone Vektör Veritabanı Konnektörü Canlı Entegrasyonu
+
+#### Problem / İhtiyaç:
+Kontrol paneline yerel yapay zeka yürütücüsü olan **Ollama** ve vektörel hafıza yönetimi için **Pinecone Vektör Veritabanı** entegrasyonunun canlı olarak eklenmesi, bağlantı durumlarının gerçek zamanlı TCP denetimiyle izlenebilir hale getirilmesi ve otonom talimat altyapısına bağlanması.
+
+#### Çözüm ve Teknik Uygulama:
+1. **Ollama Entegrasyonu (`ai_providers.json`):**
+   - Yerel LLM orkestrasyonu için `ollama` sağlayıcı kimliği, yerel OpenAI uyumlu endpoint (`http://127.0.0.1:11434/v1`) ve varsayılan model `qwen2.5:14b` olarak AI sağlayıcı havuzuna eklendi.
+   - Failover (hata kurtarma) sırası ve otonom yedekleme altyapısına dinamik olarak bağlandı.
+2. **Pinecone Entegrasyonu (`system_connectors.json`):**
+   - Vektörel veri tabanı haberleşmesi için `pinecone_vector_db` API konnektörü olarak sisteme entegre edildi.
+   - Real-time TCP bağlantı izleme, izin matrisi ve onay gereksinimleri tanımlandı.
+3. **Doğrulama ve Git Dağıtımı:**
+   - Sequential test thread (`--test-threads=1`) ile 43 adet Rust birim ve E2E entegrasyon testi koşturuldu ve %100 başarıyla tescillendi.
+   - Değişiklikler git üzerinde staged edilip commmitlendi ve uzak depoya (`https://github.com/engin248/Local-PC.git`) güvenli şekilde push edildi.
+
+---
+
 *Bu kayıt defteri, Kurucu Engin'in talimatı doğrultusunda açılmış olup, bundan sonra Lokal Bilgisayar Kontrol Paneli ile ilgili gerçekleştirilen tüm yapısal ve işlevsel operasyonlar bu dosyaya sırasıyla işlenecektir.*
+
 

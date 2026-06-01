@@ -193,5 +193,33 @@
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
     }
+  },
+  {
+    "id": "ollama",
+    "name": "Ollama (Yerel LLM)",
+    "type": "openai_compatible",
+    "base_url": "http://127.0.0.1:11434/v1",
+    "api_key_env": "OLLAMA_API_KEY",
+    "model": "qwen2.5:14b",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
   }
 ]
