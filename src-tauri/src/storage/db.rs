@@ -46,6 +46,8 @@ impl Database {
     pub fn get_connection(&self) -> Result<Connection> {
         let conn = Connection::open(&self.db_path)?;
         conn.execute("PRAGMA foreign_keys = ON;", [])?;
+        let _ = conn.execute("PRAGMA journal_mode = WAL;", []);
+        let _ = conn.execute("PRAGMA busy_timeout = 5000;", []);
         Self::ensure_optional_columns(&conn)?;
 
         Ok(conn)

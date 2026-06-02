@@ -1,4 +1,4 @@
-﻿use crate::storage::db::Database;
+use crate::storage::db::Database;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -198,7 +198,7 @@ impl DependencyAnalyzer {
         }
     }
 
-    fn embedded_config_files() -> [(&'static str, &'static str); 8] {
+    fn embedded_config_files() -> [(&'static str, &'static str); 9] {
         [
             (
                 "ai_providers.json",
@@ -231,6 +231,10 @@ impl DependencyAnalyzer {
             (
                 "system_connectors.json",
                 include_str!("../../../config/system_connectors.json"),
+            ),
+            (
+                "system_rules.json",
+                include_str!("../../../config/system_rules.json"),
             ),
         ]
     }

@@ -28,6 +28,7 @@ impl SystemValidator {
         let ai_providers = Self::read_json("ai_providers.json")?;
         let planning = Self::read_json("planning_standard.json")?;
         let decision_principles = Self::read_json("decision_principles.json")?;
+        let system_rules = Self::read_json("system_rules.json")?;
 
         let action_mappings = risk
             .get("action_mappings")
@@ -67,6 +68,7 @@ impl SystemValidator {
             &mut issues,
         )?;
         Self::validate_decision_principles(&decision_principles, &mut issues)?;
+        validator::system_rules_validator::validate_system_rules(&system_rules, &mut issues)?;
 
         Ok(issues)
     }
@@ -82,9 +84,33 @@ impl SystemValidator {
         if blockers.is_empty() {
             Ok(())
         } else {
+            // Strict fail-closed: Generate forensic audit report in C:\agent_audit\
+            let audit_dir = std::path::Path::new("C:\\agent_audit");
+            let _ = fs::create_dir_all(audit_dir);
+
+            let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S").to_string();
+            let report_path = audit_dir.join(format!("forensic_report_{}.json", timestamp));
+
+            let report_data = serde_json::json!({
+                "timestamp": timestamp,
+                "status": "system_halted",
+                "reason": "Zero-Defect system validator failed.",
+                "blockers_count": blockers.len(),
+                "blockers": blockers,
+                "environment": {
+                    "os": std::env::consts::OS,
+                    "arch": std::env::consts::ARCH,
+                }
+            });
+
+            if let Ok(serialized) = serde_json::to_string_pretty(&report_data) {
+                let _ = fs::write(&report_path, serialized);
+            }
+
             Err(format!(
-                "Sistem doğrulaması başarısız:\n{}",
-                blockers.join("\n")
+                "Sistem doğrulaması başarısız:\n{}\nAdli rapor oluşturuldu: {:?}",
+                blockers.join("\n"),
+                report_path
             ))
         }
     }

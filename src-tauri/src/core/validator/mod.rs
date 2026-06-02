@@ -1,4 +1,4 @@
-﻿use crate::core::system_validator::SystemValidationIssue;
+use crate::core::system_validator::SystemValidationIssue;
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -9,6 +9,7 @@ pub mod planning_validator;
 pub mod providers_validator;
 pub mod risk_validator;
 pub mod rollback_validator;
+pub mod system_rules_validator;
 
 pub(crate) fn push_error(
     issues: &mut Vec<SystemValidationIssue>,

@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -23,6 +23,7 @@
   import LiveExecutionTracker from "../components/LiveExecutionTracker.svelte";
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
   import OperationPackagePanel from "../components/OperationPackagePanel.svelte";
+  import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
 
 
   let tasks = $state<any[]>([]);
@@ -1027,6 +1028,7 @@
         <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
         <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
         <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activeSection = 'security'}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
+        <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activeSection = 'skills'}>BECERİ KÜTÜPHANESİ</button>
         <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAGLANTILAR</button>
         <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activeSection = 'execution'}>TEST VE RAPOR (GATE 8)</button>
       </div>
@@ -1121,6 +1123,8 @@
             {/each}
           </div>
         {/if}
+      {:else if activeSection === 'skills'}
+        <SkillLibraryExplorer />
       {:else if selectedTask}
         {#if activeSection === 'planning'}
           <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />

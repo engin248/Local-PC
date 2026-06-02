@@ -745,6 +745,95 @@ fn get_reports_cmd(app: AppHandle, task_id: String) -> Result<Vec<ReportUi>, Str
     )
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct SkillSummary {
+    pub total_count: i64,
+    pub python_count: i64,
+    pub javascript_count: i64,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SkillItemUi {
+    pub skill_id: String,
+    pub name: String,
+    pub language: String,
+    pub category: String,
+    pub status: String,
+    pub created_at: String,
+    pub description: String,
+}
+
+#[tauri::command]
+fn get_skill_library_summary_cmd(app: AppHandle) -> Result<SkillSummary, String> {
+    emit_if_error(
+        &app,
+        "get_skill_library_summary_cmd",
+        (|| -> Result<SkillSummary, String> {
+            let db_path = "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite";
+            let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
+            
+            let total_count: i64 = conn.query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0)).unwrap_or(0);
+            let python_count: i64 = conn.query_row("SELECT COUNT(*) FROM skills WHERE language = 'python'", [], |row| row.get(0)).unwrap_or(0);
+            let javascript_count: i64 = conn.query_row("SELECT COUNT(*) FROM skills WHERE language = 'javascript'", [], |row| row.get(0)).unwrap_or(0);
+            
+            Ok(SkillSummary {
+                total_count,
+                python_count,
+                javascript_count,
+            })
+        })(),
+    )
+}
+
+#[tauri::command]
+fn search_skill_library_cmd(app: AppHandle, query: String, category: Option<String>) -> Result<Vec<SkillItemUi>, String> {
+    emit_if_error(
+        &app,
+        "search_skill_library_cmd",
+        (|| -> Result<Vec<SkillItemUi>, String> {
+            let db_path = "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite";
+            let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
+            
+            let mut sql = "SELECT skill_id, name, language, category, status, created_at, description FROM skills WHERE 1=1".to_string();
+            let mut params: Vec<String> = Vec::new();
+            
+            if !query.is_empty() {
+                sql.push_str(" AND (name LIKE ?1 OR skill_id LIKE ?1 OR description LIKE ?1)");
+                params.push(format!("%{}%", query));
+            }
+            
+            if let Some(cat) = &category {
+                if !cat.is_empty() {
+                    let idx = params.len() + 1;
+                    sql.push_str(&format!(" AND category = ?{}", idx));
+                    params.push(cat.clone());
+                }
+            }
+            
+            sql.push_str(" ORDER BY created_at DESC LIMIT 100");
+            
+            let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                Ok(SkillItemUi {
+                    skill_id: row.get(0)?,
+                    name: row.get(1)?,
+                    language: row.get(2)?,
+                    category: row.get(3)?,
+                    status: row.get(4)?,
+                    created_at: row.get(5)?,
+                    description: row.get(6)?,
+                })
+            }).map_err(|e| e.to_string())?;
+            
+            let mut list = Vec::new();
+            for item in rows {
+                list.push(item.map_err(|e| e.to_string())?);
+            }
+            Ok(list)
+        })(),
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     if let Err(e) = crate::storage::db::initialize_database() {
@@ -787,9 +876,10 @@ pub fn run() {
             get_swarm_allocations_cmd,
             get_asker_motoru_status_cmd,
             sync_supabase_cmd,
-            get_db_size_cmd
+            get_db_size_cmd,
+            get_skill_library_summary_cmd,
+            search_skill_library_cmd
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| eprintln!("Tauri uygulamasi calistirilamadi: {}", e));
 }
-
