@@ -25,7 +25,10 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "paid_api",
+    "api_key_required": true,
+    "optional_provider": true
   },
   {
     "id": "gemini",
@@ -33,7 +36,7 @@
     "type": "gemini",
     "base_url": "https://generativelanguage.googleapis.com/v1beta",
     "api_key_env": "GEMINI_API_KEY",
-    "model": "gemini-1.5-pro",
+    "model": "gemini-1.5-flash",
     "enabled": false,
     "network_required": true,
     "dependency_level": "high",
@@ -53,7 +56,10 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "free_tier",
+    "api_key_required": true,
+    "optional_provider": true
   },
   {
     "id": "perplexity",
@@ -81,7 +87,10 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "paid_api",
+    "api_key_required": true,
+    "optional_provider": true
   },
   {
     "id": "codex",
@@ -102,7 +111,10 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false
   },
   {
     "id": "oam",
@@ -123,7 +135,10 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false
   },
   {
     "id": "antigravity",
@@ -144,7 +159,10 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false
   },
   {
     "id": "cursor",
@@ -165,7 +183,10 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false
   },
   {
     "id": "ollama",
@@ -193,6 +214,203 @@
       "send_secrets": false,
       "send_personal_data": false,
       "requires_user_confirmation_for_sensitive_context": true
-    }
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false,
+    "discovery_ports": [11434]
+  },
+  {
+    "id": "open_webui",
+    "name": "Open WebUI (Yerel Arayüz)",
+    "type": "open_webui",
+    "base_url": "http://127.0.0.1:3000",
+    "api_key_env": "",
+    "model": "local-webui",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "analysis_answer",
+      "alternative_suggest"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false,
+    "discovery_ports": [3000, 8080, 5000]
+  },
+  {
+    "id": "pinokio",
+    "name": "Pinokio Local AI Apps",
+    "type": "pinokio",
+    "base_url": "http://127.0.0.1:7860",
+    "api_key_env": "",
+    "model": "pinokio-local-app",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": ["health_check", "analysis_answer"],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false,
+    "discovery_ports": [42000, 7860, 7861, 7862, 8000, 8080, 8188]
+  },
+  {
+    "id": "huggingface_local",
+    "name": "HuggingFace Local Models",
+    "type": "huggingface_local",
+    "base_url": "file://huggingface-cache",
+    "api_key_env": "",
+    "model": "local-cache",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "low",
+    "allowed_task_types": ["health_check", "analysis_answer"],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false
+  },
+  {
+    "id": "lm_studio",
+    "name": "LM Studio (Local Server)",
+    "type": "openai_compatible_local",
+    "base_url": "http://127.0.0.1:1234/v1",
+    "api_key_env": "",
+    "model": "lm-studio-local",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": ["health_check", "analysis_answer"],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false,
+    "discovery_ports": [1234]
+  },
+  {
+    "id": "openai_compatible_local",
+    "name": "OpenAI Compatible Local Endpoint",
+    "type": "openai_compatible_local",
+    "base_url": "http://127.0.0.1:8080/v1",
+    "api_key_env": "",
+    "model": "local-openai-compatible",
+    "enabled": true,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    },
+    "access_type": "local",
+    "api_key_required": false,
+    "optional_provider": false,
+    "discovery_ports": [8080, 8000, 5000]
+  },
+  {
+    "id": "groq",
+    "name": "Groq Free Tier (Opsiyonel)",
+    "type": "openai_compatible",
+    "base_url": "https://api.groq.com/openai/v1",
+    "api_key_env": "GROQ_API_KEY",
+    "model": "llama-3.1-8b-instant",
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    },
+    "access_type": "free_tier",
+    "api_key_required": true,
+    "optional_provider": true
+  },
+  {
+    "id": "openrouter_free",
+    "name": "OpenRouter Free Models (Opsiyonel)",
+    "type": "openai_compatible",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "model": "openrouter/auto",
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    },
+    "access_type": "free_tier",
+    "api_key_required": true,
+    "optional_provider": true
   }
 ]
