@@ -175,7 +175,7 @@ impl DependencyAnalyzer {
                             .get("api")
                             .and_then(|api| api.get("endpoints"))
                             .is_some()
-                        && !Self::runtime_config_contains_production_placeholder(item)
+                        && !Self::runtime_config_contains_production_placeholder(&value)
                 })
                 .unwrap_or(false),
             _ => true,
