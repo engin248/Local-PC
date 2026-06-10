@@ -26,6 +26,17 @@
   import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
 
 
+  const agentDisplayNames: Record<string, string> = {
+    codex: "Codex",
+    open_agent_manager: "OAM",
+    antigravity: "AntiGrav",
+    cursor: "Cursor",
+    perplexity: "Perplexity",
+    verdent: "Verdent"
+  };
+
+  const healthyAllocationStatuses = new Set(["waiting", "processing", "submitted"]);
+
   let tasks = $state<any[]>([]);
   let selectedTaskId = $state<string | null>(null);
   let selectedTask = $derived(tasks.find(t => t.id === selectedTaskId) || null);
@@ -68,12 +79,29 @@
   let alarmPulseTimer: ReturnType<typeof setTimeout> | null = null;
   let operationAuditTrail = $state<any[]>([]);
   let operatorId = $state("local-operator");
+  let headerAgentStatuses = $derived(
+    swarmAllocations.length > 0
+      ? swarmAllocations.map((agent: any) => ({
+          name: formatAgentName(agent.platform),
+          enabled: healthyAllocationStatuses.has(String(agent.status || "").toLowerCase()),
+          status: agent.status || "waiting"
+        }))
+      : aiProviderHealth.map((agent: any) => ({
+          name: agent.name?.split(" ")[0] || agent.name || "AI",
+          enabled: !!agent.enabled,
+          status: agent.status || (agent.enabled ? "available" : "disabled")
+        }))
+  );
 
   let audioCtx: AudioContext | null = null;
   let alarmInterval: any = null;
 
   const operationAuditStorageKey = "localControlPanel.operationAuditLog";
   const operatorStorageKey = "localControlPanel.operatorId";
+
+  function formatAgentName(platform: string) {
+    return agentDisplayNames[String(platform || "").toLowerCase()] || platform || "Agent";
+  }
 
   function formatError(err: unknown) {
     if (err instanceof Error) return err.message;
@@ -306,6 +334,42 @@
     }));
   }
 
+  function normalizeFallbackAgentToken(token: string) {
+    const key = String(token || "").trim().toLowerCase();
+    const mappings: Record<string, string> = {
+      codex: "codex",
+      oam: "open_agent_manager",
+      open_agent_manager: "open_agent_manager",
+      antigravity: "antigravity",
+      antigrav: "antigravity",
+      cursor: "cursor",
+      perplexity: "perplexity",
+      verdent: "verdent"
+    };
+    return mappings[key] || null;
+  }
+
+  function parseFallbackAgentPlatforms(userRequest: string) {
+    const request = String(userRequest || "");
+    const match = request.match(/\[Ajanlar:\s*([^\]]+)\]/i);
+    const platforms = match
+      ? match[1]
+          .split(",")
+          .map(normalizeFallbackAgentToken)
+          .filter(Boolean)
+      : [];
+    const uniquePlatforms = Array.from(new Set(platforms)) as string[];
+    return uniquePlatforms.length > 0 ? uniquePlatforms : ["codex", "open_agent_manager"];
+  }
+
+  function buildFallbackSwarmAllocations(taskId: string, userRequest: string) {
+    return parseFallbackAgentPlatforms(userRequest).map((platform) => ({
+      platform,
+      payload_path: `browser-preview://ai_workflow/platforms/${platform}/inbox/${taskId}.json`,
+      status: "waiting"
+    }));
+  }
+
   async function safeInvoke(cmd: string, args?: any): Promise<any> {
     if (detectTauriRuntime()) {
       return await invoke(cmd, args);
@@ -381,6 +445,7 @@
             gate_name: "Intake Gate"
           }
         ]);
+        writeFallbackStore(offlineDetailsKey(id, "swarmAllocations"), buildFallbackSwarmAllocations(id, args.userRequest));
         return task;
       }
       case "save_plan_cmd": {
@@ -993,18 +1058,25 @@
          <div class="progress-line"></div>
          <div class="progress-step" class:active={activeSection === 'execution'}>4. TEST & RAPOR (Gate 8)</div>
       </div>
-        <div class="agent-status-bar">
+    <div class="agent-status-bar">
       <strong>AJAN DURUMLARI:</strong>
-      {#each aiProviderHealth as agent}
-        <span class="agent-badge" class:agent-ok={agent.enabled} class:agent-disabled={!agent.enabled}>
-          {agent.name.split(' ')[0]}
-          {#if agent.enabled}
-            <span class="status-dot green"></span>
-          {:else}
-            <span class="status-dot red"></span>
-          {/if}
+      {#if headerAgentStatuses.length === 0}
+        <span class="agent-badge agent-ok">
+          Cursor
+          <span class="status-dot green"></span>
         </span>
-      {/each}
+      {:else}
+        {#each headerAgentStatuses as agent}
+          <span class="agent-badge" class:agent-ok={agent.enabled} class:agent-disabled={!agent.enabled} title={agent.status}>
+            {agent.name}
+            {#if agent.enabled}
+            <span class="status-dot green"></span>
+            {:else}
+            <span class="status-dot red"></span>
+            {/if}
+          </span>
+        {/each}
+      {/if}
     </div>
       <div class="workspace-header">
       <div class="runtime-banner" class:real={runtimeMode === "tauri_runtime"}>
@@ -1028,6 +1100,7 @@
         <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
         <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
         <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activeSection = 'security'}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
+        <button class="nav-btn" class:active={activeSection === 'agents'} onclick={() => activeSection = 'agents'}>AGENT PANELI</button>
         <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activeSection = 'skills'}>BECERİ KÜTÜPHANESİ</button>
         <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAGLANTILAR</button>
         <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activeSection = 'execution'}>TEST VE RAPOR (GATE 8)</button>
@@ -1107,10 +1180,11 @@
 
       <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
 
-      {#if activeSection === 'connections'}
+      {#if activeSection === 'agents'}
+        <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} task={selectedTask} />
+      {:else if activeSection === 'connections'}
         <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
-        <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
         {#if askerMotoruStatus}
           <div class="asker-bridge-panel">
             <h3>Asker Motoru Durum Köprüsü</h3>
