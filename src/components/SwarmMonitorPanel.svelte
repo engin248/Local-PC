@@ -31,7 +31,15 @@
 </div>
 
 <style>
-  .swarm-panel { padding: 0.5rem 0; }
+  .swarm-panel {
+    padding: 18px;
+    border: 1px solid #2a2a2d;
+    background: #18181a;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    color: #f4f4f5;
+  }
+  h3 { margin: 0 0 10px; color: #f2f2f4; }
   .empty-msg { color: #888; font-size: 0.9rem; }
   ul { list-style: none; padding: 0; margin: 0; }
   li { padding: 0.5rem 0; border-bottom: 1px solid #333; }
