@@ -720,8 +720,6 @@
       voiceRepliesEnabled = false;
       speechQueue = [];
       isSpeaking = false;
-      appendAlarmEvent("Seslendirme motoru hatası", e);
-      playSiren();
     };
 
     synth.speak(utterance);
