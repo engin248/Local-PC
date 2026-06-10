@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashSet;
 
 pub mod approval_validator;
+pub mod asker_motoru_validator;
 pub mod authority_validator;
 pub mod connectors_validator;
 pub mod planning_validator;
@@ -102,6 +103,3 @@ pub(crate) fn is_write_like(action: &str) -> bool {
         || action == "terminal_command"
         || action == "live_system_update"
 }
-
-
-

@@ -14,11 +14,9 @@
   import RollbackPanel from "../components/RollbackPanel.svelte";
   import LiveLog from "../components/LiveLog.svelte";
   import StructuredReportPanel from "../components/StructuredReportPanel.svelte";
-  import SwarmMonitorPanel from "../components/SwarmMonitorPanel.svelte";
   import { isTauriRuntime } from "../lib/runtime";
   import DefinitiveAnswerPanel from "../components/DefinitiveAnswerPanel.svelte";
-  import AIConnectionsPanel from "../components/AIConnectionsPanel.svelte";
-  import SystemConnectionsPanel from "../components/SystemConnectionsPanel.svelte";
+import CentralCommandPanel from "../components/CentralCommandPanel.svelte";
   import IntakePanel from "../components/IntakePanel.svelte";
   import LiveExecutionTracker from "../components/LiveExecutionTracker.svelte";
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
@@ -343,7 +341,28 @@
       case "get_swarm_allocations_cmd":
         return readFallbackStore(offlineDetailsKey(args?.taskId, "swarmAllocations"), []);
       case "get_asker_motoru_status_cmd":
-        return { roots_checked: [], files: [] };
+        return {
+          roots_checked: [],
+          roots: [],
+          files: [],
+          contract: [
+            { name: "health", method: "GET", path: "/health" },
+            { name: "status", method: "GET", path: "/status" },
+            { name: "events", method: "GET", path: "/events" },
+            { name: "command", method: "POST", path: "/command" }
+          ],
+          api: {
+            enabled: false,
+            base_url: "http://127.0.0.1:8090",
+            timeout_ms: 1500,
+            endpoints: [
+              { name: "health", method: "GET", path: "/health", url: "http://127.0.0.1:8090/health", status: "disabled", http_status: null, preview: null, last_error: null },
+              { name: "status", method: "GET", path: "/status", url: "http://127.0.0.1:8090/status", status: "disabled", http_status: null, preview: null, last_error: null },
+              { name: "events", method: "GET", path: "/events", url: "http://127.0.0.1:8090/events", status: "disabled", http_status: null, preview: null, last_error: null },
+              { name: "command", method: "POST", path: "/command", url: "http://127.0.0.1:8090/command", status: "disabled", http_status: null, preview: null, last_error: null }
+            ]
+          }
+        };
       case "sync_supabase_cmd":
         return { enabled: false, last_result: "önizleme", pushed_rows: 0 };
       case "get_db_size_cmd":
@@ -993,19 +1012,6 @@
          <div class="progress-line"></div>
          <div class="progress-step" class:active={activeSection === 'execution'}>4. TEST & RAPOR (Gate 8)</div>
       </div>
-        <div class="agent-status-bar">
-      <strong>AJAN DURUMLARI:</strong>
-      {#each aiProviderHealth as agent}
-        <span class="agent-badge" class:agent-ok={agent.enabled} class:agent-disabled={!agent.enabled}>
-          {agent.name.split(' ')[0]}
-          {#if agent.enabled}
-            <span class="status-dot green"></span>
-          {:else}
-            <span class="status-dot red"></span>
-          {/if}
-        </span>
-      {/each}
-    </div>
       <div class="workspace-header">
       <div class="runtime-banner" class:real={runtimeMode === "tauri_runtime"}>
         {#if runtimeMode === "tauri_runtime"}
@@ -1092,56 +1098,52 @@
     {/if}
 
     <div class="workspace-scroll-area">
-      <OperationDoctrinePanel />
-      <TaskDetail task={selectedTask} onExecute={handleExecute} />
-      <OperationPackagePanel packages={operationPackages} />
-      <DefinitiveAnswerPanel
-        task={selectedTask}
-        approvals={approvals}
-        tests={tests}
-        reports={reports}
-        voiceRepliesEnabled={voiceRepliesEnabled}
-        onSpeakAnswer={speakReply}
-        onStopVoice={stopVoiceReply}
-      />
-
-      <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
-
       {#if activeSection === 'connections'}
-        <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
-        <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
-        <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
-        {#if askerMotoruStatus}
-          <div class="asker-bridge-panel">
-            <h3>Asker Motoru Durum Köprüsü</h3>
-            <p>DB boyutu: {(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB</p>
-            {#each askerMotoruStatus.files as file}
-              <div class="asker-file" class:missing={!file.exists}>
-                <strong>{file.path}</strong>
-                <pre>{file.preview}</pre>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      {:else if activeSection === 'skills'}
-        <SkillLibraryExplorer />
-      {:else if selectedTask}
-        {#if activeSection === 'planning'}
-          <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
-        {:else if activeSection === 'decisions'}
-          <DecisionMap decisions={decisions} />
-          <AlternativePanel alternatives={alternatives} />
-        {:else if activeSection === 'security'}
-          <RiskPanel task={selectedTask} />
-          <ApprovalPanel approvals={approvals} onSubmitApproval={handleApproval} />
-          <RollbackPanel task={selectedTask} onRollback={handleRollback} />
-        {:else if activeSection === 'execution'}
-          <CheckpointPanel checkpoints={checkpoints} />
-          <TestPanel tests={tests} />
-          <StructuredReportPanel reports={reports} />
-        {/if}
+        <CentralCommandPanel
+          providers={aiProviderHealth}
+          connectors={systemConnectorHealth}
+          askerMotoruStatus={askerMotoruStatus}
+          dbSizeBytes={dbSizeBytes}
+          allocations={swarmAllocations}
+          taskId={selectedTaskId}
+          onRefresh={() => refreshConnectionHealth(true)}
+        />
       {:else}
-        <IntakePanel onCreate={handleCreateTask} />
+        <OperationDoctrinePanel />
+        <TaskDetail task={selectedTask} onExecute={handleExecute} />
+        <OperationPackagePanel packages={operationPackages} />
+        <DefinitiveAnswerPanel
+          task={selectedTask}
+          approvals={approvals}
+          tests={tests}
+          reports={reports}
+          voiceRepliesEnabled={voiceRepliesEnabled}
+          onSpeakAnswer={speakReply}
+          onStopVoice={stopVoiceReply}
+        />
+
+        <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
+
+        {#if activeSection === 'skills'}
+          <SkillLibraryExplorer />
+        {:else if selectedTask}
+          {#if activeSection === 'planning'}
+            <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
+          {:else if activeSection === 'decisions'}
+            <DecisionMap decisions={decisions} />
+            <AlternativePanel alternatives={alternatives} />
+          {:else if activeSection === 'security'}
+            <RiskPanel task={selectedTask} />
+            <ApprovalPanel approvals={approvals} onSubmitApproval={handleApproval} />
+            <RollbackPanel task={selectedTask} onRollback={handleRollback} />
+          {:else if activeSection === 'execution'}
+            <CheckpointPanel checkpoints={checkpoints} />
+            <TestPanel tests={tests} />
+            <StructuredReportPanel reports={reports} />
+          {/if}
+        {:else}
+          <IntakePanel onCreate={handleCreateTask} />
+        {/if}
       {/if}
 
     </div>
@@ -1676,34 +1678,6 @@
       box-shadow: inset 0 0 40px rgba(255, 71, 71, 0.5);
     }
   }
-  .agent-status-bar {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    background: #111113;
-    padding: 8px 16px;
-    border-bottom: 1px solid #2d2d31;
-    font-size: 12px;
-    color: #8d8d95;
-    overflow-x: auto;
-  }
-  .agent-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    background: #18181a;
-    border: 1px solid #2d2d31;
-    border-radius: 4px;
-    color: #f4f4f5;
-  }
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-  }
-  .status-dot.green { background: #47d18c; box-shadow: 0 0 5px #47d18c; }
-  .status-dot.red { background: #e03131; }
   .workspace-footer {
     height: 250px;
     border-top: 1px solid #1f1f21;

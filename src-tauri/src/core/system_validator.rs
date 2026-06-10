@@ -25,6 +25,7 @@ impl SystemValidator {
         let approval = Self::read_json("approval_rules.json")?;
         let rollback = Self::read_json("rollback_rules.json")?;
         let connectors = Self::read_json("system_connectors.json")?;
+        let asker_motoru = Self::read_json("asker_motoru.json")?;
         let ai_providers = Self::read_json("ai_providers.json")?;
         let planning = Self::read_json("planning_standard.json")?;
         let decision_principles = Self::read_json("decision_principles.json")?;
@@ -67,6 +68,7 @@ impl SystemValidator {
             &known_actions,
             &mut issues,
         )?;
+        validator::asker_motoru_validator::validate_asker_motoru(&asker_motoru, &mut issues)?;
         Self::validate_decision_principles(&decision_principles, &mut issues)?;
         validator::system_rules_validator::validate_system_rules(&system_rules, &mut issues)?;
 
