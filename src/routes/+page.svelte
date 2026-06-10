@@ -80,6 +80,7 @@
   let alarmPulseTimer: ReturnType<typeof setTimeout> | null = null;
   let operationAuditTrail = $state<any[]>([]);
   let operatorId = $state("local-operator");
+  let workspaceScrollArea: HTMLDivElement | null = null;
   let headerAgentStatuses = $derived(
     swarmAllocations.length > 0
       ? swarmAllocations.map((agent: any) => ({
@@ -148,6 +149,13 @@
       console.error("Operator kimlik kaydetme hatası:", err);
       raiseCriticalAlarm("Operator kimlik kaydetme hatası", err);
     }
+  }
+
+  function setActiveSection(section: string) {
+    activeSection = section;
+    requestAnimationFrame(() => {
+      workspaceScrollArea?.scrollTo({ top: 0, behavior: "smooth" });
+    });
   }
 
   function sanitizeOperationMetadata(cmd: string, args?: any) {
@@ -1119,13 +1127,13 @@
         {/if}
       </div>
       <div class="navigation-tabs">
-        <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
-        <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
-        <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activeSection = 'security'}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
-        <button class="nav-btn" class:active={activeSection === 'agents'} onclick={() => activeSection = 'agents'}>AGENT PANELI</button>
-        <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activeSection = 'skills'}>BECERİ KÜTÜPHANESİ</button>
-        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAGLANTILAR</button>
-        <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activeSection = 'execution'}>TEST VE RAPOR (GATE 8)</button>
+        <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => setActiveSection('planning')}>PLANLAMA (GATE 1)</button>
+        <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => setActiveSection('decisions')}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
+        <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => setActiveSection('security')}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
+        <button class="nav-btn" class:active={activeSection === 'agents'} onclick={() => setActiveSection('agents')}>AGENT PANELI</button>
+        <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => setActiveSection('skills')}>BECERİ KÜTÜPHANESİ</button>
+        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => setActiveSection('connections')}>BAGLANTILAR</button>
+        <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => setActiveSection('execution')}>TEST VE RAPOR (GATE 8)</button>
       </div>
       <div class="voice-controls">
         <button
@@ -1186,7 +1194,7 @@
       </div>
     {/if}
 
-    <div class="workspace-scroll-area">
+    <div class="workspace-scroll-area" bind:this={workspaceScrollArea}>
       {#if activeSection === 'agents'}
         <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} task={selectedTask} />
       {/if}
