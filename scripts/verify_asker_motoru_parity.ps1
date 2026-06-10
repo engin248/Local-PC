@@ -1,9 +1,39 @@
 param(
-    [string]$RootA = "C:\Users\Esisya\Desktop\asker motoru",
-    [string]$RootB = "C:\Users\Esisya\Desktop\ASKER_MOTORU_KOK_KLASORU"
+    [string]$ConfigPath = (Join-Path $PSScriptRoot "..\config\asker_motoru.json"),
+    [string]$RootA = "",
+    [string]$RootB = ""
 )
 
 $ErrorActionPreference = "Continue"
+
+function Resolve-ConfiguredPath {
+    param([string]$Path)
+    $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+    $parentRoot = Split-Path -Parent $projectRoot
+
+    if ($Path.StartsWith('$PROJECT_ROOT')) {
+        $suffix = $Path.Substring('$PROJECT_ROOT'.Length).TrimStart('\', '/')
+        return Join-Path $projectRoot $suffix
+    }
+    if ($Path.StartsWith('$PARENT_DIR')) {
+        $suffix = $Path.Substring('$PARENT_DIR'.Length).TrimStart('\', '/')
+        return Join-Path $parentRoot $suffix
+    }
+    if ([System.IO.Path]::IsPathRooted($Path)) {
+        return $Path
+    }
+    return Join-Path $projectRoot $Path
+}
+
+if ([string]::IsNullOrWhiteSpace($RootA) -or [string]::IsNullOrWhiteSpace($RootB)) {
+    $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($RootA)) {
+        $RootA = Resolve-ConfiguredPath $config.roots[0].path
+    }
+    if ([string]::IsNullOrWhiteSpace($RootB)) {
+        $RootB = Resolve-ConfiguredPath $config.roots[1].path
+    }
+}
 
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "            ASKER MOTORU YENİ NESİL VS LEGACY PARİTE DENETİMİ             " -ForegroundColor Cyan

@@ -13,6 +13,10 @@ fn e2e_swarm_allocate_and_asker_scan() {
     assert!(platforms.contains(&"codex".to_string()));
     assert!(platforms.contains(&"open_agent_manager".to_string()));
 
-    let report = AskerMotoruBridge::scan_status_files();
+    let report = AskerMotoruBridge::scan_status_files().unwrap();
     assert!(!report.roots_checked.is_empty());
+    assert_eq!(report.contract.health.path, "/health");
+    assert_eq!(report.contract.status.path, "/status");
+    assert_eq!(report.contract.events.path, "/events");
+    assert_eq!(report.contract.command.path, "/command");
 }

@@ -1,0 +1,49 @@
+{
+  "roots": [
+    {
+      "id": "asker_motoru_workspace",
+      "label": "Asker Motoru çalışma alanı",
+      "path": "$PARENT_DIR/asker motoru",
+      "required": false
+    },
+    {
+      "id": "asker_motoru_root",
+      "label": "Asker Motoru kök klasörü",
+      "path": "$PARENT_DIR/ASKER_MOTORU_KOK_KLASORU",
+      "required": false
+    }
+  ],
+  "status_files": [
+    "PLANLAMA_DURUMU.json",
+    "SISTEM_ALARM_DURUMU.json",
+    "EGITIM_DURUMU.json",
+    "SON_PLANLAMA_OPERASYONU.json"
+  ],
+  "contract": {
+    "health": {
+      "path": "/health",
+      "method": "GET",
+      "description": "Asker Motoru köklerinin ve durum dosyalarının erişilebilirliğini özetler."
+    },
+    "status": {
+      "path": "/status",
+      "method": "GET",
+      "description": "Planlama, alarm, eğitim ve son operasyon durumlarını döndürür."
+    },
+    "events": {
+      "path": "/events",
+      "method": "GET",
+      "description": "Alarm ve son operasyon dosyalarından olay akışını besler."
+    },
+    "command": {
+      "path": "/command",
+      "method": "POST",
+      "description": "Panelden Asker Motoru'na gönderilebilecek komutların sözleşmesini tanımlar.",
+      "allowed_commands": [
+        "refresh_status",
+        "acknowledge_event",
+        "dispatch_operation"
+      ]
+    }
+  }
+}
