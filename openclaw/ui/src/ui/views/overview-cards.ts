@@ -130,6 +130,10 @@ function endpointHealthLabel(health: HealthSummary | null): string {
   return health.ok ? "endpoint healthy" : "endpoint unhealthy";
 }
 
+function modelCountLabel(count: number): string {
+  return count === 1 ? "1 model" : `${count} models`;
+}
+
 function buildProviderConnectionSummaries(params: {
   authProviders: readonly ModelAuthStatusProvider[];
   modelCatalog: readonly ModelCatalogEntry[];
@@ -201,14 +205,16 @@ function renderProviderConnectionsCard(
             <span class="ov-provider-row">
               <span class="ov-provider-row__name">${item.displayName}</span>
               <span class="ov-provider-row__meta">
-                ${item.kind} · ${item.endpointHealth} · ${item.modelCount} models ·
+                ${item.kind} · ${item.endpointHealth} · ${modelCountLabel(item.modelCount)} ·
                 ${item.lastTest}
               </span>
             </span>
           `,
         )}
         ${hiddenCount > 0
-          ? html`<span class="ov-provider-row__meta">+${hiddenCount} more · ${totalModels} models</span>`
+          ? html`<span class="ov-provider-row__meta"
+              >+${hiddenCount} more · ${modelCountLabel(totalModels)}</span
+            >`
           : nothing}
       </span>
     `,

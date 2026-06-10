@@ -267,8 +267,8 @@ describe("overview view rendering", () => {
     const providers = container.querySelector('[data-kind="providers"]');
     const text = compactText(providers);
     expect(text).toContain("AI Providers 3 providers");
-    expect(text).toContain("community-free free · endpoint healthy · 1 models ·");
-    expect(text).toContain("ollama local · endpoint healthy · 1 models ·");
+    expect(text).toContain("community-free free · endpoint healthy · 1 model ·");
+    expect(text).toContain("ollama local · endpoint healthy · 1 model ·");
     expect(text).toContain("OpenAI api-key-required · endpoint healthy · 2 models ·");
   });
 });
