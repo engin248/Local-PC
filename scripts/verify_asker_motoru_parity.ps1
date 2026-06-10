@@ -1,9 +1,35 @@
 param(
-    [string]$RootA = "C:\Users\Esisya\Desktop\asker motoru",
-    [string]$RootB = "C:\Users\Esisya\Desktop\ASKER_MOTORU_KOK_KLASORU"
+    [string]$ConfigPath = (Join-Path (Split-Path -Parent $PSScriptRoot) "config\asker_motoru.json"),
+    [string]$RootA = "",
+    [string]$RootB = ""
 )
 
 $ErrorActionPreference = "Continue"
+
+function Resolve-AskerConfigPath {
+    param([string]$Path)
+    $projectRoot = Split-Path -Parent $PSScriptRoot
+    $parentDir = Split-Path -Parent $projectRoot
+    return $Path.Replace('$PROJECT_ROOT', $projectRoot).Replace('$PARENT_DIR', $parentDir)
+}
+
+if (-not $RootA -or -not $RootB) {
+    if (-not (Test-Path -LiteralPath $ConfigPath)) {
+        throw "Asker Motoru config bulunamadı: $ConfigPath"
+    }
+    $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+    $activeRoot = $config.roots | Where-Object { $_.role -eq "active" } | Select-Object -First 1
+    $legacyRoot = $config.roots | Where-Object { $_.role -eq "legacy" } | Select-Object -First 1
+    if (-not $activeRoot -or -not $legacyRoot) {
+        throw "asker_motoru.json active ve legacy root tanımlamalıdır."
+    }
+    if (-not $RootA) {
+        $RootA = Resolve-AskerConfigPath $activeRoot.path
+    }
+    if (-not $RootB) {
+        $RootB = Resolve-AskerConfigPath $legacyRoot.path
+    }
+}
 
 Write-Host "==========================================================================" -ForegroundColor Cyan
 Write-Host "            ASKER MOTORU YENİ NESİL VS LEGACY PARİTE DENETİMİ             " -ForegroundColor Cyan

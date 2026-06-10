@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "roots": [
+    {
+      "id": "active_station",
+      "path": "$PARENT_DIR/asker motoru",
+      "role": "active"
+    },
+    {
+      "id": "legacy_station",
+      "path": "$PARENT_DIR/ASKER_MOTORU_KOK_KLASORU",
+      "role": "legacy"
+    }
+  ],
+  "status_files": [
+    "PLANLAMA_DURUMU.json",
+    "SISTEM_ALARM_DURUMU.json",
+    "EGITIM_DURUMU.json",
+    "SON_PLANLAMA_OPERASYONU.json"
+  ],
+  "api": {
+    "enabled": false,
+    "base_url": "http://127.0.0.1:8090",
+    "timeout_ms": 1500,
+    "endpoints": {
+      "health": {
+        "method": "GET",
+        "path": "/health"
+      },
+      "status": {
+        "method": "GET",
+        "path": "/status"
+      },
+      "events": {
+        "method": "GET",
+        "path": "/events"
+      },
+      "command": {
+        "method": "POST",
+        "path": "/command"
+      }
+    }
+  }
+}
