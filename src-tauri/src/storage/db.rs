@@ -139,7 +139,10 @@ impl Database {
              );
              INSERT INTO ai_task_allocations (id, task_id, platform_name, assigned_at, status, payload_file_path)
                 SELECT id, task_id, platform_name, assigned_at, status, payload_file_path
-                FROM ai_task_allocations_old;
+                FROM ai_task_allocations_old
+                WHERE EXISTS (
+                    SELECT 1 FROM ai_tasks WHERE ai_tasks.id = ai_task_allocations_old.task_id
+                );
              DROP TABLE ai_task_allocations_old;",
             AI_PLATFORM_CHECK_VALUES
         );
@@ -162,7 +165,10 @@ impl Database {
              );
              INSERT INTO ai_collected_reports (id, task_id, platform_name, submitted_at, report_path, is_verified, verification_error)
                 SELECT id, task_id, platform_name, submitted_at, report_path, is_verified, verification_error
-                FROM ai_collected_reports_old;
+                FROM ai_collected_reports_old
+                WHERE EXISTS (
+                    SELECT 1 FROM ai_tasks WHERE ai_tasks.id = ai_collected_reports_old.task_id
+                );
              DROP TABLE ai_collected_reports_old;",
             AI_PLATFORM_CHECK_VALUES
         );
@@ -244,6 +250,15 @@ mod tests {
                 VALUES ('report_existing', 'task_one', 'open_agent_manager', 'ai_workflow/collected_reports/report.md', 1);",
         )
         .unwrap();
+        conn.execute_batch(
+            "PRAGMA foreign_keys = OFF;
+             INSERT INTO ai_task_allocations (id, task_id, platform_name, status, payload_file_path)
+                VALUES ('alloc_orphan', 'missing_task', 'codex', 'waiting', 'ai_workflow/tasks/orphan.json');
+             INSERT INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+                VALUES ('report_orphan', 'missing_task', 'open_agent_manager', 'ai_workflow/collected_reports/orphan.md', 1);
+             PRAGMA foreign_keys = ON;",
+        )
+        .unwrap();
 
         Database::ensure_ai_platform_constraints(&conn).unwrap();
 
@@ -268,5 +283,13 @@ mod tests {
             )
             .unwrap();
         assert_eq!(existing_count, 1);
+        let orphan_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM ai_task_allocations WHERE id = 'alloc_orphan'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(orphan_count, 0);
     }
 }
