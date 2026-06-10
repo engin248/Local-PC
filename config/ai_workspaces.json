@@ -67,6 +67,118 @@
         "user_impact_assessment",
         "write_operations_report"
       ]
+    },
+    "lokal_bilgisayar_kontrol_paneli": {
+      "role": "local_control_panel",
+      "display_name": "Lokal Bilgisayar Kontrol Paneli",
+      "department": "Lokal Bilgisayar Kontrol Paneli",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/lokal_bilgisayar_kontrol_paneli/inbox",
+      "outbox": "ai_workflow/platforms/lokal_bilgisayar_kontrol_paneli/outbox",
+      "allowed_actions": [
+        "local_system_control",
+        "connector_review",
+        "audit_readiness_check",
+        "write_control_panel_report"
+      ]
+    },
+    "asker_motoru_komuta_paneli": {
+      "role": "asker_motoru_command",
+      "display_name": "Asker Motoru Komuta Paneli",
+      "department": "Asker Motoru Komuta Paneli",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/asker_motoru_komuta_paneli/inbox",
+      "outbox": "ai_workflow/platforms/asker_motoru_komuta_paneli/outbox",
+      "allowed_actions": [
+        "command_status_scan",
+        "operation_bridge_review",
+        "status_file_audit",
+        "write_command_report"
+      ]
+    },
+    "planlama_departmani": {
+      "role": "planning_department",
+      "display_name": "Planlama Departmanı",
+      "department": "Planlama Departmanı",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/planlama_departmani/inbox",
+      "outbox": "ai_workflow/platforms/planlama_departmani/outbox",
+      "allowed_actions": [
+        "planning_gate_review",
+        "standard_field_check",
+        "operation_sequence_review",
+        "write_planning_report"
+      ]
+    },
+    "egitim_departmani": {
+      "role": "training_department",
+      "display_name": "Eğitim Departmanı",
+      "department": "Eğitim Departmanı",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/egitim_departmani/inbox",
+      "outbox": "ai_workflow/platforms/egitim_departmani/outbox",
+      "allowed_actions": [
+        "training_need_review",
+        "knowledge_gap_analysis",
+        "operator_guidance_draft",
+        "write_training_report"
+      ]
+    },
+    "ar_ge_departmani": {
+      "role": "research_and_development",
+      "display_name": "AR-GE Departmanı",
+      "department": "AR-GE Departmanı",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/ar_ge_departmani/inbox",
+      "outbox": "ai_workflow/platforms/ar_ge_departmani/outbox",
+      "allowed_actions": [
+        "research_scan",
+        "prototype_assessment",
+        "technical_feasibility_review",
+        "write_r_and_d_report"
+      ]
+    },
+    "bot_agent_uretim_departmani": {
+      "role": "bot_agent_production",
+      "display_name": "Bot/Agent Üretim Departmanı",
+      "department": "Bot/Agent Üretim Departmanı",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/bot_agent_uretim_departmani/inbox",
+      "outbox": "ai_workflow/platforms/bot_agent_uretim_departmani/outbox",
+      "allowed_actions": [
+        "agent_design_review",
+        "bot_generation_plan",
+        "automation_contract_check",
+        "write_agent_production_report"
+      ]
+    },
+    "beceri_kutuphanesi": {
+      "role": "skill_library",
+      "display_name": "Beceri Kütüphanesi",
+      "department": "Beceri Kütüphanesi",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/beceri_kutuphanesi/inbox",
+      "outbox": "ai_workflow/platforms/beceri_kutuphanesi/outbox",
+      "allowed_actions": [
+        "skill_inventory_review",
+        "skill_match",
+        "library_consistency_check",
+        "write_skill_library_report"
+      ]
+    },
+    "test_raporlama": {
+      "role": "test_reporting",
+      "display_name": "Test/Raporlama",
+      "department": "Test/Raporlama",
+      "agent_count": 1,
+      "inbox": "ai_workflow/platforms/test_raporlama/inbox",
+      "outbox": "ai_workflow/platforms/test_raporlama/outbox",
+      "allowed_actions": [
+        "test_plan_review",
+        "evidence_collect",
+        "report_quality_check",
+        "write_test_report"
+      ]
     }
   },
   "shared_paths": {
