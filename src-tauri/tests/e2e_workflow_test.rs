@@ -2,6 +2,7 @@
 
 use lokal_bilgisayar_kontrol_paneli::core::ai_workflow_manager::AiWorkflowManager;
 use lokal_bilgisayar_kontrol_paneli::core::asker_motoru_bridge::AskerMotoruBridge;
+use lokal_bilgisayar_kontrol_paneli::core::dependency_analyzer::DependencyAnalyzer;
 use lokal_bilgisayar_kontrol_paneli::storage::db::{initialize_database, Database};
 use std::fs;
 use std::path::Path;
@@ -61,10 +62,19 @@ fn e2e_default_department_swarm_allocates_eight_agents() {
             }
         }
     }
-    let _ = fs::remove_file(format!("ai_workflow/tasks/{}.json", task_id));
+    let workflow_root = DependencyAnalyzer::get_project_root()
+        .unwrap()
+        .join("ai_workflow");
+    let _ = fs::remove_file(
+        workflow_root
+            .join("tasks")
+            .join(format!("{}.json", task_id)),
+    );
 
     let db = Database::new();
     let conn = db.get_connection().unwrap();
     conn.execute("DELETE FROM ai_tasks WHERE id = ?1", [&task_id])
+        .unwrap();
+    conn.execute("DELETE FROM tasks WHERE id = ?1", [&task_id])
         .unwrap();
 }

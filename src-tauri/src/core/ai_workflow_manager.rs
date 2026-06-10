@@ -76,6 +76,12 @@ impl AiWorkflowManager {
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let risk = Self::normalize_risk(risk_level);
         conn.execute(
+            "INSERT OR IGNORE INTO tasks (id, title, user_request, status, planning_status, execution_status, current_gate, last_valid_state_id, risk_level, approval_status)
+             VALUES (?1, ?2, ?3, 'pending', 'planning_incomplete', 'not_started', NULL, NULL, ?4, 'pending_approval')",
+            params![panel_task_id, title, user_request, risk],
+        )
+        .map_err(|e| e.to_string())?;
+        conn.execute(
             "INSERT OR REPLACE INTO ai_tasks (id, title, description, risk_level, status, created_by)
              VALUES (?1, ?2, ?3, ?4, 'pending', 'panel_intake')",
             params![panel_task_id, title, user_request, risk],
