@@ -6134,6 +6134,12 @@ td.data-table-key-col {
   color: var(--danger);
 }
 
+.ov-card__unit {
+  font-size: 0.72em;
+  letter-spacing: -0.01em;
+  margin-left: 0.18em;
+}
+
 .ov-card__hint {
   font-size: 12px;
   color: var(--muted);

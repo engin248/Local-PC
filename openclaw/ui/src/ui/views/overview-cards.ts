@@ -188,8 +188,12 @@ function renderProviderHealthCard(health: HealthSummary | null): StatCard | null
   const valueClass = issueCount > 0 ? (providerHealth.degraded > 0 ? "danger" : "warn") : "ok";
   const value =
     issueCount > 0
-      ? html`<span class=${valueClass}>${issueCount} issue${issueCount === 1 ? "" : "s"}</span>`
-      : html`<span class=${valueClass}>${providerHealth.ok} ok</span>`;
+      ? html`<span class=${valueClass}
+          >${issueCount}<span class="ov-card__unit"> issue${issueCount === 1 ? "" : "s"}</span></span
+        >`
+      : html`<span class=${valueClass}
+          >${providerHealth.ok}<span class="ov-card__unit"> ok</span></span
+        >`;
   const hint =
     providerHealth.issueLabels.slice(0, 2).join(" · ") ||
     `${providerHealth.ok} healthy provider${providerHealth.ok === 1 ? "" : "s"}`;
