@@ -6144,6 +6144,27 @@ td.data-table-key-col {
   color: var(--danger);
 }
 
+.ov-provider-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ov-provider-row {
+  display: grid;
+  gap: 2px;
+}
+
+.ov-provider-row__name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ov-provider-row__meta {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 /* Stagger entrance */
 .ov-cards .ov-card:nth-child(1) {
   animation-delay: 0ms;

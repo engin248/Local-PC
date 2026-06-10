@@ -12,9 +12,11 @@ import type {
   CronJob,
   CronStatus,
   ModelAuthStatusResult,
+  ModelCatalogEntry,
   SessionsListResult,
   SessionsUsageResult,
   SkillStatusReport,
+  HealthSummary,
 } from "../types.ts";
 import { renderConnectCommand } from "./connect-command.ts";
 import { renderOverviewAttention } from "./overview-attention.ts";
@@ -43,6 +45,8 @@ export type OverviewProps = {
   warnQueryToken: boolean;
   // New dashboard data
   modelAuthStatus: ModelAuthStatusResult | null;
+  modelCatalog: ModelCatalogEntry[];
+  healthResult: HealthSummary | null;
   usageResult: SessionsUsageResult | null;
   sessionsResult: SessionsListResult | null;
   skillsReport: SkillStatusReport | null;
@@ -458,6 +462,8 @@ export function renderOverview(props: OverviewProps) {
       cronJobs: props.cronJobs,
       cronStatus: props.cronStatus,
       modelAuthStatus: props.modelAuthStatus,
+      modelCatalog: props.modelCatalog,
+      healthResult: props.healthResult,
       presenceCount: props.presenceCount,
       onNavigate: props.onNavigate,
     })}
