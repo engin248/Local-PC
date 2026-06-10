@@ -37,7 +37,7 @@
   </div>
 
   <div class="connection-grid">
-    {#each providers as provider}
+    {#each providers as provider (provider.id)}
       <article class="connection-row">
         <div class="provider-title">
           <strong>{provider.name}</strong>
