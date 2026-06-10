@@ -40,6 +40,7 @@
   let tasks = $state<any[]>([]);
   let selectedTaskId = $state<string | null>(null);
   let selectedTask = $derived(tasks.find(t => t.id === selectedTaskId) || null);
+  let intakeMode = $state(false);
 
   let logs = $state<any[]>([]);
   let decisions = $state<any[]>([]);
@@ -655,6 +656,7 @@
       voiceAvailable = false;
       return;
     }
+    if (!voiceAvailable) return;
 
     if (!force && key === lastSpokenVoiceKey) return;
     if (!force && !voiceRepliesEnabled) return;
@@ -714,9 +716,12 @@
     // Ses hatayla kesildiğinde veya çalmadığında da takılmaması için sıradakine geç
     utterance.onerror = (e) => {
       console.error("Speech Synthesis Error:", e);
-      raiseCriticalAlarm("Seslendirme motoru hatası", e);
-      speechQueue.shift();
-      processSpeechQueue();
+      voiceAvailable = false;
+      voiceRepliesEnabled = false;
+      speechQueue = [];
+      isSpeaking = false;
+      appendAlarmEvent("Seslendirme motoru hatası", e);
+      playSiren();
     };
 
     synth.speak(utterance);
@@ -754,16 +759,30 @@
 
       if (tasks.length === 0) {
         selectedTaskId = null;
-      } else if (!selectedTaskId || !taskIds.includes(selectedTaskId)) {
+        clearTaskDetails();
+      } else if (!intakeMode && (!selectedTaskId || !taskIds.includes(selectedTaskId))) {
         selectedTaskId = tasks[0].id;
       }
-      if (selectedTaskId) {
+      if (!intakeMode && selectedTaskId) {
         await refreshTaskDetails(selectedTaskId);
       }
     } catch (err) {
       console.error("Yükleme hatası:", err);
       raiseCriticalAlarm("Görevler yüklenirken hata oluştu", err);
     }
+  }
+
+  function clearTaskDetails() {
+    logs = [];
+    decisions = [];
+    alternatives = [];
+    approvals = [];
+    checkpoints = [];
+    tests = [];
+    reports = [];
+    breakdowns = [];
+    operationPackages = [];
+    swarmAllocations = [];
   }
 
   async function checkSystemHealth() {
@@ -813,8 +832,12 @@
 
   async function handleSelectTask(id: string | null) {
     selectedTaskId = id;
+    intakeMode = id === null;
     if (id) {
+      intakeMode = false;
       await refreshTaskDetails(id);
+    } else {
+      clearTaskDetails();
     }
   }
 
@@ -831,6 +854,7 @@
         },
       });
       selectedTaskId = newTask.id;
+      intakeMode = false;
       await loadTasks();
       await loadOperationAuditTrail();
       speakReply("Görev kaydedildi. Kesin cevap için planlama ve güvenlik kapıları bekleniyor.", `task-created:${newTask.id}`, true);
