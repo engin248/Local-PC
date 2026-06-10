@@ -25,6 +25,38 @@
   import OperationPackagePanel from "../components/OperationPackagePanel.svelte";
   import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
 
+  interface AskerMotoruStatusFile {
+    path: string;
+    exists: boolean;
+    preview: string;
+  }
+
+  interface AskerMotoruCapabilityBundleSummary {
+    capability_bundle: string;
+    label: string;
+    module_count: number;
+    specialty_capability_count: number;
+  }
+
+  interface AskerMotoruModuleSummary {
+    total_modules: number;
+    total_specialty_capabilities: number;
+    capability_bundles: AskerMotoruCapabilityBundleSummary[];
+  }
+
+  interface AskerMotoruModule {
+    module_name: string;
+    capability_bundle: string;
+    specialty_capabilities: string[];
+  }
+
+  interface AskerMotoruStatus {
+    roots_checked: string[];
+    files: AskerMotoruStatusFile[];
+    module_summary: AskerMotoruModuleSummary;
+    modules: AskerMotoruModule[];
+  }
+
 
   let tasks = $state<any[]>([]);
   let selectedTaskId = $state<string | null>(null);
@@ -40,7 +72,9 @@
   let breakdowns = $state<any[]>([]);
   let operationPackages = $state<any[]>([]);
   let swarmAllocations = $state<any[]>([]);
-  let askerMotoruStatus = $state<any | null>(null);
+  let askerMotoruStatus = $state<AskerMotoruStatus | null>(null);
+  let visibleAskerModules = $derived(askerMotoruStatus?.modules.slice(0, 12) ?? []);
+  let remainingAskerModuleCount = $derived(Math.max((askerMotoruStatus?.module_summary.total_modules ?? 0) - visibleAskerModules.length, 0));
   let dbSizeBytes = $state<number>(0);
   let aiProviderHealth = $state<any[]>([]);
   let systemConnectorHealth = $state<any[]>([]);
@@ -343,7 +377,32 @@
       case "get_swarm_allocations_cmd":
         return readFallbackStore(offlineDetailsKey(args?.taskId, "swarmAllocations"), []);
       case "get_asker_motoru_status_cmd":
-        return { roots_checked: [], files: [] };
+        return {
+          roots_checked: [],
+          files: [],
+          module_summary: {
+            total_modules: 314,
+            total_specialty_capabilities: 3140,
+            capability_bundles: [
+              { capability_bundle: "capture", label: "Diger Uzmanliklar / Capture", module_count: 122, specialty_capability_count: 1220 },
+              { capability_bundle: "llm", label: "Yapay Zeka ve LLM", module_count: 46, specialty_capability_count: 460 },
+              { capability_bundle: "devops", label: "Bulut ve DevOps", module_count: 39, specialty_capability_count: 390 },
+              { capability_bundle: "rag", label: "RAG ve Embedding", module_count: 27, specialty_capability_count: 270 },
+              { capability_bundle: "rpa", label: "Otomasyon RPA", module_count: 26, specialty_capability_count: 260 },
+              { capability_bundle: "ml", label: "Makine Ogrenimi", module_count: 13, specialty_capability_count: 130 },
+              { capability_bundle: "data", label: "Veri Analizi", module_count: 12, specialty_capability_count: 120 },
+              { capability_bundle: "web_api", label: "Web ve API", module_count: 10, specialty_capability_count: 100 },
+              { capability_bundle: "vision", label: "Goruntu Isleme", module_count: 9, specialty_capability_count: 90 },
+              { capability_bundle: "messaging", label: "Mesajlasma Iletisim", module_count: 5, specialty_capability_count: 50 },
+              { capability_bundle: "frontend", label: "Frontend UI", module_count: 4, specialty_capability_count: 40 },
+              { capability_bundle: "prompt", label: "LLM ve Prompt Muhendisligi", module_count: 1, specialty_capability_count: 10 }
+            ]
+          },
+          modules: [
+            { module_name: "001_Hermes_Mimari_Katmani", capability_bundle: "messaging", specialty_capabilities: [] },
+            { module_name: "314_Cross_Reality_Simulation_Engine", capability_bundle: "vision", specialty_capabilities: [] }
+          ]
+        };
       case "sync_supabase_cmd":
         return { enabled: false, last_result: "önizleme", pushed_rows: 0 };
       case "get_db_size_cmd":
@@ -1115,6 +1174,42 @@
           <div class="asker-bridge-panel">
             <h3>Asker Motoru Durum Köprüsü</h3>
             <p>DB boyutu: {(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB</p>
+            <div class="asker-summary-grid">
+              <div class="asker-summary-card">
+                <span>{askerMotoruStatus.module_summary.total_modules.toLocaleString("tr-TR")}</span>
+                <small>Kovan Modülü</small>
+              </div>
+              <div class="asker-summary-card">
+                <span>{askerMotoruStatus.module_summary.total_specialty_capabilities.toLocaleString("tr-TR")}</span>
+                <small>Uzmanlık Bağlantısı</small>
+              </div>
+              <div class="asker-summary-card">
+                <span>{askerMotoruStatus.module_summary.capability_bundles.length}</span>
+                <small>Yetenek Bundle</small>
+              </div>
+            </div>
+            <div class="asker-bundle-grid">
+              {#each askerMotoruStatus.module_summary.capability_bundles as bundle}
+                <div class="asker-bundle-card">
+                  <strong>{bundle.label}</strong>
+                  <span>{bundle.module_count.toLocaleString("tr-TR")} modül / {bundle.specialty_capability_count.toLocaleString("tr-TR")} yetenek</span>
+                </div>
+              {/each}
+            </div>
+            <div class="asker-module-preview">
+              <h4>Modül Kataloğu Önizleme</h4>
+              <div class="asker-module-grid">
+                {#each visibleAskerModules as module}
+                  <div class="asker-module-card">
+                    <strong>{module.module_name}</strong>
+                    <span>{module.capability_bundle}</span>
+                  </div>
+                {/each}
+              </div>
+              {#if remainingAskerModuleCount > 0}
+                <p class="asker-module-more">+{remainingAskerModuleCount.toLocaleString("tr-TR")} modül kayıtlı.</p>
+              {/if}
+            </div>
             {#each askerMotoruStatus.files as file}
               <div class="asker-file" class:missing={!file.exists}>
                 <strong>{file.path}</strong>
@@ -1421,6 +1516,120 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+  }
+
+  .asker-bridge-panel {
+    margin: 16px;
+    padding: 18px;
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    border-radius: 10px;
+    background: linear-gradient(180deg, #181612 0%, #111112 100%);
+    color: #e8e8eb;
+  }
+
+  .asker-bridge-panel h3,
+  .asker-module-preview h4 {
+    margin: 0 0 8px 0;
+    color: #f59e0b;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  .asker-summary-grid,
+  .asker-bundle-grid,
+  .asker-module-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .asker-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 14px 0;
+  }
+
+  .asker-summary-card,
+  .asker-bundle-card,
+  .asker-module-card,
+  .asker-file {
+    border: 1px solid #2d2d31;
+    border-radius: 8px;
+    background: #171719;
+  }
+
+  .asker-summary-card {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .asker-summary-card span {
+    color: #fff;
+    font-size: 1.45rem;
+    font-weight: 900;
+  }
+
+  .asker-summary-card small,
+  .asker-bundle-card span,
+  .asker-module-card span,
+  .asker-module-more {
+    color: #a8a8b0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .asker-bundle-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    margin-bottom: 16px;
+  }
+
+  .asker-bundle-card,
+  .asker-module-card {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .asker-bundle-card strong,
+  .asker-module-card strong {
+    color: #f3f3f5;
+    font-size: 0.82rem;
+  }
+
+  .asker-module-preview {
+    margin: 16px 0;
+  }
+
+  .asker-module-grid {
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  }
+
+  .asker-module-more {
+    margin: 10px 0 0 0;
+    color: #f59e0b;
+  }
+
+  .asker-file {
+    margin-top: 10px;
+    padding: 10px;
+  }
+
+  .asker-file.missing {
+    opacity: 0.65;
+  }
+
+  .asker-file strong {
+    color: #d8d8de;
+    font-size: 0.75rem;
+  }
+
+  .asker-file pre {
+    white-space: pre-wrap;
+    color: #a8a8b0;
+    font-size: 0.72rem;
   }
 
   

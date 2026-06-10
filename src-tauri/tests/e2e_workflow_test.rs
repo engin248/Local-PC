@@ -15,4 +15,15 @@ fn e2e_swarm_allocate_and_asker_scan() {
 
     let report = AskerMotoruBridge::scan_status_files();
     assert!(!report.roots_checked.is_empty());
+    assert_eq!(report.module_summary.total_modules, 314);
+    assert_eq!(report.module_summary.total_specialty_capabilities, 3140);
+    assert_eq!(report.modules.len(), 314);
+    assert!(report
+        .modules
+        .iter()
+        .all(|module| module.specialty_capabilities.len() == 10));
+    assert!(report
+        .modules
+        .iter()
+        .any(|module| module.module_name == "314_Cross_Reality_Simulation_Engine"));
 }

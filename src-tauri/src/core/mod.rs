@@ -1,8 +1,9 @@
 pub mod action_executor;
 pub mod ai_workflow_manager;
 pub mod alternative_analyzer;
-pub mod asker_motoru_bridge;
 pub mod approval_manager;
+pub mod asker_motoru_bridge;
+mod asker_motoru_modules;
 pub mod audit_logger;
 pub mod authority_router;
 pub mod checkpoint_manager;

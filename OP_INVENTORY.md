@@ -40,7 +40,7 @@ Backend tarafında `src-tauri/src/lib.rs` içerisinde kayıtlı ve UI ile doğru
 | **19** | `get_task_breakdowns_cmd` | `src-tauri/src/lib.rs:307` | Görevin Intake aşamasındaki alt kırılımlarını listeler. | **PASS** |
 | **20** | `get_operation_packages_cmd` | `src-tauri/src/lib.rs:389` | Göreve ait alt birim operasyonel paketlerini listeler. | **PASS** |
 | **21** | `get_swarm_allocations_cmd` | `src-tauri/src/lib.rs:345` | Kovan içi uzman tahsis detaylarını listeler. | **PASS** |
-| **22** | `get_asker_motoru_status_cmd` | `src-tauri/src/lib.rs:357` | Asker Motoru kovan durum dosyalarını tarayıp raporlar. | **PASS** |
+| **22** | `get_asker_motoru_status_cmd` | `src-tauri/src/lib.rs:357` | Asker Motoru durum dosyalarını ve 314 modüllük kovan kataloğunu raporlar. | **PASS** |
 | **23** | `sync_supabase_cmd` | `src-tauri/src/lib.rs:368` | Son görevleri Supabase bulut veritabanına senkronize eder. | **PASS** |
 | **24** | `get_db_size_cmd` | `src-tauri/src/lib.rs:380` | SQLite yerel veritabanı dosyasının byte boyutunu döner. | **PASS** |
 
