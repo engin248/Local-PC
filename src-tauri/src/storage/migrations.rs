@@ -307,7 +307,7 @@ pub fn get_migrations() -> Vec<&'static str> {
         r#"CREATE TABLE IF NOT EXISTS ai_task_allocations (
             id TEXT PRIMARY KEY,
             task_id TEXT NOT NULL,
-            platform_name TEXT NOT NULL CHECK(platform_name IN ('codex', 'open_agent_manager', 'antigravity', 'cursor', 'perplexity', 'verdent')),
+            platform_name TEXT NOT NULL CHECK(platform_name IN ('codex', 'open_agent_manager', 'antigravity', 'cursor', 'perplexity', 'verdent', 'lokal_bilgisayar_kontrol_paneli', 'asker_motoru_komuta_paneli', 'planlama_departmani', 'egitim_departmani', 'ar_ge_departmani', 'bot_agent_uretim_departmani', 'beceri_kutuphanesi', 'test_raporlama')),
             assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             status TEXT NOT NULL CHECK(status IN ('waiting', 'processing', 'submitted', 'failed', 'rejected')),
             payload_file_path TEXT NOT NULL,
@@ -317,7 +317,7 @@ pub fn get_migrations() -> Vec<&'static str> {
         r#"CREATE TABLE IF NOT EXISTS ai_collected_reports (
             id TEXT PRIMARY KEY,
             task_id TEXT NOT NULL,
-            platform_name TEXT NOT NULL CHECK(platform_name IN ('codex', 'open_agent_manager', 'antigravity', 'cursor', 'perplexity', 'verdent')),
+            platform_name TEXT NOT NULL CHECK(platform_name IN ('codex', 'open_agent_manager', 'antigravity', 'cursor', 'perplexity', 'verdent', 'lokal_bilgisayar_kontrol_paneli', 'asker_motoru_komuta_paneli', 'planlama_departmani', 'egitim_departmani', 'ar_ge_departmani', 'bot_agent_uretim_departmani', 'beceri_kutuphanesi', 'test_raporlama')),
             submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             report_path TEXT NOT NULL,
             is_verified INTEGER DEFAULT 0 CHECK(is_verified IN (0, 1)),
@@ -413,6 +413,25 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn department_platform_names_are_valid() {
+        let conn = setup_conn();
+        insert_valid_ai_task(&conn, "ai_task_department_platform");
+
+        conn.execute(
+            "INSERT INTO ai_task_allocations (id, task_id, platform_name, status, payload_file_path)
+             VALUES ('alloc_department_platform', 'ai_task_department_platform', 'planlama_departmani', 'waiting', 'ai_workflow/tasks/task.json')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+             VALUES ('report_department_platform', 'ai_task_department_platform', 'test_raporlama', 'ai_workflow/collected_reports/report.md', 1)",
+            [],
+        )
+        .unwrap();
     }
 
     #[test]

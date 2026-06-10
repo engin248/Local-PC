@@ -17,6 +17,17 @@ pub struct SwarmAllocation {
 
 pub struct AiWorkflowManager;
 
+const DEFAULT_DEPARTMENT_PLATFORMS: &[&str] = &[
+    "lokal_bilgisayar_kontrol_paneli",
+    "asker_motoru_komuta_paneli",
+    "planlama_departmani",
+    "egitim_departmani",
+    "ar_ge_departmani",
+    "bot_agent_uretim_departmani",
+    "beceri_kutuphanesi",
+    "test_raporlama",
+];
+
 impl AiWorkflowManager {
     pub fn parse_platforms_from_request(user_request: &str) -> Vec<String> {
         let mut platforms = Vec::new();
@@ -36,8 +47,11 @@ impl AiWorkflowManager {
             }
         }
         if platforms.is_empty() {
-            platforms.push("codex".to_string());
-            platforms.push("open_agent_manager".to_string());
+            platforms.extend(
+                DEFAULT_DEPARTMENT_PLATFORMS
+                    .iter()
+                    .map(|platform| platform.to_string()),
+            );
         }
         platforms
     }
@@ -49,7 +63,8 @@ impl AiWorkflowManager {
         risk_level: &str,
         platforms: Option<Vec<String>>,
     ) -> Result<Vec<SwarmAllocation>, String> {
-        let platforms = platforms.unwrap_or_else(|| Self::parse_platforms_from_request(user_request));
+        let platforms =
+            platforms.unwrap_or_else(|| Self::parse_platforms_from_request(user_request));
         let mut seen = HashSet::new();
         let mut allocations = Vec::new();
 
@@ -93,8 +108,11 @@ impl AiWorkflowManager {
                 .join("inbox");
             fs::create_dir_all(&inbox).map_err(|e| e.to_string())?;
             let inbox_file = inbox.join(format!("{}.json", panel_task_id));
-            fs::write(&inbox_file, serde_json::to_string_pretty(&payload).map_err(|e| e.to_string())?)
-                .map_err(|e| e.to_string())?;
+            fs::write(
+                &inbox_file,
+                serde_json::to_string_pretty(&payload).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
 
             let alloc_id = Uuid::new_v4().to_string();
             let payload_file = inbox_file.to_string_lossy().into_owned();
@@ -149,7 +167,7 @@ impl AiWorkflowManager {
     }
 
     fn normalize_platform_token(token: &str) -> Option<String> {
-        let key = token.to_ascii_lowercase();
+        let key = Self::normalize_token_key(token);
         Some(
             match key.as_str() {
                 "codex" => "codex",
@@ -158,10 +176,52 @@ impl AiWorkflowManager {
                 "cursor" => "cursor",
                 "perplexity" => "perplexity",
                 "verdent" => "verdent",
+                "lokal"
+                | "lokal_panel"
+                | "lokal_kontrol_paneli"
+                | "lokal_bilgisayar_kontrol_paneli" => "lokal_bilgisayar_kontrol_paneli",
+                "asker" | "asker_motoru" | "asker_motoru_komuta_paneli" => {
+                    "asker_motoru_komuta_paneli"
+                }
+                "planlama" | "planlama_departmani" => "planlama_departmani",
+                "egitim" | "egitim_departmani" => "egitim_departmani",
+                "arge" | "ar_ge" | "ar_ge_departmani" => "ar_ge_departmani",
+                "bot_agent" | "agent_uretim" | "bot_agent_uretim_departmani" => {
+                    "bot_agent_uretim_departmani"
+                }
+                "beceri" | "beceri_kutuphanesi" | "skills" => "beceri_kutuphanesi",
+                "test" | "raporlama" | "test_raporlama" | "test_raporlama_departmani" => {
+                    "test_raporlama"
+                }
                 _ => return None,
             }
             .to_string(),
         )
+    }
+
+    fn normalize_token_key(token: &str) -> String {
+        let mut normalized = String::new();
+        let mut last_was_separator = false;
+        for ch in token.trim().to_lowercase().chars() {
+            let mapped = match ch {
+                'ç' => Some('c'),
+                'ğ' => Some('g'),
+                'ı' | 'i' => Some('i'),
+                'ö' => Some('o'),
+                'ş' => Some('s'),
+                'ü' => Some('u'),
+                'a'..='z' | '0'..='9' => Some(ch),
+                _ => None,
+            };
+            if let Some(mapped) = mapped {
+                normalized.push(mapped);
+                last_was_separator = false;
+            } else if !last_was_separator && !normalized.is_empty() {
+                normalized.push('_');
+                last_was_separator = true;
+            }
+        }
+        normalized.trim_matches('_').to_string()
     }
 
     fn normalize_risk(risk: &str) -> String {
@@ -180,9 +240,37 @@ mod tests {
 
     #[test]
     fn parses_agent_tags_from_request() {
-        let platforms = AiWorkflowManager::parse_platforms_from_request(
-            "[Kod] [Ajanlar: CODEX,CURSOR] test",
-        );
+        let platforms =
+            AiWorkflowManager::parse_platforms_from_request("[Kod] [Ajanlar: CODEX,CURSOR] test");
         assert_eq!(platforms, vec!["codex", "cursor"]);
+    }
+
+    #[test]
+    fn parses_department_agent_tags_from_request() {
+        let platforms = AiWorkflowManager::parse_platforms_from_request(
+            "[Operasyon] [Ajanlar: Planlama Departmanı, AR-GE Departmanı, Test/Raporlama] test",
+        );
+        assert_eq!(
+            platforms,
+            vec!["planlama_departmani", "ar_ge_departmani", "test_raporlama"]
+        );
+    }
+
+    #[test]
+    fn defaults_to_one_agent_per_department() {
+        let platforms = AiWorkflowManager::parse_platforms_from_request("Standart operasyon");
+        assert_eq!(
+            platforms,
+            vec![
+                "lokal_bilgisayar_kontrol_paneli",
+                "asker_motoru_komuta_paneli",
+                "planlama_departmani",
+                "egitim_departmani",
+                "ar_ge_departmani",
+                "bot_agent_uretim_departmani",
+                "beceri_kutuphanesi",
+                "test_raporlama",
+            ]
+        );
     }
 }
