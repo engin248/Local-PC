@@ -204,11 +204,13 @@
 
 <style>
   .command-center {
+    flex: 0 0 auto;
+    box-sizing: border-box;
     border: 1px solid #25252a;
     border-radius: 12px;
     background: linear-gradient(135deg, #18181a 0%, #121216 100%);
     color: #f4f4f5;
-    margin-bottom: 20px;
+    margin: 15px 15px 20px;
     overflow: hidden;
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.24);
   }
