@@ -51,8 +51,15 @@ fn e2e_default_department_swarm_allocates_eight_agents() {
         ]
     );
     for allocation in &allocations {
-        assert!(Path::new(&allocation.payload_path).exists());
+        let payload_path = Path::new(&allocation.payload_path);
+        assert!(payload_path.exists());
         let _ = fs::remove_file(&allocation.payload_path);
+        if let Some(inbox_dir) = payload_path.parent() {
+            let _ = fs::remove_dir(inbox_dir);
+            if let Some(platform_dir) = inbox_dir.parent() {
+                let _ = fs::remove_dir(platform_dir);
+            }
+        }
     }
     let _ = fs::remove_file(format!("ai_workflow/tasks/{}.json", task_id));
 
