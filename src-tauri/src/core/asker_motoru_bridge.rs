@@ -71,6 +71,8 @@ impl AskerMotoruBridge {
         }
 
         if root_sources.is_empty() {
+            roots_checked.push("windows:unavailable".to_string());
+            roots_checked.push("linux:unavailable".to_string());
             root_sources.push(AskerMotoruRootStatus {
                 kind: "windows".to_string(),
                 source_kind: "unavailable".to_string(),
