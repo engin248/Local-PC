@@ -12,6 +12,7 @@ import type {
   CronJob,
   CronStatus,
   ModelAuthStatusResult,
+  HealthSummary,
   SessionsListResult,
   SessionsUsageResult,
   SkillStatusReport,
@@ -46,6 +47,7 @@ export type OverviewProps = {
   usageResult: SessionsUsageResult | null;
   sessionsResult: SessionsListResult | null;
   skillsReport: SkillStatusReport | null;
+  healthResult: HealthSummary | null;
   cronJobs: CronJob[];
   cronStatus: CronStatus | null;
   attentionItems: AttentionItem[];
@@ -458,6 +460,7 @@ export function renderOverview(props: OverviewProps) {
       cronJobs: props.cronJobs,
       cronStatus: props.cronStatus,
       modelAuthStatus: props.modelAuthStatus,
+      healthResult: props.healthResult,
       presenceCount: props.presenceCount,
       onNavigate: props.onNavigate,
     })}

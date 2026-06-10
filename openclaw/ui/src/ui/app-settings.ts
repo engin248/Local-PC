@@ -44,6 +44,7 @@ import {
   type DreamingState,
 } from "./controllers/dreaming.ts";
 import { loadExecApprovals, type ExecApprovalsState } from "./controllers/exec-approvals.ts";
+import { loadHealthState, type HealthState } from "./controllers/health.ts";
 import { loadLogs, type LogsState } from "./controllers/logs.ts";
 import {
   loadModelAuthStatusState,
@@ -745,6 +746,7 @@ export async function loadOverview(host: SettingsHost, opts?: { refresh?: boolea
     // Avoid starting the expensive usage RPC for stale overview refreshes.
     isCurrentOverviewRefresh() ? loadUsage(app) : Promise.resolve(),
     loadOverviewLogs(app),
+    loadHealthState(app as unknown as HealthState),
     // `refresh: true` bypasses the gateway's 60s auth-status cache so a
     // user-initiated refresh surfaces post-re-auth state immediately.
     loadModelAuthStatusState(app, { refresh: opts?.refresh }),

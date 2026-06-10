@@ -40,6 +40,7 @@ function createOverviewProps(overrides: Partial<OverviewProps> = {}): OverviewPr
     usageResult: null,
     sessionsResult: null,
     skillsReport: null,
+    healthResult: null,
     cronJobs: [],
     cronStatus: null,
     attentionItems: [],
@@ -221,5 +222,46 @@ describe("overview view rendering", () => {
 
     const quota = container.querySelector('[data-kind="quota"]');
     expect(compactText(quota)).toBe("Usage 28% left Codex · Week · Claude · 5h 40% left");
+  });
+
+  it("binds provider health cards to gateway health data", async () => {
+    const container = document.createElement("div");
+    const props = createOverviewProps({
+      usageResult: {
+        totals: { totalCost: 0, totalTokens: 0 },
+        aggregates: { messages: { total: 0 } },
+      } as OverviewProps["usageResult"],
+      healthResult: {
+        ok: true,
+        ts: Date.now(),
+        durationMs: 4,
+        heartbeatSeconds: 30,
+        defaultAgentId: "main",
+        agents: [],
+        sessions: { path: "", count: 0, recent: [] },
+        channelOrder: ["slack", "telegram"],
+        channelLabels: { slack: "Slack", telegram: "Telegram" },
+        channels: {
+          slack: {
+            accountId: "workspace",
+            configured: true,
+            linked: true,
+            probe: { ok: false, error: "invalid_auth" },
+          },
+          telegram: {
+            accountId: "bot",
+            configured: true,
+            linked: true,
+            probe: { ok: true },
+          },
+        },
+      },
+    });
+
+    render(renderOverview(props), container);
+    await Promise.resolve();
+
+    const providerHealth = container.querySelector('[data-kind="provider-health"]');
+    expect(compactText(providerHealth)).toBe("Providers 1 issue Slack degraded");
   });
 });

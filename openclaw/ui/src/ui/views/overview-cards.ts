@@ -16,6 +16,8 @@ import type {
   SkillStatusReport,
   CronJob,
   CronStatus,
+  HealthChannelAccountSummary,
+  HealthSummary,
   ModelAuthStatusResult,
 } from "../types.ts";
 
@@ -26,6 +28,7 @@ export type OverviewCardsProps = {
   cronJobs: CronJob[];
   cronStatus: CronStatus | null;
   modelAuthStatus: ModelAuthStatusResult | null;
+  healthResult: HealthSummary | null;
   presenceCount: number;
   onNavigate: (tab: string) => void;
 };
@@ -44,6 +47,16 @@ type StatCard = {
   label: string;
   value: string | TemplateResult;
   hint: string | TemplateResult;
+};
+
+type ProviderHealthTone = "ok" | "degraded" | "missing";
+
+type ProviderHealthSummary = {
+  total: number;
+  ok: number;
+  degraded: number;
+  missing: number;
+  issueLabels: string[];
 };
 
 function renderStatCard(card: StatCard, onNavigate: (tab: string) => void) {
@@ -86,6 +99,106 @@ function renderProviderQuotaCard(windows: QuotaWindowSummary[]): StatCard | null
       >${t("overview.cards.modelAuthUsageLeft", { pct: String(primary.remaining) })}</span
     >`,
     hint: [primaryHint.join(" · "), secondaryHint].filter(Boolean).join(" · "),
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function probeOk(probe: unknown): boolean | null {
+  const record = asRecord(probe);
+  return typeof record?.ok === "boolean" ? record.ok : null;
+}
+
+function providerHealthTone(account: HealthChannelAccountSummary): ProviderHealthTone | null {
+  if (account.configured === false || account.linked === false) {
+    return "missing";
+  }
+  const ok = probeOk(account.probe);
+  if (ok === false) {
+    return "degraded";
+  }
+  if (ok === true || account.configured === true || account.linked === true) {
+    return "ok";
+  }
+  return null;
+}
+
+function collectProviderHealth(health: HealthSummary | null): ProviderHealthSummary {
+  const summary: ProviderHealthSummary = {
+    total: 0,
+    ok: 0,
+    degraded: 0,
+    missing: 0,
+    issueLabels: [],
+  };
+  if (!health?.channels) {
+    return summary;
+  }
+
+  const channelIds = health.channelOrder?.length
+    ? health.channelOrder
+    : Object.keys(health.channels).toSorted((left, right) => left.localeCompare(right));
+  for (const channelId of channelIds) {
+    const channel = health.channels[channelId];
+    if (!channel) {
+      continue;
+    }
+    const accounts = Object.values(channel.accounts ?? { [channel.accountId]: channel });
+    const label = health.channelLabels?.[channelId] ?? channelId;
+    let channelIssue: ProviderHealthTone | null = null;
+    for (const account of accounts) {
+      const tone = providerHealthTone(account);
+      if (!tone) {
+        continue;
+      }
+      summary.total += 1;
+      summary[tone] += 1;
+      if (tone === "missing") {
+        channelIssue = channelIssue ?? tone;
+      } else if (tone === "degraded") {
+        channelIssue = tone;
+      }
+    }
+    if (channelIssue) {
+      summary.issueLabels.push(
+        `${label} ${channelIssue === "missing" ? "needs setup" : "degraded"}`,
+      );
+    }
+  }
+
+  if (health.modelPricing?.state === "degraded") {
+    summary.degraded += 1;
+    summary.total += 1;
+    summary.issueLabels.push(health.modelPricing.detail ?? "model pricing degraded");
+  }
+
+  return summary;
+}
+
+function renderProviderHealthCard(health: HealthSummary | null): StatCard | null {
+  const providerHealth = collectProviderHealth(health);
+  if (providerHealth.total === 0) {
+    return null;
+  }
+  const issueCount = providerHealth.degraded + providerHealth.missing;
+  const valueClass = issueCount > 0 ? (providerHealth.degraded > 0 ? "danger" : "warn") : "ok";
+  const value =
+    issueCount > 0
+      ? html`<span class=${valueClass}>${issueCount} issue${issueCount === 1 ? "" : "s"}</span>`
+      : html`<span class=${valueClass}>${providerHealth.ok} ok</span>`;
+  const hint =
+    providerHealth.issueLabels.slice(0, 2).join(" · ") ||
+    `${providerHealth.ok} healthy provider${providerHealth.ok === 1 ? "" : "s"}`;
+  return {
+    kind: "provider-health",
+    tab: "overview",
+    label: "Providers",
+    value,
+    hint,
   };
 }
 
@@ -136,6 +249,7 @@ export function renderOverviewCards(props: OverviewCardsProps) {
   const authProviders = props.modelAuthStatus?.providers ?? [];
   const monitoredProviders = authProviders.filter(isMonitoredAuthProvider);
   const quotaCard = renderProviderQuotaCard(collectQuotaWindows(monitoredProviders));
+  const providerHealthCard = renderProviderHealthCard(props.healthResult);
 
   const cronValue =
     cronEnabled == null
@@ -183,6 +297,9 @@ export function renderOverviewCards(props: OverviewCardsProps) {
   ];
   if (quotaCard) {
     cards.splice(1, 0, quotaCard);
+  }
+  if (providerHealthCard) {
+    cards.splice(quotaCard ? 2 : 1, 0, providerHealthCard);
   }
 
   // Model auth card — show providers whose auth needs monitoring.
