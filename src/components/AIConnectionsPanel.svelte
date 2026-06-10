@@ -1,36 +1,60 @@
 <script lang="ts">
   let {
     providers = [],
-    onRefresh
+    onRefresh,
+    onTestProvider
   }: {
     providers: any[];
     onRefresh: () => void;
+    onTestProvider: (providerId: string, endpoint?: string) => void;
   } = $props();
+
+  let endpointOverrides = $state<Record<string, string>>({});
+
+  function providerBadge(provider: any) {
+    if (provider.access_type === "local") return "local / ücretsiz";
+    if (provider.api_key_required) return "free-tier / API key gerekli";
+    return provider.optional_provider ? "opsiyonel" : "ücretsiz";
+  }
+
+  function visibleModels(provider: any) {
+    const models = Array.isArray(provider.model_list) ? provider.model_list : [];
+    return models.length > 0 ? models.slice(0, 4).join(", ") : provider.model || "model yok";
+  }
+
+  function endpointValue(provider: any) {
+    return endpointOverrides[provider.id] ?? provider.endpoint ?? "";
+  }
 </script>
 
 <section class="connection-panel">
   <div class="panel-header">
     <div>
       <span class="eyebrow">YAPAY ZEKA BAĞLANTILARI</span>
-      <h3>AI Provider Health</h3>
+      <h3>AI Sağlayıcıları</h3>
     </div>
-    <button type="button" onclick={onRefresh}>Health-check</button>
+    <button type="button" onclick={onRefresh}>Tümünü tara</button>
   </div>
 
   <div class="connection-grid">
-    {#each providers as provider}
+    {#each providers as provider (provider.id)}
       <article class="connection-row">
-        <div>
+        <div class="provider-title">
           <strong>{provider.name}</strong>
-          <span>{provider.provider_type} / {provider.model}</span>
+          <span>{provider.provider_type} / {providerBadge(provider)}</span>
         </div>
         <div>
           <span class="label">Durum</span>
-          <b class:ok={provider.status === "available"} class:warn={provider.status !== "available"}>{provider.status}</b>
+          <b
+            class:ok={provider.status === "available"}
+            class:warn={provider.status !== "available"}
+          >
+            {provider.status}
+          </b>
         </div>
         <div>
           <span class="label">API Key</span>
-          <b>{provider.api_key_status}</b>
+          <b>{provider.api_key_required ? provider.api_key_status : "gerekmez"}</b>
         </div>
         <div>
           <span class="label">Enabled</span>
@@ -40,7 +64,32 @@
           <span class="label">Bağımlılık</span>
           <b>{provider.dependency_level}</b>
         </div>
-        <p>{provider.last_error || "Son hata yok."}</p>
+        <div class="wide">
+          <span class="label">Endpoint</span>
+          <div class="endpoint-row">
+            <input
+              aria-label={`${provider.name} endpoint`}
+              value={endpointValue(provider)}
+              oninput={(event) => endpointOverrides[provider.id] = event.currentTarget.value}
+            />
+            <button
+              type="button"
+              class="test-button"
+              onclick={() => onTestProvider(provider.id, endpointValue(provider))}
+            >
+              Test
+            </button>
+          </div>
+        </div>
+        <div class="wide">
+          <span class="label">Model listesi</span>
+          <code>{visibleModels(provider)}</code>
+        </div>
+        <div class="wide">
+          <span class="label">Bağlantı sonucu</span>
+          <span>{provider.connection_result || "Henüz test sonucu yok."}</span>
+        </div>
+        <p>{provider.error_message || provider.last_error || "Son hata yok."}</p>
       </article>
     {/each}
   </div>
@@ -102,15 +151,50 @@
     border-radius: 6px;
   }
 
+  .provider-title span {
+    display: block;
+    margin-top: 4px;
+  }
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+
+  .endpoint-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    align-items: center;
+  }
+
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0f0f11;
+    border: 1px solid #39393f;
+    border-radius: 5px;
+    color: #e9e9ec;
+    padding: 8px;
+  }
+
+  .test-button {
+    background: #2c8f5b;
+  }
+
   strong,
   b {
     color: #f4f4f5;
   }
 
   span,
-  p {
+  p,
+  code {
     color: #b8b8bf;
     margin: 0;
+  }
+
+  code {
+    overflow-wrap: anywhere;
   }
 
   p {

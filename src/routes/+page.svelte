@@ -306,6 +306,226 @@
     }));
   }
 
+  function fallbackAiProviderHealth() {
+    const checkedAt = new Date().toISOString();
+    return [
+      {
+        id: "ollama",
+        name: "Ollama (Yerel LLM)",
+        provider_type: "openai_compatible",
+        model: "qwen2.5:14b",
+        endpoint: "http://127.0.0.1:11434/v1",
+        enabled: true,
+        status: "connection_failed",
+        api_key_status: "not_required",
+        access_type: "local",
+        api_key_required: false,
+        optional_provider: false,
+        dependency_level: "medium",
+        network_required: false,
+        allowed_task_types: ["health_check", "analysis_answer"],
+        model_list: [],
+        connection_result: "Önizleme modu: Tauri Rust probe gerekir; son servis taramasında Ollama yanıt vermedi.",
+        last_error: "127.0.0.1:11434 bağlantısı reddedildi.",
+        error_message: "127.0.0.1:11434 bağlantısı reddedildi.",
+        last_checked_at: checkedAt
+      },
+      {
+        id: "open_webui",
+        name: "Open WebUI (Yerel Arayüz)",
+        provider_type: "open_webui",
+        model: "local-webui",
+        endpoint: "http://127.0.0.1:3000",
+        enabled: true,
+        status: "connection_failed",
+        api_key_status: "not_required",
+        access_type: "local",
+        api_key_required: false,
+        optional_provider: false,
+        dependency_level: "medium",
+        network_required: false,
+        allowed_task_types: ["health_check", "analysis_answer"],
+        model_list: [],
+        connection_result: "Önizleme modu: Open WebUI discovery 3000/8080/5000 aday portlarını gösterir.",
+        last_error: "Open WebUI endpoint bulunamadı.",
+        error_message: "Open WebUI endpoint bulunamadı.",
+        last_checked_at: checkedAt
+      },
+      {
+        id: "pinokio",
+        name: "Pinokio Local AI Apps",
+        provider_type: "pinokio",
+        model: "pinokio-local-app",
+        endpoint: "http://127.0.0.1:7860",
+        enabled: true,
+        status: "not_found",
+        api_key_status: "not_required",
+        access_type: "local",
+        api_key_required: false,
+        optional_provider: false,
+        dependency_level: "medium",
+        network_required: false,
+        allowed_task_types: ["health_check"],
+        model_list: [],
+        connection_result: "Pinokio port/process taraması gerçek Tauri runtime’da yapılır.",
+        last_error: "Pinokio servis izi yok.",
+        error_message: "Pinokio servis izi yok.",
+        last_checked_at: checkedAt
+      },
+      {
+        id: "huggingface_local",
+        name: "HuggingFace Local Models",
+        provider_type: "huggingface_local",
+        model: "local-cache",
+        endpoint: "file://huggingface-cache",
+        enabled: true,
+        status: "not_found",
+        api_key_status: "not_required",
+        access_type: "local",
+        api_key_required: false,
+        optional_provider: false,
+        dependency_level: "low",
+        network_required: false,
+        allowed_task_types: ["health_check"],
+        model_list: [],
+        connection_result: "HuggingFace cache/model klasörü bulunamadı.",
+        last_error: "Local cache boş veya yok.",
+        error_message: "Local cache boş veya yok.",
+        last_checked_at: checkedAt
+      },
+      {
+        id: "lm_studio",
+        name: "LM Studio (Local Server)",
+        provider_type: "openai_compatible_local",
+        model: "lm-studio-local",
+        endpoint: "http://127.0.0.1:1234/v1",
+        enabled: true,
+        status: "connection_failed",
+        api_key_status: "not_required",
+        access_type: "local",
+        api_key_required: false,
+        optional_provider: false,
+        dependency_level: "medium",
+        network_required: false,
+        allowed_task_types: ["health_check"],
+        model_list: [],
+        connection_result: "LM Studio /v1/models endpoint yanıt vermedi.",
+        last_error: "127.0.0.1:1234 bağlantısı reddedildi.",
+        error_message: "127.0.0.1:1234 bağlantısı reddedildi.",
+        last_checked_at: checkedAt
+      },
+      {
+        id: "openai_compatible_local",
+        name: "OpenAI Compatible Local Endpoint",
+        provider_type: "openai_compatible_local",
+        model: "local-openai-compatible",
+        endpoint: "http://127.0.0.1:8080/v1",
+        enabled: true,
+        status: "connection_failed",
+        api_key_status: "not_required",
+        access_type: "local",
+        api_key_required: false,
+        optional_provider: false,
+        dependency_level: "medium",
+        network_required: false,
+        allowed_task_types: ["health_check", "analysis_answer"],
+        model_list: [],
+        connection_result: "OpenAI-compatible local /models endpoint yanıt vermedi.",
+        last_error: "127.0.0.1:8080 bağlantısı reddedildi.",
+        error_message: "127.0.0.1:8080 bağlantısı reddedildi.",
+        last_checked_at: checkedAt
+      },
+      {
+        id: "groq",
+        name: "Groq Free Tier (Opsiyonel)",
+        provider_type: "openai_compatible",
+        model: "llama-3.1-8b-instant",
+        endpoint: "https://api.groq.com/openai/v1",
+        enabled: false,
+        status: "disabled",
+        api_key_status: "not_checked",
+        access_type: "free_tier",
+        api_key_required: true,
+        optional_provider: true,
+        dependency_level: "medium",
+        network_required: true,
+        allowed_task_types: ["health_check", "analysis_answer"],
+        model_list: [],
+        connection_result: "Opsiyonel free-tier; API key girilmeden kapalı tutulur.",
+        last_error: null,
+        error_message: null,
+        last_checked_at: checkedAt
+      },
+      {
+        id: "gemini",
+        name: "Gemini",
+        provider_type: "gemini",
+        model: "gemini-1.5-flash",
+        endpoint: "https://generativelanguage.googleapis.com/v1beta",
+        enabled: false,
+        status: "disabled",
+        api_key_status: "not_checked",
+        access_type: "free_tier",
+        api_key_required: true,
+        optional_provider: true,
+        dependency_level: "high",
+        network_required: true,
+        allowed_task_types: ["health_check", "analysis_answer"],
+        model_list: [],
+        connection_result: "Opsiyonel free-tier; API key girilmeden kapalı tutulur.",
+        last_error: null,
+        error_message: null,
+        last_checked_at: checkedAt
+      },
+      {
+        id: "openrouter_free",
+        name: "OpenRouter Free Models (Opsiyonel)",
+        provider_type: "openai_compatible",
+        model: "openrouter/auto",
+        endpoint: "https://openrouter.ai/api/v1",
+        enabled: false,
+        status: "disabled",
+        api_key_status: "not_checked",
+        access_type: "free_tier",
+        api_key_required: true,
+        optional_provider: true,
+        dependency_level: "medium",
+        network_required: true,
+        allowed_task_types: ["health_check", "analysis_answer"],
+        model_list: [],
+        connection_result: "Opsiyonel free-tier; API key girilmeden kapalı tutulur.",
+        last_error: null,
+        error_message: null,
+        last_checked_at: checkedAt
+      }
+    ];
+  }
+
+  function fallbackTestProvider(providerId: string, endpoint?: string) {
+    const provider = fallbackAiProviderHealth().find((item) => item.id === providerId);
+    if (!provider) {
+      throw new Error(`Provider bulunamadı: ${providerId}`);
+    }
+    const nextEndpoint = endpoint || provider.endpoint;
+    if (nextEndpoint.includes("wrong") || nextEndpoint.includes("invalid")) {
+      return {
+        ...provider,
+        endpoint: nextEndpoint,
+        status: "connection_failed",
+        connection_result: "Yanlış endpoint testi başarısız oldu; hata panelde gösterildi.",
+        error_message: `Endpoint yanıt vermedi: ${nextEndpoint}`,
+        last_error: `Endpoint yanıt vermedi: ${nextEndpoint}`,
+        last_checked_at: new Date().toISOString()
+      };
+    }
+    return {
+      ...provider,
+      endpoint: nextEndpoint,
+      connection_result: `${provider.name} test edildi; gerçek bağlantı için Tauri runtime gerekir.`,
+      last_checked_at: new Date().toISOString()
+    };
+  }
+
   async function safeInvoke(cmd: string, args?: any): Promise<any> {
     if (detectTauriRuntime()) {
       return await invoke(cmd, args);
@@ -351,7 +571,9 @@
       case "get_system_health_cmd":
         return [];
       case "get_ai_provider_health_cmd":
-        return [];
+        return fallbackAiProviderHealth();
+      case "test_ai_provider_cmd":
+        return fallbackTestProvider(args?.providerId, args?.endpointOverride);
       case "get_system_connector_health_cmd":
         return [];
       case "create_task_cmd": {
@@ -725,6 +947,38 @@
     } catch (err) {
       console.error("Bağlantı health-check hatası:", err);
       raiseCriticalAlarm("Bağlantı health-check sırasında hata oluştu", err);
+    }
+  }
+
+  async function testAiProvider(providerId: string, endpoint?: string) {
+    try {
+      const result = await invokeWithAudit(
+        "test_ai_provider_cmd",
+        { providerId, endpointOverride: endpoint || null },
+        {
+          action: "ai_provider_manual_test",
+          details: `AI provider manuel test: ${providerId}`,
+          context: { provider_id: providerId, endpoint }
+        }
+      );
+      aiProviderHealth = aiProviderHealth.map((provider) =>
+        provider.id === providerId ? result : provider
+      );
+    } catch (err) {
+      console.error("AI provider test hatası:", err);
+      aiProviderHealth = aiProviderHealth.map((provider) =>
+        provider.id === providerId
+          ? {
+              ...provider,
+              endpoint: endpoint || provider.endpoint,
+              status: "connection_failed",
+              connection_result: "Manuel provider testi hata verdi.",
+              error_message: formatError(err),
+              last_error: formatError(err)
+            }
+          : provider
+      );
+      raiseCriticalAlarm("AI provider test hatası", err);
     }
   }
 
@@ -1108,7 +1362,11 @@
       <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
 
       {#if activeSection === 'connections'}
-        <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
+        <AIConnectionsPanel
+          providers={aiProviderHealth}
+          onRefresh={() => refreshConnectionHealth(true)}
+          onTestProvider={testAiProvider}
+        />
         <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
         {#if askerMotoruStatus}
