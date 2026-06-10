@@ -1098,21 +1098,6 @@ import CentralCommandPanel from "../components/CentralCommandPanel.svelte";
     {/if}
 
     <div class="workspace-scroll-area">
-      <OperationDoctrinePanel />
-      <TaskDetail task={selectedTask} onExecute={handleExecute} />
-      <OperationPackagePanel packages={operationPackages} />
-      <DefinitiveAnswerPanel
-        task={selectedTask}
-        approvals={approvals}
-        tests={tests}
-        reports={reports}
-        voiceRepliesEnabled={voiceRepliesEnabled}
-        onSpeakAnswer={speakReply}
-        onStopVoice={stopVoiceReply}
-      />
-
-      <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
-
       {#if activeSection === 'connections'}
         <CentralCommandPanel
           providers={aiProviderHealth}
@@ -1123,25 +1108,42 @@ import CentralCommandPanel from "../components/CentralCommandPanel.svelte";
           taskId={selectedTaskId}
           onRefresh={() => refreshConnectionHealth(true)}
         />
-      {:else if activeSection === 'skills'}
-        <SkillLibraryExplorer />
-      {:else if selectedTask}
-        {#if activeSection === 'planning'}
-          <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
-        {:else if activeSection === 'decisions'}
-          <DecisionMap decisions={decisions} />
-          <AlternativePanel alternatives={alternatives} />
-        {:else if activeSection === 'security'}
-          <RiskPanel task={selectedTask} />
-          <ApprovalPanel approvals={approvals} onSubmitApproval={handleApproval} />
-          <RollbackPanel task={selectedTask} onRollback={handleRollback} />
-        {:else if activeSection === 'execution'}
-          <CheckpointPanel checkpoints={checkpoints} />
-          <TestPanel tests={tests} />
-          <StructuredReportPanel reports={reports} />
-        {/if}
       {:else}
-        <IntakePanel onCreate={handleCreateTask} />
+        <OperationDoctrinePanel />
+        <TaskDetail task={selectedTask} onExecute={handleExecute} />
+        <OperationPackagePanel packages={operationPackages} />
+        <DefinitiveAnswerPanel
+          task={selectedTask}
+          approvals={approvals}
+          tests={tests}
+          reports={reports}
+          voiceRepliesEnabled={voiceRepliesEnabled}
+          onSpeakAnswer={speakReply}
+          onStopVoice={stopVoiceReply}
+        />
+
+        <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
+
+        {#if activeSection === 'skills'}
+          <SkillLibraryExplorer />
+        {:else if selectedTask}
+          {#if activeSection === 'planning'}
+            <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
+          {:else if activeSection === 'decisions'}
+            <DecisionMap decisions={decisions} />
+            <AlternativePanel alternatives={alternatives} />
+          {:else if activeSection === 'security'}
+            <RiskPanel task={selectedTask} />
+            <ApprovalPanel approvals={approvals} onSubmitApproval={handleApproval} />
+            <RollbackPanel task={selectedTask} onRollback={handleRollback} />
+          {:else if activeSection === 'execution'}
+            <CheckpointPanel checkpoints={checkpoints} />
+            <TestPanel tests={tests} />
+            <StructuredReportPanel reports={reports} />
+          {/if}
+        {:else}
+          <IntakePanel onCreate={handleCreateTask} />
+        {/if}
       {/if}
 
     </div>

@@ -68,6 +68,11 @@
       <strong>{formatDbSize(dbSizeBytes)}</strong>
       <small>SQLite log/veri boyutu</small>
     </article>
+    <article>
+      <span>Swarm</span>
+      <strong>{allocations.length}</strong>
+      <small>seçili görev ajan dağılımı</small>
+    </article>
   </div>
 
   <div class="section-grid">
@@ -124,7 +129,7 @@
     <article class="section-card wide">
       <div class="section-title">
         <span class="eyebrow">ASKER MOTORU</span>
-        <strong>/health /status /events /command Sözleşmesi</strong>
+        <strong>Endpoint Sözleşmesi</strong>
       </div>
       <div class="contract-grid">
         {#each askerContract as endpoint}
@@ -147,7 +152,7 @@
         <div>
           <h4>Endpoint Durumu</h4>
           {#each askerEndpoints as endpoint}
-            <div class="mini-row">
+            <div class="mini-row endpoint-row">
               <strong class={statusClass(endpoint.status)}>{endpoint.method} {endpoint.path}</strong>
               <span>{endpoint.status}{endpoint.http_status ? ` · HTTP ${endpoint.http_status}` : ""}</span>
             </div>
@@ -270,7 +275,7 @@
   }
 
   .summary-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     margin-bottom: 14px;
   }
 
@@ -353,7 +358,7 @@
   }
 
   .contract-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     margin: 12px 0;
   }
 
@@ -381,6 +386,12 @@
     margin-bottom: 8px;
     overflow-wrap: anywhere;
     font-size: 12px;
+  }
+
+  .endpoint-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.9fr) minmax(100px, 1fr);
+    align-items: center;
   }
 
   .missing {
