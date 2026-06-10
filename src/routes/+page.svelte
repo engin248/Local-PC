@@ -19,6 +19,7 @@
   import DefinitiveAnswerPanel from "../components/DefinitiveAnswerPanel.svelte";
   import AIConnectionsPanel from "../components/AIConnectionsPanel.svelte";
   import SystemConnectionsPanel from "../components/SystemConnectionsPanel.svelte";
+  import AlarmCardsPanel from "../components/AlarmCardsPanel.svelte";
   import IntakePanel from "../components/IntakePanel.svelte";
   import LiveExecutionTracker from "../components/LiveExecutionTracker.svelte";
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
@@ -44,6 +45,7 @@
   let dbSizeBytes = $state<number>(0);
   let aiProviderHealth = $state<any[]>([]);
   let systemConnectorHealth = $state<any[]>([]);
+  let alarmCards = $state<any[]>([]);
 
   let activeSection = $state("planning");
   let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
@@ -281,6 +283,16 @@
     }
   }
 
+  function withPreviewSource(rows: any[], sourceKind: "localStorage" | "mock") {
+    return rows.map((row) => ({
+      ...row,
+      source_kind: row.source_kind || sourceKind,
+      preview: true,
+      health: row.health || row.status || "unavailable",
+      last_checked_at: row.last_checked_at || new Date().toLocaleString("tr-TR"),
+    }));
+  }
+
   function generateFallbackBreakdowns(taskId: string, request: string) {
     const source = request || "Kullanıcı talebi";
     const phases = [
@@ -343,7 +355,26 @@
       case "get_swarm_allocations_cmd":
         return readFallbackStore(offlineDetailsKey(args?.taskId, "swarmAllocations"), []);
       case "get_asker_motoru_status_cmd":
-        return { roots_checked: [], files: [] };
+        return {
+          roots_checked: [],
+          root_sources: [
+            {
+              kind: "windows",
+              source_kind: "unavailable",
+              source_path: null,
+              health: "unavailable",
+              error: "PREVIEW / MOCK: ASKER_MOTORU_WINDOWS_ROOT bağlı değil."
+            },
+            {
+              kind: "linux",
+              source_kind: "unavailable",
+              source_path: null,
+              health: "unavailable",
+              error: "PREVIEW / MOCK: ASKER_MOTORU_LINUX_ROOT bağlı değil."
+            }
+          ],
+          files: []
+        };
       case "sync_supabase_cmd":
         return { enabled: false, last_result: "önizleme", pushed_rows: 0 };
       case "get_db_size_cmd":
@@ -351,9 +382,72 @@
       case "get_system_health_cmd":
         return [];
       case "get_ai_provider_health_cmd":
-        return [];
+        return withPreviewSource(readFallbackStore("localControlPanel.preview.aiProviderHealth", [
+          {
+            id: "browser-preview-ai",
+            name: "Browser Preview AI Bridge",
+            provider_type: "preview",
+            model: "none",
+            endpoint: "bağlı değil",
+            enabled: false,
+            status: "mock",
+            health: "unavailable",
+            api_key_status: "not_checked",
+            dependency_level: "low",
+            network_required: false,
+            allowed_task_types: [],
+            last_error: "PREVIEW / MOCK: Tauri runtime olmadan gerçek AI provider health çalışmaz."
+          }
+        ]), "mock");
       case "get_system_connector_health_cmd":
-        return [];
+        return withPreviewSource(readFallbackStore("localControlPanel.preview.systemConnectorHealth", [
+          {
+            id: "browser-preview-connector",
+            name: "Browser Preview Connector Bridge",
+            connector_type: "preview",
+            source_path: null,
+            endpoint: null,
+            target: "bağlı değil",
+            permissions: [],
+            enabled: false,
+            read_only: true,
+            dependency_level: "low",
+            live_system: false,
+            network_required: false,
+            allowed_actions: [],
+            approval_required_actions: [],
+            rollback_required_actions: [],
+            test_required_actions: [],
+            status: "mock",
+            health: "unavailable",
+            last_error: "PREVIEW / MOCK: Tauri runtime olmadan gerçek connector health çalışmaz."
+          }
+        ]), "mock");
+      case "get_alarm_cards_cmd":
+        return withPreviewSource([
+          ...(args?.runtimeAlarms || []).map((alarm: any, index: number) => ({
+            id: `runtime-preview-${index}`,
+            title: alarm.source || "Runtime alarm",
+            source_kind: "mock",
+            health: "runtime_only",
+            runtime_only: true,
+            source_path: null,
+            last_checked: alarm.timestamp || new Date().toLocaleString("tr-TR"),
+            error: "runtime only",
+            details: alarm.message || "PREVIEW / MOCK runtime alarm"
+          })),
+          {
+            id: "browser-preview-alarm",
+            title: "SISTEM_ALARM_DURUMU.json",
+            source_kind: "mock",
+            health: "unavailable",
+            runtime_only: false,
+            source_path: null,
+            last_checked: new Date().toLocaleString("tr-TR"),
+            error: "PREVIEW / MOCK: JSON/SQLite alarm kaynağı bağlı değil.",
+            details: "bağlı değil"
+          }
+        ], "mock");
       case "create_task_cmd": {
         const offlineTasks = readFallbackStore(offlineTasksKey, []);
         const id = `offline-${Date.now()}`;
@@ -721,6 +815,7 @@
       aiProviderHealth = await safeInvoke("get_ai_provider_health_cmd", { writeAudit });
       systemConnectorHealth = await safeInvoke("get_system_connector_health_cmd", { writeAudit });
       askerMotoruStatus = await safeInvoke("get_asker_motoru_status_cmd");
+      alarmCards = await safeInvoke("get_alarm_cards_cmd", { runtimeAlarms: alarmEvents });
       dbSizeBytes = await safeInvoke("get_db_size_cmd");
     } catch (err) {
       console.error("Bağlantı health-check hatası:", err);
@@ -1105,19 +1200,28 @@
         onStopVoice={stopVoiceReply}
       />
 
-      <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
+      <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} allocations={swarmAllocations} />
 
       {#if activeSection === 'connections'}
         <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
+        <AlarmCardsPanel alarms={alarmCards} />
         <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
         {#if askerMotoruStatus}
           <div class="asker-bridge-panel">
             <h3>Asker Motoru Durum Köprüsü</h3>
             <p>DB boyutu: {(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB</p>
+            {#each askerMotoruStatus.root_sources || [] as root}
+              <div class="asker-file" class:missing={root.health !== "available"}>
+                <strong>{root.kind}: {root.source_path || "bağlı değil"}</strong>
+                <span>{root.source_kind} / {root.health}</span>
+                <pre>{root.error || "Kaynak erişilebilir."}</pre>
+              </div>
+            {/each}
             {#each askerMotoruStatus.files as file}
               <div class="asker-file" class:missing={!file.exists}>
                 <strong>{file.path}</strong>
+                <span>{file.source_kind} / {file.health}</span>
                 <pre>{file.preview}</pre>
               </div>
             {/each}
@@ -1764,6 +1868,47 @@
   .agent-msg strong { display: block; margin-bottom: 6px; color: #47d18c; font-size: 12px; }
   .agent-msg pre { margin: 0; font-family: monospace; font-size: 12px; color: #b8b8bf; white-space: pre-wrap; }
   .empty-stream { color: #8d8d95; font-size: 13px; font-style: italic; }
+  .asker-bridge-panel {
+    padding: 18px;
+    border: 1px solid #2a2a2d;
+    background: #18181a;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    color: #f4f4f5;
+  }
+  .asker-file {
+    padding: 10px;
+    margin-top: 8px;
+    border: 1px solid #2d2d31;
+    border-radius: 6px;
+    background: #111113;
+  }
+  .asker-file.missing {
+    border-color: rgba(248, 193, 74, 0.35);
+  }
+  .asker-file strong,
+  .asker-file span {
+    display: block;
+    color: #dfe4ec;
+    overflow-wrap: anywhere;
+  }
+  .asker-file span {
+    width: fit-content;
+    margin-top: 4px;
+    padding: 2px 6px;
+    border: 1px solid #3b3b40;
+    border-radius: 999px;
+    color: #9fd3ff;
+    font-size: 10px;
+    font-weight: 800;
+  }
+  .asker-file pre {
+    margin: 8px 0 0;
+    color: #b8b8bf;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
   .progress-bar-container { display: flex; align-items: center; justify-content: center; padding: 12px 20px; background: #0c0c0d; border-bottom: 1px solid #1f1f21; }
   .progress-step { font-size: 11px; font-weight: bold; color: #555; padding: 4px 10px; border-radius: 12px; background: #18181a; border: 1px solid #2d2d31; }
   .progress-step.active { color: #15110a; background: #f59e0b; border-color: #f59e0b; }

@@ -1,18 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   
-  let { task = null, breakdowns = [] } = $props<{
+  let { task = null, breakdowns = [], allocations = [] } = $props<{
     task: any;
     breakdowns: any[];
+    allocations: any[];
   }>();
 
-  // Ajan detayları ve Türkçe eşleşmeleri
-  const agents = [
-    { name: 'Codex', role: 'Yazılım Geliştirme Ajanı', icon: '💻', desc: 'Kod analizi ve modifikasyon önerileri hazırlar.' },
-    { name: 'Open Agent Manager', role: 'Müfettiş & Swarm Orkestratörü', icon: '👁️', desc: 'Süreç adımlarını denetler, politika ihlallerini kontrol eder.' },
-    { name: 'Antigravity', role: 'Sistem & Güvenlik Ajanı', icon: '🛡️', desc: 'Yerel sistem modifikasyonlarını ve Üçlü Kilit güvenliğini denetler.' },
-    { name: 'Cursor', role: 'Otonom Düzenleme Ajanı', icon: '📝', desc: 'Dosya ve şema değişikliklerini uygular.' }
-  ];
+  let assignedAgents = $derived(allocations.map((allocation: any) => ({
+    name: String(allocation.platform || "unknown").replaceAll("_", " ").toUpperCase(),
+    status: allocation.status || "assigned",
+    sourceKind: allocation.source_kind || "sqlite",
+    workerStatus: allocation.worker_status || "heartbeat_missing",
+    reportReturned: !!allocation.report_returned,
+    path: allocation.inbox_path || allocation.payload_path || "bağlı değil"
+  })));
 
   function getRiskBadgeClass(level: string) {
     if (!level) return 'low';
@@ -108,22 +110,33 @@
               <div class="agent-assignment">
                 <span class="assignment-title">🛡️ ATANAN OPERASYONEL SWARM:</span>
                 <div class="agents-grid">
-                  {#each agents as agent}
-                    <div class="agent-card" title={agent.desc}>
-                      <span class="agent-icon">{agent.icon}</span>
+                  {#if assignedAgents.length === 0}
+                    <div class="agent-card missing">
+                      <span class="agent-icon">!</span>
+                      <div class="agent-info">
+                        <span class="agent-name">BAĞLI DEĞİL</span>
+                        <span class="agent-role">ai_task_allocations kaydı yok</span>
+                      </div>
+                      <span class="agent-status">unavailable</span>
+                    </div>
+                  {:else}
+                    {#each assignedAgents as agent}
+                    <div class="agent-card" title={agent.path}>
+                      <span class="agent-icon">DB</span>
                       <div class="agent-info">
                         <span class="agent-name">{agent.name}</span>
-                        <span class="agent-role">{agent.role}</span>
+                        <span class="agent-role">{agent.sourceKind} / {agent.workerStatus}</span>
                       </div>
-                      {#if task.status === 'in_progress' && step.level === (task.current_gate ? idx + 1 : 1)}
-                        <span class="agent-status pulse">Çalışıyor</span>
-                      {:else if task.status === 'completed'}
-                        <span class="agent-status ok">✓ Hazır</span>
+                      {#if agent.status === 'running'}
+                        <span class="agent-status pulse">running</span>
+                      {:else if agent.status === 'completed' || agent.status === 'report_returned'}
+                        <span class="agent-status ok">{agent.status}</span>
                       {:else}
-                        <span class="agent-status">Hazır</span>
+                        <span class="agent-status">{agent.status}</span>
                       {/if}
                     </div>
-                  {/each}
+                    {/each}
+                  {/if}
                 </div>
               </div>
 

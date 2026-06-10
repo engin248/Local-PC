@@ -5,6 +5,7 @@ use crate::storage::db::Database;
 use rusqlite::params;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 pub struct AIProviderManager;
 
@@ -33,35 +34,43 @@ impl AIProviderManager {
 
     fn health_check(config: &AIProviderConfig) -> AIProviderHealth {
         let mut status = "disabled".to_string();
+        let mut health = "disabled".to_string();
         let mut api_key_status = "not_checked".to_string();
         let mut last_error = None;
+        let endpoint = Self::health_endpoint(config);
 
         if config.enabled {
             let api_key_present = std::env::var(&config.api_key_env)
                 .map(|value| !value.trim().is_empty())
                 .unwrap_or(false);
+            let api_key_required = Self::requires_api_key(config);
             api_key_status = if api_key_present {
                 "present".to_string()
+            } else if api_key_required {
+                "required_missing".to_string()
             } else {
-                "missing".to_string()
+                "not_required".to_string()
             };
 
-            if api_key_present {
-                match Self::check_tcp_connection(&config.base_url, 3) {
-                    Ok(_) => {
-                        status = "available".to_string();
-                    }
-                    Err(e) => {
-                        status = "connection_failed".to_string();
-                        last_error = Some(e);
-                    }
-                }
-            } else {
-                status = "missing_api_key".to_string();
+            if api_key_required && !api_key_present {
+                status = "api_key_required".to_string();
+                health = "API KEY GEREKLI".to_string();
                 last_error = Some(format!(
                     "{} env değişkeni bulunamadı veya boş.",
                     config.api_key_env
                 ));
+            } else {
+                match Self::check_http_health(config, &endpoint) {
+                    Ok(_) => {
+                        status = "available".to_string();
+                        health = "available".to_string();
+                    }
+                    Err(e) => {
+                        status = "connection_failed".to_string();
+                        health = "unavailable".to_string();
+                        last_error = Some(e);
+                    }
+                }
             }
         }
 
@@ -70,8 +79,11 @@ impl AIProviderManager {
             name: config.name.clone(),
             provider_type: config.provider_type.clone(),
             model: config.model.clone(),
+            source_kind: "api".to_string(),
+            endpoint: Self::redacted_endpoint(config, &endpoint),
             enabled: config.enabled,
             status,
+            health,
             api_key_status,
             dependency_level: config.dependency_level.clone(),
             network_required: config.network_required,
@@ -81,56 +93,103 @@ impl AIProviderManager {
         }
     }
 
-    fn check_tcp_connection(url_str: &str, timeout_secs: u64) -> Result<(), String> {
-        use std::net::{TcpStream, ToSocketAddrs};
-        use std::time::Duration;
+    fn check_http_health(config: &AIProviderConfig, endpoint: &str) -> Result<(), String> {
+        let agent = ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(3))
+            .build();
+        let mut request = agent.get(endpoint).set("Accept", "application/json");
 
-        let without_protocol = if let Some(stripped) = url_str.strip_prefix("https://") {
-            stripped
-        } else if let Some(stripped) = url_str.strip_prefix("http://") {
-            stripped
-        } else {
-            url_str
-        };
-
-        let authority = without_protocol.split('/').next().unwrap_or(without_protocol);
-
-        let (host, port) = if let Some(pos) = authority.find(':') {
-            let (h, p) = authority.split_at(pos);
-            (h, p.trim_start_matches(':'))
-        } else {
-            if url_str.starts_with("https://") {
-                (authority, "443")
-            } else {
-                (authority, "80")
-            }
-        };
-
-        let addr_str = format!("{}:{}", host, port);
-        let socket_addrs = addr_str
-            .to_socket_addrs()
-            .map_err(|e| format!("Adres çözümlenemedi ({}): {}", addr_str, e))?;
-
-        let mut success = false;
-        let mut last_err = "Host adresi bulunamadı".to_string();
-
-        for addr in socket_addrs {
-            match TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs)) {
-                Ok(_) => {
-                    success = true;
-                    break;
-                }
-                Err(e) => {
-                    last_err = format!("Bağlantı zaman aşımına uğradı veya reddedildi ({}): {}", addr, e);
-                }
+        if let Ok(api_key) = std::env::var(&config.api_key_env) {
+            if !api_key.trim().is_empty() && !config.provider_type.eq_ignore_ascii_case("gemini") {
+                request = request.set("Authorization", &format!("Bearer {}", api_key));
             }
         }
 
-        if success {
-            Ok(())
-        } else {
-            Err(last_err)
+        match request.call() {
+            Ok(response) if (200..300).contains(&response.status()) => {
+                response
+                    .into_json::<serde_json::Value>()
+                    .map(|_| ())
+                    .map_err(|e| format!("HTTP cevap JSON olarak okunamadı: {}", e))
+            }
+            Ok(response) => Err(format!("HTTP {} döndü.", response.status())),
+            Err(ureq::Error::Status(code, response)) => Err(format!(
+                "HTTP {} döndü: {}",
+                code,
+                response.status_text()
+            )),
+            Err(err) => Err(format!("HTTP health isteği başarısız: {}", err)),
         }
+    }
+
+    fn health_endpoint(config: &AIProviderConfig) -> String {
+        let key = format!(
+            "{} {} {}",
+            config.id.to_ascii_lowercase(),
+            config.name.to_ascii_lowercase(),
+            config.provider_type.to_ascii_lowercase()
+        );
+
+        if key.contains("ollama") {
+            return format!("{}/api/tags", Self::strip_suffix(&config.base_url, "/v1"));
+        }
+        if key.contains("open webui") || key.contains("open_webui") || key.contains("open-webui") {
+            return Self::join_url(&config.base_url, "/api/models");
+        }
+        if key.contains("lm studio") || key.contains("lmstudio") || key.contains("lm_studio") {
+            return Self::join_url(&Self::strip_suffix(&config.base_url, "/v1"), "/v1/models");
+        }
+        if key.contains("gemini") {
+            let base = Self::strip_suffix(&config.base_url, "/v1beta");
+            let endpoint = format!("{}/v1beta/models", base);
+            if let Ok(api_key) = std::env::var(&config.api_key_env) {
+                if !api_key.trim().is_empty() {
+                    return format!("{}?key={}", endpoint, api_key);
+                }
+            }
+            return endpoint;
+        }
+
+        Self::join_url(&Self::strip_suffix(&config.base_url, "/v1"), "/v1/models")
+    }
+
+    fn requires_api_key(config: &AIProviderConfig) -> bool {
+        let key = format!(
+            "{} {} {}",
+            config.id.to_ascii_lowercase(),
+            config.name.to_ascii_lowercase(),
+            config.provider_type.to_ascii_lowercase()
+        );
+        if key.contains("ollama") || key.contains("lm studio") || key.contains("lmstudio") {
+            return false;
+        }
+        if key.contains("gemini") || key.contains("groq") || key.contains("openrouter") {
+            return true;
+        }
+        config.network_required || config.base_url.starts_with("https://")
+    }
+
+    fn redacted_endpoint(config: &AIProviderConfig, endpoint: &str) -> String {
+        if config.provider_type.eq_ignore_ascii_case("gemini") {
+            return endpoint
+                .split("?key=")
+                .next()
+                .unwrap_or(endpoint)
+                .to_string();
+        }
+        endpoint.to_string()
+    }
+
+    fn join_url(base: &str, suffix: &str) -> String {
+        format!("{}{}", base.trim_end_matches('/'), suffix)
+    }
+
+    fn strip_suffix(value: &str, suffix: &str) -> String {
+        value
+            .trim_end_matches('/')
+            .strip_suffix(suffix)
+            .unwrap_or_else(|| value.trim_end_matches('/'))
+            .to_string()
     }
 
     fn audit_provider_health(result: &AIProviderHealth) -> Result<(), String> {
@@ -254,11 +313,29 @@ mod tests {
         }
     }
 
+    fn local_provider(enabled: bool) -> AIProviderConfig {
+        AIProviderConfig {
+            id: "ollama".to_string(),
+            name: "Ollama".to_string(),
+            provider_type: "openai_compatible".to_string(),
+            base_url: "http://127.0.0.1:65534/v1".to_string(),
+            api_key_env: "LOKAL_PANEL_INTENTIONALLY_MISSING_TEST_KEY".to_string(),
+            model: "test-model".to_string(),
+            enabled,
+            network_required: false,
+            dependency_level: "high".to_string(),
+            allowed_task_types: vec!["health_check".to_string()],
+            max_payload_policy: json!({"max_chars": 1000}),
+            sensitive_data_policy: json!({"send_secrets": false}),
+        }
+    }
+
     #[test]
     fn disabled_provider_is_not_called() {
         let result = AIProviderManager::health_check(&provider(false, "MISSING_TEST_KEY"));
         assert_eq!(result.status, "disabled");
         assert_eq!(result.api_key_status, "not_checked");
+        assert_eq!(result.source_kind, "api");
     }
 
     #[test]
@@ -267,14 +344,22 @@ mod tests {
             true,
             "LOKAL_PANEL_INTENTIONALLY_MISSING_TEST_KEY",
         ));
-        assert_eq!(result.status, "missing_api_key");
-        assert_eq!(result.api_key_status, "missing");
+        assert_eq!(result.status, "api_key_required");
+        assert_eq!(result.api_key_status, "required_missing");
+        assert_eq!(result.health, "API KEY GEREKLI");
+    }
+
+    #[test]
+    fn local_ollama_health_does_not_require_api_key() {
+        let result = AIProviderManager::health_check(&local_provider(true));
+        assert_eq!(result.api_key_status, "not_required");
+        assert_eq!(result.endpoint, "http://127.0.0.1:65534/api/tags");
     }
 
     #[test]
     fn provider_health_audit_path_does_not_call_external_api() {
         let results = AIProviderManager::health_check_all(true).unwrap();
         assert!(!results.is_empty());
-        assert!(results.iter().all(|provider| provider.status == "disabled" || provider.status == "missing_api_key" || provider.status == "available"));
+        assert!(results.iter().all(|provider| provider.status == "disabled" || provider.status == "api_key_required" || provider.status == "available" || provider.status == "connection_failed"));
     }
 }

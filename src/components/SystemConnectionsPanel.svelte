@@ -23,10 +23,13 @@
         <div>
           <strong>{connector.name}</strong>
           <span>{connector.connector_type}</span>
+          <span class="source" class:preview={connector.preview || connector.source_kind === "mock"}>
+            {connector.preview || connector.source_kind === "mock" ? "PREVIEW / MOCK" : connector.source_kind}
+          </span>
         </div>
         <div>
-          <span class="label">Durum</span>
-          <b class:ok={connector.status === "available" || connector.status === "read_only_configured"} class:warn={connector.status !== "available" && connector.status !== "read_only_configured"}>{connector.status}</b>
+          <span class="label">Health</span>
+          <b class:ok={connector.health === "available"} class:warn={connector.health !== "available"}>{connector.health || connector.status}</b>
         </div>
         <div>
           <span class="label">Read-only</span>
@@ -37,12 +40,12 @@
           <b>{connector.enabled ? "açık" : "kapalı"}</b>
         </div>
         <div>
-          <span class="label">Risk</span>
-          <b>{connector.dependency_level}</b>
+          <span class="label">Son kontrol</span>
+          <b>{connector.last_checked_at || "yok"}</b>
         </div>
         <div class="wide">
-          <span class="label">Hedef</span>
-          <code>{connector.target || "tanımlı değil"}</code>
+          <span class="label">source_path / endpoint</span>
+          <code>{connector.source_path || connector.endpoint || connector.target || "bağlı değil"}</code>
         </div>
         <div class="wide">
           <span class="label">Approval / Rollback / Test</span>
@@ -129,6 +132,23 @@
   .wide,
   p {
     grid-column: 1 / -1;
+  }
+
+  .source {
+    display: inline-block;
+    width: fit-content;
+    margin-top: 4px;
+    padding: 2px 6px;
+    border: 1px solid #3b3b40;
+    border-radius: 999px;
+    color: #9fd3ff;
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .source.preview {
+    color: #f8c14a;
+    border-color: rgba(248, 193, 74, 0.5);
   }
 
   p {

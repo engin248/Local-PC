@@ -15,8 +15,15 @@
     <ul>
       {#each allocations as row}
         <li>
-          <strong>{row.platform}</strong> — {row.status}
-          <div class="path">{row.payload_path}</div>
+          <div class="swarm-head">
+            <strong>{row.platform}</strong>
+            <span class="status">{row.status}</span>
+            <span class="source">{row.source_kind || "unavailable"}</span>
+          </div>
+          <div class="meta">Task: {row.task_status || "bilinmiyor"} / Worker: {row.worker_status || "heartbeat_missing"} / Rapor: {row.report_returned ? "döndü" : "bekleniyor"}</div>
+          <div class="path">Inbox: {row.inbox_path || row.payload_path} ({row.inbox_exists ? "var" : "yok"})</div>
+          <div class="path">Outbox: {row.outbox_path || "tanımlı değil"} ({row.outbox_exists ? "var" : "yok"})</div>
+          <div class="path">Son rapor: {row.last_report_at || "yok"}</div>
         </li>
       {/each}
     </ul>
@@ -28,5 +35,17 @@
   .empty-msg { color: #888; font-size: 0.9rem; }
   ul { list-style: none; padding: 0; margin: 0; }
   li { padding: 0.5rem 0; border-bottom: 1px solid #333; }
+  .swarm-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .status,
+  .source {
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #202026;
+    color: #f8c14a;
+    font-size: 0.72rem;
+    font-weight: 800;
+  }
+  .source { color: #9fd3ff; }
+  .meta { font-size: 0.78rem; color: #c8c8cc; margin-top: 4px; }
   .path { font-size: 0.75rem; color: #aaa; word-break: break-all; }
 </style>

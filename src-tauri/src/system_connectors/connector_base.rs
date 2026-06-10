@@ -34,7 +34,10 @@ pub struct SystemConnectorHealth {
     pub id: String,
     pub name: String,
     pub connector_type: String,
+    pub source_kind: String,
     pub target: Option<String>,
+    pub source_path: Option<String>,
+    pub endpoint: Option<String>,
     pub permissions: Vec<String>,
     pub enabled: bool,
     pub read_only: bool,
@@ -46,6 +49,7 @@ pub struct SystemConnectorHealth {
     pub rollback_required_actions: Vec<String>,
     pub test_required_actions: Vec<String>,
     pub status: String,
+    pub health: String,
     pub last_error: Option<String>,
     pub last_checked_at: String,
 }

@@ -1,53 +1,47 @@
 <script lang="ts">
   let {
-    providers = [],
-    onRefresh
+    alarms = []
   }: {
-    providers: any[];
-    onRefresh: () => void;
+    alarms: any[];
   } = $props();
 </script>
 
 <section class="connection-panel">
   <div class="panel-header">
     <div>
-      <span class="eyebrow">YAPAY ZEKA BAĞLANTILARI</span>
-      <h3>AI Provider Health</h3>
+      <span class="eyebrow">ALARM KAYNAKLARI</span>
+      <h3>Runtime / JSON / SQLite Alarm Durumu</h3>
     </div>
-    <button type="button" onclick={onRefresh}>Health-check</button>
   </div>
 
   <div class="connection-grid">
-    {#each providers as provider}
+    {#each alarms as alarm}
       <article class="connection-row">
         <div>
-          <strong>{provider.name}</strong>
-          <span>{provider.provider_type} / {provider.model}</span>
-          <span class="source" class:preview={provider.preview || provider.source_kind === "mock"}>
-            {provider.preview || provider.source_kind === "mock" ? "PREVIEW / MOCK" : provider.source_kind}
+          <strong>{alarm.title}</strong>
+          <span class="source" class:preview={alarm.preview || alarm.source_kind === "mock"}>
+            {alarm.preview || alarm.source_kind === "mock" ? "PREVIEW / MOCK" : alarm.source_kind}
           </span>
         </div>
         <div>
           <span class="label">Health</span>
-          <b class:ok={provider.health === "available"} class:warn={provider.health !== "available"}>{provider.health || provider.status}</b>
+          <b class:ok={alarm.health === "available" || alarm.health === "available_empty"} class:warn={alarm.health !== "available" && alarm.health !== "available_empty"}>
+            {alarm.health}
+          </b>
         </div>
         <div>
-          <span class="label">API Key</span>
-          <b>{provider.api_key_status}</b>
-        </div>
-        <div>
-          <span class="label">Enabled</span>
-          <b>{provider.enabled ? "açık" : "kapalı"}</b>
+          <span class="label">Kalıcılık</span>
+          <b>{alarm.runtime_only ? "runtime only" : "kalıcı/kaynaklı"}</b>
         </div>
         <div>
           <span class="label">Son kontrol</span>
-          <b>{provider.last_checked_at || "yok"}</b>
+          <b>{alarm.last_checked || "yok"}</b>
         </div>
         <div class="wide">
-          <span class="label">Endpoint</span>
-          <code>{provider.endpoint || "bağlı değil"}</code>
+          <span class="label">Kaynak</span>
+          <code>{alarm.source_path || "bağlı değil"}</code>
         </div>
-        <p>{provider.last_error || "Son hata yok."}</p>
+        <p>{alarm.error || alarm.details || "Son hata yok."}</p>
       </article>
     {/each}
   </div>
@@ -84,15 +78,6 @@
     font-size: 18px;
   }
 
-  button {
-    background: #0b74de;
-    color: white;
-    border: 0;
-    border-radius: 6px;
-    padding: 9px 12px;
-    cursor: pointer;
-  }
-
   .connection-grid {
     display: grid;
     gap: 10px;
@@ -100,7 +85,7 @@
 
   .connection-row {
     display: grid;
-    grid-template-columns: minmax(180px, 1.6fr) repeat(4, minmax(90px, 0.8fr));
+    grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(90px, 0.7fr));
     gap: 12px;
     align-items: center;
     padding: 12px;
@@ -115,23 +100,23 @@
   }
 
   span,
-  p {
+  p,
+  code {
     color: #b8b8bf;
     margin: 0;
   }
 
-  p {
-    grid-column: 1 / -1;
-    font-size: 12px;
-  }
-
   code {
-    color: #b8b8bf;
     overflow-wrap: anywhere;
   }
 
-  .wide {
+  .wide,
+  p {
     grid-column: 1 / -1;
+  }
+
+  p {
+    font-size: 12px;
   }
 
   .source {
