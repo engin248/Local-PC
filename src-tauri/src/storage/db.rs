@@ -49,7 +49,11 @@ impl Database {
             let thread_id = format!("{:?}", std::thread::current().id())
                 .replace("ThreadId(", "")
                 .replace(')', "");
-            return format!("storage/test-{}", thread_id);
+            return std::env::temp_dir()
+                .join("lokal_panel_test_storage")
+                .join(format!("{}-{}", std::process::id(), thread_id))
+                .to_string_lossy()
+                .into_owned();
         }
         #[cfg(not(test))]
         {
