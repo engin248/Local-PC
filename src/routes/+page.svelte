@@ -1165,6 +1165,10 @@
     {/if}
 
     <div class="workspace-scroll-area">
+      {#if activeSection === 'agents'}
+        <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} task={selectedTask} />
+      {/if}
+
       <OperationDoctrinePanel />
       <TaskDetail task={selectedTask} onExecute={handleExecute} />
       <OperationPackagePanel packages={operationPackages} />
@@ -1180,9 +1184,7 @@
 
       <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
 
-      {#if activeSection === 'agents'}
-        <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} task={selectedTask} />
-      {:else if activeSection === 'connections'}
+      {#if activeSection === 'connections'}
         <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
         {#if askerMotoruStatus}
