@@ -37,6 +37,8 @@ function createOverviewProps(overrides: Partial<OverviewProps> = {}): OverviewPr
     cronNext: null,
     lastChannelsRefresh: null,
     modelAuthStatus: null,
+    modelCatalog: [],
+    healthResult: null,
     usageResult: null,
     sessionsResult: null,
     skillsReport: null,
@@ -221,5 +223,52 @@ describe("overview view rendering", () => {
 
     const quota = container.querySelector('[data-kind="quota"]');
     expect(compactText(quota)).toBe("Usage 28% left Codex · Week · Claude · 5h 40% left");
+  });
+
+  it("renders AI provider connection rows from auth status, health, and model catalog data", async () => {
+    const container = document.createElement("div");
+    const healthTs = Date.now() - 60_000;
+    const props = createOverviewProps({
+      usageResult: {
+        totals: { totalCost: 0, totalTokens: 0 },
+        aggregates: { messages: { total: 0 } },
+      } as OverviewProps["usageResult"],
+      healthResult: {
+        ok: true,
+        ts: healthTs,
+        durationMs: 12,
+        heartbeatSeconds: 1,
+        defaultAgentId: "main",
+        agents: [],
+        sessions: { path: "", count: 0, recent: [] },
+      },
+      modelCatalog: [
+        { id: "llama3", name: "Llama 3", provider: "ollama" },
+        { id: "gpt-5", name: "GPT-5", provider: "openai" },
+        { id: "gpt-5-mini", name: "GPT-5 Mini", provider: "openai" },
+        { id: "free-model", name: "Free Model", provider: "community-free" },
+      ],
+      modelAuthStatus: {
+        ts: Date.now(),
+        providers: [
+          {
+            provider: "openai",
+            displayName: "OpenAI",
+            status: "static",
+            profiles: [{ profileId: "openai", type: "api_key", status: "static" }],
+          },
+        ],
+      },
+    });
+
+    render(renderOverview(props), container);
+    await Promise.resolve();
+
+    const providers = container.querySelector('[data-kind="providers"]');
+    const text = compactText(providers);
+    expect(text).toContain("AI Providers 3 providers");
+    expect(text).toContain("community-free free · endpoint healthy · 1 model ·");
+    expect(text).toContain("ollama local · endpoint healthy · 1 model ·");
+    expect(text).toContain("OpenAI api-key-required · endpoint healthy · 2 models ·");
   });
 });

@@ -1944,6 +1944,8 @@ export function renderApp(state: AppViewState) {
               lastChannelsRefresh: state.channelsLastSuccess,
               warnQueryToken,
               modelAuthStatus: state.modelAuthStatusResult,
+              modelCatalog: state.overviewModelCatalog,
+              healthResult: state.healthResult,
               usageResult: state.usageResult,
               sessionsResult: state.sessionsResult,
               skillsReport: state.skillsReport,

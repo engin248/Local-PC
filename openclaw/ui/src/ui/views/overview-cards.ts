@@ -17,6 +17,9 @@ import type {
   CronJob,
   CronStatus,
   ModelAuthStatusResult,
+  ModelAuthStatusProvider,
+  ModelCatalogEntry,
+  HealthSummary,
 } from "../types.ts";
 
 export type OverviewCardsProps = {
@@ -26,6 +29,8 @@ export type OverviewCardsProps = {
   cronJobs: CronJob[];
   cronStatus: CronStatus | null;
   modelAuthStatus: ModelAuthStatusResult | null;
+  modelCatalog: ModelCatalogEntry[];
+  healthResult: HealthSummary | null;
   presenceCount: number;
   onNavigate: (tab: string) => void;
 };
@@ -89,6 +94,133 @@ function renderProviderQuotaCard(windows: QuotaWindowSummary[]): StatCard | null
   };
 }
 
+type ProviderConnectionKind = "local" | "free" | "api-key-required";
+
+type ProviderConnectionSummary = {
+  displayName: string;
+  kind: ProviderConnectionKind;
+  endpointHealth: string;
+  modelCount: number;
+  lastTest: string;
+};
+
+const LOCAL_PROVIDER_RE = /(?:^local$|ollama|lmstudio|llama|sglang|vllm)/i;
+
+function normalizeProviderKey(provider: string): string {
+  return provider.trim().toLowerCase();
+}
+
+function resolveProviderConnectionKind(
+  provider: string,
+  authProvider: ModelAuthStatusProvider | undefined,
+): ProviderConnectionKind {
+  if (LOCAL_PROVIDER_RE.test(provider)) {
+    return "local";
+  }
+  if (!authProvider || authProvider.profiles.length === 0) {
+    return "free";
+  }
+  return "api-key-required";
+}
+
+function endpointHealthLabel(health: HealthSummary | null): string {
+  if (!health || health.ts === 0) {
+    return "endpoint not tested";
+  }
+  return health.ok ? "endpoint healthy" : "endpoint unhealthy";
+}
+
+function modelCountLabel(count: number): string {
+  return count === 1 ? "1 model" : `${count} models`;
+}
+
+function buildProviderConnectionSummaries(params: {
+  authProviders: readonly ModelAuthStatusProvider[];
+  modelCatalog: readonly ModelCatalogEntry[];
+  healthResult: HealthSummary | null;
+}): ProviderConnectionSummary[] {
+  const authByProvider = new Map<string, ModelAuthStatusProvider>();
+  for (const provider of params.authProviders) {
+    authByProvider.set(normalizeProviderKey(provider.provider), provider);
+  }
+
+  const modelCounts = new Map<string, number>();
+  for (const model of params.modelCatalog) {
+    const key = normalizeProviderKey(model.provider);
+    modelCounts.set(key, (modelCounts.get(key) ?? 0) + 1);
+  }
+
+  const providers = new Map<string, string>();
+  for (const provider of params.authProviders) {
+    providers.set(normalizeProviderKey(provider.provider), provider.provider);
+  }
+  for (const model of params.modelCatalog) {
+    providers.set(normalizeProviderKey(model.provider), model.provider);
+  }
+
+  return Array.from(providers.entries())
+    .map(([key, provider]) => {
+      const authProvider = authByProvider.get(key);
+      return {
+        displayName: authProvider?.displayName?.trim() || provider,
+        kind: resolveProviderConnectionKind(provider, authProvider),
+        endpointHealth: endpointHealthLabel(params.healthResult),
+        modelCount: modelCounts.get(key) ?? 0,
+        lastTest: params.healthResult?.ts
+          ? formatRelativeTimestamp(params.healthResult.ts)
+          : t("common.na"),
+      };
+    })
+    .toSorted((a, b) => a.displayName.localeCompare(b.displayName));
+}
+
+function renderProviderConnectionsCard(
+  summaries: ProviderConnectionSummary[],
+  loading: boolean,
+): StatCard | null {
+  if (loading) {
+    return {
+      kind: "providers",
+      tab: "overview",
+      label: "AI Providers",
+      value: t("common.na"),
+      hint: "",
+    };
+  }
+  if (summaries.length === 0) {
+    return null;
+  }
+  const visible = summaries.slice(0, 3);
+  const hiddenCount = summaries.length - visible.length;
+  const totalModels = summaries.reduce((sum, item) => sum + item.modelCount, 0);
+  return {
+    kind: "providers",
+    tab: "overview",
+    label: "AI Providers",
+    value: `${summaries.length} providers`,
+    hint: html`
+      <span class="ov-provider-list">
+        ${visible.map(
+          (item) => html`
+            <span class="ov-provider-row">
+              <span class="ov-provider-row__name">${item.displayName}</span>
+              <span class="ov-provider-row__meta">
+                ${item.kind} · ${item.endpointHealth} · ${modelCountLabel(item.modelCount)} ·
+                ${item.lastTest}
+              </span>
+            </span>
+          `,
+        )}
+        ${hiddenCount > 0
+          ? html`<span class="ov-provider-row__meta"
+              >+${hiddenCount} more · ${modelCountLabel(totalModels)}</span
+            >`
+          : nothing}
+      </span>
+    `,
+  };
+}
+
 function renderSkeletonCards() {
   // Render 4 skeletons — matching the always-present cards (cost, sessions,
   // skills, cron). The Model Auth card is conditional on OAuth providers
@@ -136,6 +268,14 @@ export function renderOverviewCards(props: OverviewCardsProps) {
   const authProviders = props.modelAuthStatus?.providers ?? [];
   const monitoredProviders = authProviders.filter(isMonitoredAuthProvider);
   const quotaCard = renderProviderQuotaCard(collectQuotaWindows(monitoredProviders));
+  const providerConnectionsCard = renderProviderConnectionsCard(
+    buildProviderConnectionSummaries({
+      authProviders,
+      modelCatalog: props.modelCatalog,
+      healthResult: props.healthResult,
+    }),
+    authLoading && props.modelCatalog.length === 0,
+  );
 
   const cronValue =
     cronEnabled == null
@@ -183,6 +323,9 @@ export function renderOverviewCards(props: OverviewCardsProps) {
   ];
   if (quotaCard) {
     cards.splice(1, 0, quotaCard);
+  }
+  if (providerConnectionsCard) {
+    cards.splice(quotaCard ? 2 : 1, 0, providerConnectionsCard);
   }
 
   // Model auth card — show providers whose auth needs monitoring.
