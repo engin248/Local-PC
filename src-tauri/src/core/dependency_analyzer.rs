@@ -166,6 +166,21 @@ impl DependencyAnalyzer {
                     })
                 })
                 .unwrap_or(false),
+            "asker_motoru.json" => {
+                value
+                    .get("roots")
+                    .and_then(|item| item.as_array())
+                    .is_some()
+                    && value
+                        .get("status_files")
+                        .and_then(|item| item.as_array())
+                        .is_some()
+                    && value
+                        .get("contract")
+                        .and_then(|item| item.as_object())
+                        .is_some()
+                    && !Self::runtime_config_contains_production_placeholder(&value)
+            }
             _ => true,
         }
     }
@@ -188,18 +203,22 @@ impl DependencyAnalyzer {
                     || lower.contains("fake")
                     || lower.contains("sahte")
             }
-            serde_json::Value::Array(items) => items
-                .iter()
-                .any(Self::contains_forbidden_production_text),
-            serde_json::Value::Object(map) => map
-                .values()
-                .any(Self::contains_forbidden_production_text),
+            serde_json::Value::Array(items) => {
+                items.iter().any(Self::contains_forbidden_production_text)
+            }
+            serde_json::Value::Object(map) => {
+                map.values().any(Self::contains_forbidden_production_text)
+            }
             _ => false,
         }
     }
 
-    fn embedded_config_files() -> [(&'static str, &'static str); 9] {
+    fn embedded_config_files() -> [(&'static str, &'static str); 10] {
         [
+            (
+                "asker_motoru.json",
+                include_str!("../../../config/asker_motoru.json"),
+            ),
             (
                 "ai_providers.json",
                 include_str!("../../../config/ai_providers.json"),
@@ -248,6 +267,29 @@ impl DependencyAnalyzer {
         } else {
             Err(format!("YapÄ±landÄ±rma dosyasÄ± ({}) bulunamadÄ±. LÃ¼tfen config dizininin mevcut olduÄŸunu kontrol edin.", filename))
         }
+    }
+
+    pub fn resolve_configured_path(path: &str) -> Result<PathBuf, String> {
+        let root = Self::get_project_root()?;
+        if path.starts_with("$PROJECT_ROOT") {
+            let suffix = path
+                .trim_start_matches("$PROJECT_ROOT")
+                .trim_start_matches('/')
+                .trim_start_matches('\\');
+            return Ok(root.join(suffix));
+        }
+        if path.starts_with("$PARENT_DIR") {
+            let parent = root.parent().unwrap_or(&root);
+            let suffix = path
+                .trim_start_matches("$PARENT_DIR")
+                .trim_start_matches('/')
+                .trim_start_matches('\\');
+            return Ok(parent.join(suffix));
+        }
+        if path.starts_with('.') {
+            return Ok(root.join(path));
+        }
+        Ok(Path::new(path).to_path_buf())
     }
 
     // Dynamic database persistence helper
@@ -376,8 +418,10 @@ impl DependencyAnalyzer {
                         reason = format!("Lokal path eriÅŸilebilir: {}", resolved_path);
                     } else {
                         status = "unavailable".to_string();
-                        reason =
-                            format!("Lokal path bulunamadÄ± veya eriÅŸilemedi: {}", resolved_path);
+                        reason = format!(
+                            "Lokal path bulunamadÄ± veya eriÅŸilemedi: {}",
+                            resolved_path
+                        );
                     }
                 }
                 None => {
@@ -506,17 +550,27 @@ impl DependencyAnalyzer {
         technology_name: &str,
     ) -> Result<DependencyAssessment, String> {
         let (dep_level, status, reason) = match technology_name.to_lowercase().as_str() {
-            "rust" | "tauri" => ("low", "available", "Lokal gÃ¼venli derleme dili ve runtime."),
-            "svelte" | "javascript" | "typescript" => {
-                ("low", "available", "Frontend UI kÃ¼tÃ¼phanesi ve betik dili.")
-            }
+            "rust" | "tauri" => (
+                "low",
+                "available",
+                "Lokal gÃ¼venli derleme dili ve runtime.",
+            ),
+            "svelte" | "javascript" | "typescript" => (
+                "low",
+                "available",
+                "Frontend UI kÃ¼tÃ¼phanesi ve betik dili.",
+            ),
             "sqlite" => ("low", "available", "Lokal dosya tabanlÄ± veritabanÄ±."),
             "postgresql" | "supabase" => (
                 "high",
                 "available",
                 "Harici aÄŸ veya veritabanÄ± sunucusu baÄŸÄ±mlÄ±lÄ±ÄŸÄ±.",
             ),
-            _ => ("critical", "available", "Bilinmeyen teknoloji baÄŸÄ±mlÄ±lÄ±ÄŸÄ±."),
+            _ => (
+                "critical",
+                "available",
+                "Bilinmeyen teknoloji baÄŸÄ±mlÄ±lÄ±ÄŸÄ±.",
+            ),
         };
 
         let assessment = DependencyAssessment {
@@ -857,4 +911,3 @@ mod tests {
         let _ = std::fs::remove_file(exists_sqlite_file);
     }
 }
-

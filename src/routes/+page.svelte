@@ -14,11 +14,9 @@
   import RollbackPanel from "../components/RollbackPanel.svelte";
   import LiveLog from "../components/LiveLog.svelte";
   import StructuredReportPanel from "../components/StructuredReportPanel.svelte";
-  import SwarmMonitorPanel from "../components/SwarmMonitorPanel.svelte";
   import { isTauriRuntime } from "../lib/runtime";
   import DefinitiveAnswerPanel from "../components/DefinitiveAnswerPanel.svelte";
-  import AIConnectionsPanel from "../components/AIConnectionsPanel.svelte";
-  import SystemConnectionsPanel from "../components/SystemConnectionsPanel.svelte";
+  import CommandCenterPanel from "../components/CommandCenterPanel.svelte";
   import IntakePanel from "../components/IntakePanel.svelte";
   import LiveExecutionTracker from "../components/LiveExecutionTracker.svelte";
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
@@ -40,10 +38,8 @@
   let breakdowns = $state<any[]>([]);
   let operationPackages = $state<any[]>([]);
   let swarmAllocations = $state<any[]>([]);
-  let askerMotoruStatus = $state<any | null>(null);
-  let dbSizeBytes = $state<number>(0);
   let aiProviderHealth = $state<any[]>([]);
-  let systemConnectorHealth = $state<any[]>([]);
+  let commandCenterSnapshot = $state<any | null>(null);
 
   let activeSection = $state("planning");
   let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
@@ -306,6 +302,118 @@
     }));
   }
 
+  function buildPreviewCommandCenterSnapshot() {
+    const askerMotoru = {
+      contract: {
+        health: {
+          path: "/health",
+          method: "GET",
+          description: "Asker Motoru köklerinin ve durum dosyalarının erişilebilirliğini özetler.",
+          allowed_commands: []
+        },
+        status: {
+          path: "/status",
+          method: "GET",
+          description: "Planlama, alarm, eğitim ve son operasyon durumlarını döndürür.",
+          allowed_commands: []
+        },
+        events: {
+          path: "/events",
+          method: "GET",
+          description: "Alarm ve son operasyon dosyalarından olay akışını besler.",
+          allowed_commands: []
+        },
+        command: {
+          path: "/command",
+          method: "POST",
+          description: "Panelden Asker Motoru'na gönderilebilecek komutların sözleşmesini tanımlar.",
+          allowed_commands: ["refresh_status", "acknowledge_event", "dispatch_operation"]
+        }
+      },
+      health: {
+        path: "/health",
+        method: "GET",
+        status: "browser_preview",
+        roots_total: 2,
+        roots_available: 0,
+        files_total: 0,
+        files_available: 0,
+        last_error: "Tarayıcı önizleme Tauri dosya sistemi erişimi kullanmaz."
+      },
+      status: {
+        path: "/status",
+        method: "GET",
+        status_files_total: 0,
+        status_files_available: 0
+      },
+      events: {
+        path: "/events",
+        method: "GET",
+        sources: []
+      },
+      command: {
+        path: "/command",
+        method: "POST",
+        allowed_commands: ["refresh_status", "acknowledge_event", "dispatch_operation"],
+        available: false,
+        requires_approval: true
+      },
+      roots: [
+        {
+          id: "asker_motoru_workspace",
+          label: "Asker Motoru çalışma alanı",
+          path: "$PARENT_DIR/asker motoru",
+          exists: false,
+          required: false
+        },
+        {
+          id: "asker_motoru_root",
+          label: "Asker Motoru kök klasörü",
+          path: "$PARENT_DIR/ASKER_MOTORU_KOK_KLASORU",
+          exists: false,
+          required: false
+        }
+      ],
+      roots_checked: ["$PARENT_DIR/asker motoru", "$PARENT_DIR/ASKER_MOTORU_KOK_KLASORU"],
+      files: []
+    };
+
+    return {
+      generated_at: new Date().toISOString(),
+      ai_providers: [
+        {
+          id: "codex",
+          name: "Codex (Tek Uygulayıcı)",
+          provider_type: "local",
+          model: "codex-agent-v1",
+          enabled: true,
+          status: "browser_preview",
+          api_key_status: "not_checked",
+          dependency_level: "critical",
+          network_required: false,
+          allowed_task_types: ["code_edit", "patch_apply"],
+          last_error: null,
+          last_checked_at: String(Date.now())
+        }
+      ],
+      system_connectors: [
+        {
+          id: "local_projects",
+          name: "Lokal Bilgisayar Kontrol Paneli Proje Kökü",
+          connector_type: "folder",
+          target: "$PROJECT_ROOT",
+          enabled: true,
+          read_only: true,
+          dependency_level: "low",
+          status: "browser_preview",
+          last_error: null
+        }
+      ],
+      asker_motoru: askerMotoru,
+      db_size_bytes: 0
+    };
+  }
+
   async function safeInvoke(cmd: string, args?: any): Promise<any> {
     if (detectTauriRuntime()) {
       return await invoke(cmd, args);
@@ -343,7 +451,9 @@
       case "get_swarm_allocations_cmd":
         return readFallbackStore(offlineDetailsKey(args?.taskId, "swarmAllocations"), []);
       case "get_asker_motoru_status_cmd":
-        return { roots_checked: [], files: [] };
+        return buildPreviewCommandCenterSnapshot().asker_motoru;
+      case "get_command_center_snapshot_cmd":
+        return buildPreviewCommandCenterSnapshot();
       case "sync_supabase_cmd":
         return { enabled: false, last_result: "önizleme", pushed_rows: 0 };
       case "get_db_size_cmd":
@@ -351,9 +461,9 @@
       case "get_system_health_cmd":
         return [];
       case "get_ai_provider_health_cmd":
-        return [];
+        return buildPreviewCommandCenterSnapshot().ai_providers;
       case "get_system_connector_health_cmd":
-        return [];
+        return buildPreviewCommandCenterSnapshot().system_connectors;
       case "create_task_cmd": {
         const offlineTasks = readFallbackStore(offlineTasksKey, []);
         const id = `offline-${Date.now()}`;
@@ -718,10 +828,8 @@
 
   async function refreshConnectionHealth(writeAudit = false) {
     try {
-      aiProviderHealth = await safeInvoke("get_ai_provider_health_cmd", { writeAudit });
-      systemConnectorHealth = await safeInvoke("get_system_connector_health_cmd", { writeAudit });
-      askerMotoruStatus = await safeInvoke("get_asker_motoru_status_cmd");
-      dbSizeBytes = await safeInvoke("get_db_size_cmd");
+      commandCenterSnapshot = await safeInvoke("get_command_center_snapshot_cmd", { writeAudit });
+      aiProviderHealth = commandCenterSnapshot.ai_providers || [];
     } catch (err) {
       console.error("Bağlantı health-check hatası:", err);
       raiseCriticalAlarm("Bağlantı health-check sırasında hata oluştu", err);
@@ -1108,21 +1216,14 @@
       <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
 
       {#if activeSection === 'connections'}
-        <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
-        <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
-        <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
-        {#if askerMotoruStatus}
-          <div class="asker-bridge-panel">
-            <h3>Asker Motoru Durum Köprüsü</h3>
-            <p>DB boyutu: {(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB</p>
-            {#each askerMotoruStatus.files as file}
-              <div class="asker-file" class:missing={!file.exists}>
-                <strong>{file.path}</strong>
-                <pre>{file.preview}</pre>
-              </div>
-            {/each}
-          </div>
-        {/if}
+        <CommandCenterPanel
+          snapshot={commandCenterSnapshot}
+          swarmAllocations={swarmAllocations}
+          taskId={selectedTaskId}
+          alarmEvents={alarmEvents}
+          auditTrail={operationAuditTrail}
+          onRefresh={() => refreshConnectionHealth(true)}
+        />
       {:else if activeSection === 'skills'}
         <SkillLibraryExplorer />
       {:else if selectedTask}

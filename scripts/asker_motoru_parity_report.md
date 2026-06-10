@@ -1,7 +1,7 @@
 ﻿# ASKER MOTORU Ä°STASYON PARÄ°TE RAPORU
 **Zaman DamgasÄ±**: 2026-06-02 03:51:40
-**Aktif Merkez Ä°stasyonu (KÃ¶ken A - Next.js)**: C:\Users\Esisya\Desktop\asker motoru
-**Yedek/Legacy KÃ¶k Ä°stasyonu (KÃ¶ken B - Electron)**: C:\Users\Esisya\Desktop\ASKER_MOTORU_KOK_KLASORU
+**Aktif Merkez Ä°stasyonu (KÃ¶ken A - Next.js)**: config/asker_motoru.json roots[0]
+**Yedek/Legacy KÃ¶k Ä°stasyonu (KÃ¶ken B - Electron)**: config/asker_motoru.json roots[1]
 
 | BileÅŸen / TanÄ±m | KÃ¶ken A (MasaÃ¼stÃ¼ Aktif) | KÃ¶ken B (Legacy/Yedek) | Parite Durumu |
 | :--- | :--- | :--- | :--- |
