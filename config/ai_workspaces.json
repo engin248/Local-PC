@@ -36,14 +36,15 @@
       ]
     },
     "cursor": {
-      "role": "code_line_inspection",
+      "role": "task_runner",
       "inbox": "ai_workflow/platforms/cursor/inbox",
       "outbox": "ai_workflow/platforms/cursor/outbox",
       "allowed_actions": [
-        "read_code",
-        "line_check",
-        "file_reference_check",
-        "write_code_review_report"
+        "read_task",
+        "execute_task",
+        "write_patch",
+        "run_local_tests",
+        "write_execution_report"
       ]
     },
     "perplexity": {

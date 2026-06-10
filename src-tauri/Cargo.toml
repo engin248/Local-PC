@@ -1,7 +1,7 @@
 [package]
 name = "lokal_bilgisayar_kontrol_paneli"
 version = "0.1.0"
-description = "Lokal Bilgisayar Kontrol Paneli"
+description = "Lokal Bilgisayar Merkezi Kontrol ve Takip Paneli"
 authors = ["Engin"]
 edition = "2021"
 

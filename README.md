@@ -2,6 +2,14 @@
 
 Bu panel; yapay zeka provider bağlantılarını, lokal sistem connectorlarını, dosyaları, SQLite veritabanını, onay, rollback, test, audit ve görev yürütme süreçlerini kontrollü ve geri alınabilir biçimde yöneten lokal masaüstü uygulamasıdır.
 
+## Rol Sözlüğü
+
+- **Cursor Agents** görevleri çalıştıran ajan katmanıdır.
+- **Lokal Bilgisayar Kontrol Paneli** merkezi kontrol ve takip panelidir.
+- **Asker Motoru** ana projedir.
+- **Beceri Kütüphanesi** beceri deposudur.
+- **Ollama, Open WebUI ve Pinokio** yerel AI sağlayıcılarıdır.
+
 ## 🛠️ Kurulum ve Çalıştırma Adımları (Windows)
 
 Uygulamanın çalıştırılması için sisteminizde **Node.js** ve **Rust** geliştirme araçlarının kurulu olması gerekmektedir.

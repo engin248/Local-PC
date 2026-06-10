@@ -11,8 +11,8 @@
 <section class="connection-panel">
   <div class="panel-header">
     <div>
-      <span class="eyebrow">YAPAY ZEKA BAĞLANTILARI</span>
-      <h3>AI Provider Health</h3>
+      <span class="eyebrow">AI SAĞLAYICILARI VE YEREL AJANLAR</span>
+      <h3>Sağlayıcı / Ajan Sağlığı</h3>
     </div>
     <button type="button" onclick={onRefresh}>Health-check</button>
   </div>
@@ -39,6 +39,10 @@
         <div>
           <span class="label">Bağımlılık</span>
           <b>{provider.dependency_level}</b>
+        </div>
+        <div class="wide">
+          <span class="label">Görev Yetkinlikleri</span>
+          <span>{provider.allowed_task_types?.join(", ") || "tanımlı değil"}</span>
         </div>
         <p>{provider.last_error || "Son hata yok."}</p>
       </article>
@@ -116,6 +120,10 @@
   p {
     grid-column: 1 / -1;
     font-size: 12px;
+  }
+
+  .wide {
+    grid-column: 1 / -1;
   }
 
   .ok {

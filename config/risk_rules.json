@@ -58,9 +58,9 @@
     },
     "ai_provider_call": {
       "level": "medium",
-      "reason": "AI provider çağrısı harici servis ve API anahtarı bağımlılığı oluşturabilir.",
-      "assets": ["chatgpt", "gemini"],
-      "mitigation": "Provider yapılandırması ve API anahtarı durumu doğrulanır."
+      "reason": "AI provider çağrısı yerel sağlayıcı çalışma durumu ve API anahtarı bağımlılığı oluşturabilir.",
+      "assets": ["ollama", "open_webui", "pinokio"],
+      "mitigation": "Ollama, Open WebUI ve Pinokio yapılandırması ile API anahtarı durumu doğrulanır."
     },
     "report_generate": {
       "level": "low",

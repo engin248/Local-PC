@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { isTauriRuntime } from "../lib/runtime";
 
   interface SkillSummary {
     total_count: number;
@@ -36,6 +37,7 @@
   ];
 
   async function fetchSummary() {
+    if (!isTauriRuntime()) return;
     try {
       summary = await invoke<SkillSummary>("get_skill_library_summary_cmd");
     } catch (e) {
@@ -46,6 +48,11 @@
   async function performSearch() {
     isLoading = true;
     errorMsg = "";
+    if (!isTauriRuntime()) {
+      skills = [];
+      isLoading = false;
+      return;
+    }
     try {
       skills = await invoke<SkillItem[]>("search_skill_library_cmd", {
         query: searchQuery,
@@ -76,8 +83,8 @@
 <div class="explorer-container">
   <div class="explorer-header">
     <div class="header-text">
-      <h2>Yerel Beceri Kütüphanesi Gezgini (Skill Library Explorer)</h2>
-      <p>SQLite master veri tabanında kayıtlı tüm otonom becerileri gerçek zamanlı arayın, analiz edin ve kovanın dinamik infaz altyapısını denetleyin.</p>
+      <h2>Yerel Beceri Deposu (Beceri Kütüphanesi)</h2>
+      <p>SQLite master veri tabanında kayıtlı tüm otonom becerileri gerçek zamanlı arayın, analiz edin ve görev yürütme altyapısına hazır beceri deposunu denetleyin.</p>
     </div>
     
     <div class="stats-panel">

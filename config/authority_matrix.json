@@ -16,7 +16,7 @@
   "api_write": ["api_connector", "risk_engine", "user"],
   "live_system_update": ["risk_engine", "user"],
   "terminal_command": ["terminal_connector", "risk_engine", "user"],
-  "ai_provider_call": ["chatgpt", "gemini"],
+  "ai_provider_call": ["ollama", "open_webui", "pinokio"],
   "report_generate": ["report_manager"],
   "level_mappings": {
     "1": "code_analysis",

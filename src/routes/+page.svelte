@@ -46,6 +46,7 @@
   let systemConnectorHealth = $state<any[]>([]);
 
   let activeSection = $state("planning");
+  let workspaceScrollArea = $state<HTMLDivElement | null>(null);
   let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
   let globalError = $state<string | null>(null);
   let alarmMuted = $state(false);
@@ -119,6 +120,13 @@
       console.error("Operator kimlik kaydetme hatası:", err);
       raiseCriticalAlarm("Operator kimlik kaydetme hatası", err);
     }
+  }
+
+  function activateSection(section: string) {
+    activeSection = section;
+    requestAnimationFrame(() => {
+      workspaceScrollArea?.scrollTo({ top: 0, behavior: "auto" });
+    });
   }
 
   function sanitizeOperationMetadata(cmd: string, args?: any) {
@@ -969,7 +977,7 @@
       <img src="/tauri.svg" alt="Tauri Logo" class="brand-logo" />
       <div class="brand-text">
         <h1>LOKAL BILGISAYAR</h1>
-        <span>KONTROL PANELI</span>
+        <span>MERKEZI KONTROL & TAKIP PANELI</span>
       </div>
     </div>
     <div class="brain-display">
@@ -994,7 +1002,7 @@
          <div class="progress-step" class:active={activeSection === 'execution'}>4. TEST & RAPOR (Gate 8)</div>
       </div>
         <div class="agent-status-bar">
-      <strong>AJAN DURUMLARI:</strong>
+      <strong>AI SAGLAYICILARI VE YEREL AJANLAR:</strong>
       {#each aiProviderHealth as agent}
         <span class="agent-badge" class:agent-ok={agent.enabled} class:agent-disabled={!agent.enabled}>
           {agent.name.split(' ')[0]}
@@ -1025,12 +1033,12 @@
         {/if}
       </div>
       <div class="navigation-tabs">
-        <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
-        <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
-        <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activeSection = 'security'}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
-        <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activeSection = 'skills'}>BECERİ KÜTÜPHANESİ</button>
-        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAGLANTILAR</button>
-        <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activeSection = 'execution'}>TEST VE RAPOR (GATE 8)</button>
+        <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activateSection('planning')}>PLANLAMA (GATE 1)</button>
+        <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activateSection('decisions')}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
+        <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activateSection('security')}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
+        <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activateSection('skills')}>BECERI DEPOSU</button>
+        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activateSection('connections')}>BAGLANTILAR & SAGLAYICILAR</button>
+        <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activateSection('execution')}>TEST VE RAPOR (GATE 8)</button>
       </div>
       <div class="voice-controls">
         <button
@@ -1091,29 +1099,16 @@
       </div>
     {/if}
 
-    <div class="workspace-scroll-area">
-      <OperationDoctrinePanel />
-      <TaskDetail task={selectedTask} onExecute={handleExecute} />
-      <OperationPackagePanel packages={operationPackages} />
-      <DefinitiveAnswerPanel
-        task={selectedTask}
-        approvals={approvals}
-        tests={tests}
-        reports={reports}
-        voiceRepliesEnabled={voiceRepliesEnabled}
-        onSpeakAnswer={speakReply}
-        onStopVoice={stopVoiceReply}
-      />
-
-      <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
-
-      {#if activeSection === 'connections'}
+    <div class="workspace-scroll-area" bind:this={workspaceScrollArea}>
+      {#if activeSection === 'skills'}
+        <SkillLibraryExplorer />
+      {:else if activeSection === 'connections'}
         <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
         {#if askerMotoruStatus}
           <div class="asker-bridge-panel">
-            <h3>Asker Motoru Durum Köprüsü</h3>
+            <h3>Asker Motoru Ana Proje Durum Köprüsü</h3>
             <p>DB boyutu: {(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB</p>
             {#each askerMotoruStatus.files as file}
               <div class="asker-file" class:missing={!file.exists}>
@@ -1123,25 +1118,40 @@
             {/each}
           </div>
         {/if}
-      {:else if activeSection === 'skills'}
-        <SkillLibraryExplorer />
-      {:else if selectedTask}
-        {#if activeSection === 'planning'}
-          <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
-        {:else if activeSection === 'decisions'}
-          <DecisionMap decisions={decisions} />
-          <AlternativePanel alternatives={alternatives} />
-        {:else if activeSection === 'security'}
-          <RiskPanel task={selectedTask} />
-          <ApprovalPanel approvals={approvals} onSubmitApproval={handleApproval} />
-          <RollbackPanel task={selectedTask} onRollback={handleRollback} />
-        {:else if activeSection === 'execution'}
-          <CheckpointPanel checkpoints={checkpoints} />
-          <TestPanel tests={tests} />
-          <StructuredReportPanel reports={reports} />
-        {/if}
       {:else}
-        <IntakePanel onCreate={handleCreateTask} />
+        <OperationDoctrinePanel />
+        <TaskDetail task={selectedTask} onExecute={handleExecute} />
+        <OperationPackagePanel packages={operationPackages} />
+        <DefinitiveAnswerPanel
+          task={selectedTask}
+          approvals={approvals}
+          tests={tests}
+          reports={reports}
+          voiceRepliesEnabled={voiceRepliesEnabled}
+          onSpeakAnswer={speakReply}
+          onStopVoice={stopVoiceReply}
+        />
+
+        <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} />
+
+        {#if selectedTask}
+          {#if activeSection === 'planning'}
+            <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
+          {:else if activeSection === 'decisions'}
+            <DecisionMap decisions={decisions} />
+            <AlternativePanel alternatives={alternatives} />
+          {:else if activeSection === 'security'}
+            <RiskPanel task={selectedTask} />
+            <ApprovalPanel approvals={approvals} onSubmitApproval={handleApproval} />
+            <RollbackPanel task={selectedTask} onRollback={handleRollback} />
+          {:else if activeSection === 'execution'}
+            <CheckpointPanel checkpoints={checkpoints} />
+            <TestPanel tests={tests} />
+            <StructuredReportPanel reports={reports} />
+          {/if}
+        {:else}
+          <IntakePanel onCreate={handleCreateTask} />
+        {/if}
       {/if}
 
     </div>
