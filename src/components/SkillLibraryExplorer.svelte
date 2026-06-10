@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { invoke } from "@tauri-apps/api/core";
+  import { isTauriRuntime } from "../lib/runtime";
 
   interface SkillSummary {
     total_count: number;
@@ -18,12 +19,15 @@
     description: string;
   }
 
-  let summary: SkillSummary = { total_count: 14603, python_count: 12000, javascript_count: 2603 };
+  const emptySummary: SkillSummary = { total_count: 0, python_count: 0, javascript_count: 0 };
+
+  let summary: SkillSummary = emptySummary;
   let searchQuery = "";
   let selectedCategory = "";
   let skills: SkillItem[] = [];
   let isLoading = false;
   let errorMsg = "";
+  let searchTimeout: ReturnType<typeof setTimeout> | undefined;
 
   const categories = [
     "Frontend_UI",
@@ -35,10 +39,24 @@
     "Watchdog_Service"
   ];
 
+  function formatError(error: unknown) {
+    if (error instanceof Error) return error.message;
+    return String(error);
+  }
+
+  function ensureSkillLibraryAvailable() {
+    if (!isTauriRuntime()) {
+      throw new Error("Beceri kütüphanesi yalnızca Tauri masaüstü çalışma modunda okunabilir.");
+    }
+  }
+
   async function fetchSummary() {
     try {
+      ensureSkillLibraryAvailable();
       summary = await invoke<SkillSummary>("get_skill_library_summary_cmd");
     } catch (e) {
+      summary = emptySummary;
+      errorMsg = "Beceri özeti okunamadı: " + formatError(e);
       console.error("Failed to load skill summary from SQLite:", e);
     }
   }
@@ -47,21 +65,22 @@
     isLoading = true;
     errorMsg = "";
     try {
+      ensureSkillLibraryAvailable();
       skills = await invoke<SkillItem[]>("search_skill_library_cmd", {
         query: searchQuery,
         category: selectedCategory ? selectedCategory : null
       });
-    } catch (e: any) {
-      errorMsg = "SQLite beceri arama hatası: " + e.toString();
+    } catch (e) {
+      skills = [];
+      errorMsg = "SQLite beceri arama hatası: " + formatError(e);
     } finally {
       isLoading = false;
     }
   }
 
   // Trigger search on input
-  let searchTimeout: any;
   function handleSearchInput() {
-    clearTimeout(searchTimeout);
+    if (searchTimeout) clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
       performSearch();
     }, 300);
@@ -325,6 +344,7 @@
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
   }
 

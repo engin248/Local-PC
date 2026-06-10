@@ -649,9 +649,11 @@
     // Ses hatayla kesildiğinde veya çalmadığında da takılmaması için sıradakine geç
     utterance.onerror = (e) => {
       console.error("Speech Synthesis Error:", e);
-      raiseCriticalAlarm("Seslendirme motoru hatası", e);
+      voiceAvailable = false;
+      voiceRepliesEnabled = false;
       speechQueue.shift();
-      processSpeechQueue();
+      speechQueue = [];
+      isSpeaking = false;
     };
 
     synth.speak(utterance);
@@ -659,7 +661,7 @@
 
   function stopVoiceReply() {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      speechQueue = []; // KuyruÄŸu temizle
+      speechQueue = []; // Kuyruğu temizle
       isSpeaking = false;
       window.speechSynthesis.cancel(); // Mevcut çalmayı durdur
     }
@@ -973,7 +975,7 @@
       </div>
     </div>
     <div class="brain-display">
-      <img src="/brain_logo.png" alt="AI Brain Core" />
+      <img src="/brain_logo.svg" alt="AI Brain Core" />
     </div>
     <TaskTabs 
       tasks={tasks} 

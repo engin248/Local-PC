@@ -26,6 +26,12 @@ Aşağıdaki komut, hem frontend derleme sunucusunu başlatacak hem de Rust Taur
 npm run tauri dev
 ```
 
+### Beceri Kütüphanesi Veritabanı
+`Beceri Kütüphanesi` ekranı varsayılan yerel SQLite yolunu kullanır. Farklı bir makinede çalıştırırken geçerli dosyayı ortam değişkeniyle belirtin:
+```bash
+set SKILL_LIBRARY_DB_PATH=C:\gecerli\yol\skill_library.sqlite
+```
+
 ### 4. Adım: Uygulamanın Paketlenmesi (.exe üretimi)
 Tauri uygulamasını tek bir executable (`.exe`) olarak paketlemek için:
 ```bash
