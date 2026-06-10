@@ -208,8 +208,7 @@
     margin-bottom: 16px;
   }
 
-  .panel-header,
-  .section-title {
+  .panel-header {
     display: flex;
     justify-content: space-between;
     gap: 16px;
@@ -218,6 +217,13 @@
 
   .panel-header {
     margin-bottom: 16px;
+  }
+
+  .section-title {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
   }
 
   .eyebrow {
