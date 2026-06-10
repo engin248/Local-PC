@@ -44,11 +44,13 @@ import {
   type DreamingState,
 } from "./controllers/dreaming.ts";
 import { loadExecApprovals, type ExecApprovalsState } from "./controllers/exec-approvals.ts";
+import { loadHealthState, type HealthState } from "./controllers/health.ts";
 import { loadLogs, type LogsState } from "./controllers/logs.ts";
 import {
   loadModelAuthStatusState,
   type ModelAuthStatusState,
 } from "./controllers/model-auth-status.ts";
+import { loadModels } from "./controllers/models.ts";
 import { loadNodes, type NodesState } from "./controllers/nodes.ts";
 import { loadPresence, type PresenceState } from "./controllers/presence.ts";
 import { loadSessions, type SessionsState } from "./controllers/sessions.ts";
@@ -74,7 +76,7 @@ import {
 import { normalizeOptionalString } from "./string-coerce.ts";
 import { startThemeTransition, type ThemeTransitionContext } from "./theme-transition.ts";
 import { resolveTheme, type ResolvedTheme, type ThemeMode, type ThemeName } from "./theme.ts";
-import type { AgentsListResult, AttentionItem } from "./types.ts";
+import type { AgentsListResult, AttentionItem, ModelCatalogEntry } from "./types.ts";
 import { normalizeLocalUserIdentity } from "./user-identity.ts";
 import { resetChatViewState } from "./views/chat.ts";
 
@@ -137,6 +139,7 @@ type SettingsAppHost = SettingsHost &
   DevicesState &
   DreamingState &
   ExecApprovalsState &
+  HealthState &
   LogsState &
   NodesState &
   PresenceState &
@@ -146,6 +149,7 @@ type SettingsAppHost = SettingsHost &
   UsageState & {
     overviewLogCursor: number | null;
     overviewLogLines: string[];
+    overviewModelCatalog: ModelCatalogEntry[];
     attentionItems: AttentionItem[];
     hello: { auth?: { role?: string; scopes?: string[] } } | null;
   };
@@ -745,6 +749,14 @@ export async function loadOverview(host: SettingsHost, opts?: { refresh?: boolea
     // Avoid starting the expensive usage RPC for stale overview refreshes.
     isCurrentOverviewRefresh() ? loadUsage(app) : Promise.resolve(),
     loadOverviewLogs(app),
+    loadHealthState(app),
+    isCurrentOverviewRefresh() && app.client && app.connected
+      ? loadModels(app.client).then((models) => {
+          if (isCurrentOverviewRefresh()) {
+            app.overviewModelCatalog = models;
+          }
+        })
+      : Promise.resolve(),
     // `refresh: true` bypasses the gateway's 60s auth-status cache so a
     // user-initiated refresh surfaces post-re-auth state immediately.
     loadModelAuthStatusState(app, { refresh: opts?.refresh }),
