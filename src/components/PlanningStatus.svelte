@@ -5,45 +5,45 @@
   }>();
 
   let task_definition = $state("");
-  let purpose = $state("Lokal bilgisayar kontrol paneli iÃ§inde seÃ§ilen hedefi gÃ¼venli kapÄ±larla analiz etmek ve kullanÄ±cÄ± onayÄ± olmadan yazma iÅŸlemi yapmamak.");
-  let scope = $state("Lokal Bilgisayar Kontrol Paneli proje kÃ¶kÃ¼ ve storage/app.db Ã¼zerindeki salt okunur analiz kapsamÄ±.");
-  let topic = $state("Dosya Analizi ve YazÄ±mÄ±");
-  let sub_topic = $state("Yetkili Onay KapÄ±lÄ± Yazma");
-  let criterion = $state("Tam Geri AlÄ±nabilirlik");
-  let sub_criterion = $state("Snapshot-BazlÄ± Rollback");
+  let purpose = $state("Lokal bilgisayar kontrol paneli içinde seçilen hedefi güvenli kapılarla analiz etmek ve kullanıcı onayı olmadan yazma işlemi yapmamak.");
+  let scope = $state("Lokal Bilgisayar Kontrol Paneli proje kökü ve storage/app.db üzerindeki salt okunur analiz kapsamı.");
+  let topic = $state("Dosya Analizi ve Yazımı");
+  let sub_topic = $state("Yetkili Onay Kapılı Yazma");
+  let criterion = $state("Tam Geri Alınabilirlik");
+  let sub_criterion = $state("Snapshot-Bazlı Rollback");
   let alternatives = $state([
     "Sadece oku ve raporla",
-    "Uygulama yapma, manuel plan Ã¼ret",
-    "OnaylÄ±, kontrollÃ¼ ve rollback destekli uygula",
-    "OnaysÄ±z ve rollback'siz doÄŸrudan uygula - elenen alternatif"
+    "Uygulama yapma, manuel plan üret",
+    "Onaylı, kontrollü ve rollback destekli uygula",
+    "Onaysız ve rollback'siz doğrudan uygula - elenen alternatif"
   ]);
   let risk_analysis = $state("high");
   let impact_area = $state("storage/app.db");
   let technology_selection = $state("Tauri, Rust, SQLite, Svelte");
-  let dependency_analysis = $state("DÃ¼ÅŸÃ¼k baÄŸÄ±mlÄ±lÄ±k (Ä°nternetsiz lokal Ã§alÄ±ÅŸma)");
-  let checkpoints = $state(["Planlama kapÄ±sÄ± kontrolÃ¼", "Yetki eÅŸleÅŸtirme kontrolÃ¼", "Risk analiz kontrolÃ¼"]);
+  let dependency_analysis = $state("Düşük bağımlılık (İnternetsiz lokal çalışma)");
+  let checkpoints = $state(["Planlama kapısı kontrolü", "Yetki eşleştirme kontrolü", "Risk analiz kontrolü"]);
   let test_criteria = $state(["file_exists:storage/app.db"]);
-  let rollback_plan = $state("DeÄŸiÅŸiklikten Ã¶nce gerÃ§ek hedef snapshot'Ä± alÄ±nÄ±r; hata halinde kayÄ±tlÄ± snapshot hedefe geri yÃ¼klenir.");
+  let rollback_plan = $state("Değişiklikten önce gerçek hedef snapshot'ı alınır; hata halinde kayıtlı snapshot hedefe geri yüklenir.");
   let operation_plan = $state("action:code_analysis, action:approval_check, action:snapshot_create, action:test_run, action:report_generate");
   let authorized_deciders = $state(["local_projects", "local_app_db", "user"]);
-  let accepted_correct_approach_reason = $state("Genel doÄŸru yaklaÅŸÄ±m kullanÄ±cÄ± iradesini, veri gizliliÄŸini, rollback ve test edilebilirliÄŸi korur.");
-  let selected_best_option_reason = $state("SeÃ§ilen en iyi seÃ§enek mevcut sistemle uyumlu, dÃ¼ÅŸÃ¼k riskli, rollback destekli ve test edilebilirdir.");
+  let accepted_correct_approach_reason = $state("Genel doğru yaklaşım kullanıcı iradesini, veri gizliliğini, rollback ve test edilebilirliği korur.");
+  let selected_best_option_reason = $state("Seçilen en iyi seçenek mevcut sistemle uyumlu, düşük riskli, rollback destekli ve test edilebilirdir.");
   let operation_sequence = $state([
-    "Ã‡Ã¶zÃ¼mleme yap",
-    "Kabul edilmiÅŸ doÄŸruyu seÃ§",
-    "Her kriter iÃ§in en iyi alternatifi seÃ§",
+    "Çözümleme yap",
+    "Kabul edilmiş doğruyu seç",
+    "Her kriter için en iyi alternatifi seç",
     "Uygulama paketini alt birime ver",
     "Kontrol et",
-    "BaÄŸÄ±msÄ±z doÄŸrula",
+    "Bağımsız doğrula",
     "Son onay ver"
   ]);
-  let control_criteria = $state(["Plan var", "Etki alanÄ± var", "Teknoloji var", "Test var", "Rollback var"]);
+  let control_criteria = $state(["Plan var", "Etki alanı var", "Teknoloji var", "Test var", "Rollback var"]);
   let executor_role = $state("executor");
   let correctness_guard_role = $state("correctness_guard");
   let controller_role = $state("controller");
   let independent_verifier_role = $state("independent_verifier");
   let final_approver_role = $state("final_approver");
-  let per_part_alternative_policy = $state("Her atomik parÃ§a iÃ§in gerÃ§ek hayattaki tÃ¼m makul alternatifler aynÄ± kriterlerle deÄŸerlendirilir ve veritabanÄ±na kaydedilir.");
+  let per_part_alternative_policy = $state("Her atomik parça için gerçek hayattaki tüm makul alternatifler aynı kriterlerle değerlendirilir ve veritabanına kaydedilir.");
 
   function parseCommaList(value: string) {
     return value
@@ -92,26 +92,26 @@
 </script>
 
 <div class="planning-container">
-  <h3>PLANLAMA STANDARDI & KÄ°LÄ°T AÃ‡MA FORMU (MÄ°MARÄ° ZORUNLU ALANLAR)</h3>
+  <h3>PLANLAMA STANDARDI & KİLİT AÇMA FORMU (MİMARİ ZORUNLU ALANLAR)</h3>
   
   {#if task?.planning_status === 'planning_complete'}
     <div class="success-alert">
-      <strong>PLAN ONAYLANDI:</strong> Mimari zorunlu alanlar, rol ayrÄ±mÄ±, test ve rollback doÄŸrulandÄ±; operasyon paketi veritabanÄ±na kaydedildi.
+      <strong>PLAN ONAYLANDI:</strong> Mimari zorunlu alanlar, rol ayrımı, test ve rollback doğrulandı; operasyon paketi veritabanına kaydedildi.
     </div>
   {:else}
     <div class="warning-alert">
-      <strong>PLANLAMA KONTROLÜ AKTİF:</strong> Plan, iÅŸlem sÄ±rasÄ±, teknoloji, etki alanÄ±, kontrol kriterleri, test ve rollback olmadan Execution Engine Ã§alÄ±ÅŸmaz.
+      <strong>PLANLAMA KONTROLÜ AKTİF:</strong> Plan, işlem sırası, teknoloji, etki alanı, kontrol kriterleri, test ve rollback olmadan Execution Engine çalışmaz.
     </div>
   {/if}
 
   <form onsubmit={handleSubmit} class="plan-form">
     <div class="form-grid">
       <div class="field">
-        <label for="task-definition">1. GÃ¶rev TanÄ±mÄ±</label>
+        <label for="task-definition">1. Görev Tanımı</label>
         <input id="task-definition" bind:value={task_definition} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-purpose">2. AmaÃ§</label>
+        <label for="plan-purpose">2. Amaç</label>
         <input id="plan-purpose" bind:value={purpose} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
@@ -135,72 +135,72 @@
         <input id="plan-subcriterion" bind:value={sub_criterion} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-alternatives">8. Alternatifler (VirgÃ¼lle AyÄ±rÄ±n)</label>
+        <label for="plan-alternatives">8. Alternatifler (Virgülle Ayırın)</label>
         <input id="plan-alternatives" value={alternatives.join(', ')} oninput={(event) => alternatives = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
         <label for="plan-risk">9. Risk Analizi Seviyesi</label>
         <select id="plan-risk" bind:value={risk_analysis} disabled={task?.planning_status === 'planning_complete'}>
-          <option value="low">Low (DÃ¼ÅŸÃ¼k Risk)</option>
+          <option value="low">Low (Düşük Risk)</option>
           <option value="medium">Medium (Orta Risk)</option>
-          <option value="high">High (YÃ¼ksek Risk)</option>
+          <option value="high">High (Yüksek Risk)</option>
           <option value="critical">Critical (Kritik Risk)</option>
         </select>
       </div>
       <div class="field">
-        <label for="plan-impact">10. Etki AlanÄ±</label>
+        <label for="plan-impact">10. Etki Alanı</label>
         <input id="plan-impact" bind:value={impact_area} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-tech">11. Teknoloji SeÃ§imi</label>
+        <label for="plan-tech">11. Teknoloji Seçimi</label>
         <input id="plan-tech" bind:value={technology_selection} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-dep">12. BaÄŸÄ±mlÄ±lÄ±k Analizi</label>
+        <label for="plan-dep">12. Bağımlılık Analizi</label>
         <input id="plan-dep" bind:value={dependency_analysis} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-checkpoints">13. Kontrol NoktalarÄ± (VirgÃ¼lle AyÄ±rÄ±n)</label>
+        <label for="plan-checkpoints">13. Kontrol Noktaları (Virgülle Ayırın)</label>
         <input id="plan-checkpoints" value={checkpoints.join(', ')} oninput={(event) => checkpoints = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-tests">14. Test Kriterleri (VirgÃ¼lle AyÄ±rÄ±n)</label>
+        <label for="plan-tests">14. Test Kriterleri (Virgülle Ayırın)</label>
         <input id="plan-tests" value={test_criteria.join(', ')} oninput={(event) => test_criteria = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-rollback">15. Geri Alma PlanÄ±</label>
+        <label for="plan-rollback">15. Geri Alma Planı</label>
         <input id="plan-rollback" bind:value={rollback_plan} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-operation">16. Operasyon PlanÄ±</label>
+        <label for="plan-operation">16. Operasyon Planı</label>
         <input id="plan-operation" bind:value={operation_plan} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="plan-deciders">17. Yetkili Karar NoktalarÄ± (VirgÃ¼lle AyÄ±rÄ±n)</label>
+        <label for="plan-deciders">17. Yetkili Karar Noktaları (Virgülle Ayırın)</label>
         <input id="plan-deciders" value={authorized_deciders.join(', ')} oninput={(event) => authorized_deciders = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field wide">
-        <label for="correct-approach-reason">Genel DoÄŸru YaklaÅŸÄ±m GerekÃ§esi</label>
+        <label for="correct-approach-reason">Genel Doğru Yaklaşım Gerekçesi</label>
         <input id="correct-approach-reason" bind:value={accepted_correct_approach_reason} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field wide">
-        <label for="best-option-reason">SeÃ§ilen En Ä°yi SeÃ§enek GerekÃ§esi</label>
+        <label for="best-option-reason">Seçilen En İyi Seçenek Gerekçesi</label>
         <input id="best-option-reason" bind:value={selected_best_option_reason} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field wide">
-        <label for="operation-sequence">Ä°ÅŸlem SÄ±rasÄ± (VirgÃ¼lle AyÄ±rÄ±n)</label>
+        <label for="operation-sequence">İşlem Sırası (Virgülle Ayırın)</label>
         <input id="operation-sequence" value={operation_sequence.join(', ')} oninput={(event) => operation_sequence = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field wide">
-        <label for="control-criteria">Kontrol Kriterleri (VirgÃ¼lle AyÄ±rÄ±n)</label>
+        <label for="control-criteria">Kontrol Kriterleri (Virgülle Ayırın)</label>
         <input id="control-criteria" value={control_criteria.join(', ')} oninput={(event) => control_criteria = parseCommaList(event.currentTarget.value)} disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="executor-role">Ä°ÅŸlemi Yapan Rol</label>
+        <label for="executor-role">İşlemi Yapan Rol</label>
         <input id="executor-role" bind:value={executor_role} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="guard-role">DoÄŸru YapÄ±lmasÄ±nÄ± SaÄŸlayan Rol</label>
+        <label for="guard-role">Doğru Yapılmasını Sağlayan Rol</label>
         <input id="guard-role" bind:value={correctness_guard_role} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
@@ -208,7 +208,7 @@
         <input id="controller-role" bind:value={controller_role} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
-        <label for="verifier-role">BaÄŸÄ±msÄ±z DoÄŸrulayan Rol</label>
+        <label for="verifier-role">Bağımsız Doğrulayan Rol</label>
         <input id="verifier-role" bind:value={independent_verifier_role} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field">
@@ -216,7 +216,7 @@
         <input id="approver-role" bind:value={final_approver_role} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
       <div class="field wide">
-        <label for="alternative-policy">Her ParÃ§a Ä°Ã§in Alternatif PolitikasÄ±</label>
+        <label for="alternative-policy">Her Parça İçin Alternatif Politikası</label>
         <input id="alternative-policy" bind:value={per_part_alternative_policy} required disabled={task?.planning_status === 'planning_complete'} />
       </div>
     </div>

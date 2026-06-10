@@ -16,9 +16,11 @@ use crate::storage::db::init_db;
 use crate::system_connectors::connector_base::SystemConnectorHealth;
 use crate::system_connectors::system_connector_manager::SystemConnectorManager;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use std::env;
 use std::panic::PanicHookInfo;
+use std::path::PathBuf;
 use std::sync::OnceLock;
+use tauri::{AppHandle, Emitter};
 
 static APP_HANDLE: OnceLock<AppHandle> = OnceLock::new();
 
@@ -58,7 +60,13 @@ struct NewOperationAudit {
     correlation_id: Option<String>,
 }
 
-fn emit_critical_error(app: &AppHandle, command: &str, source: &str, message: &str, correlation_id: Option<String>) {
+fn emit_critical_error(
+    app: &AppHandle,
+    command: &str,
+    source: &str,
+    message: &str,
+    correlation_id: Option<String>,
+) {
     let payload = CriticalErrorEvent {
         command: command.to_string(),
         source: source.to_string(),
@@ -67,9 +75,7 @@ fn emit_critical_error(app: &AppHandle, command: &str, source: &str, message: &s
     };
 
     if let Err(err) = app.emit("critical-error", payload) {
-        eprintln!(
-            "Kritik hata olayı yayınlanamadı [command={command}]: {err}"
-        );
+        eprintln!("Kritik hata olayı yayınlanamadı [command={command}]: {err}");
     }
 }
 
@@ -98,7 +104,11 @@ fn install_rust_panic_listener() {
     }));
 }
 
-fn emit_if_error<T>(app: &AppHandle, command: &str, result: Result<T, String>) -> Result<T, String> {
+fn emit_if_error<T>(
+    app: &AppHandle,
+    command: &str,
+    result: Result<T, String>,
+) -> Result<T, String> {
     result.map_err(|error| {
         emit_critical_error(app, command, command, &error, None);
         error
@@ -120,7 +130,11 @@ fn create_task_cmd(app: AppHandle, title: String, user_request: String) -> Resul
 }
 
 #[tauri::command]
-fn save_plan_cmd(app: AppHandle, task_id: String, plan: PlanningStandardInput) -> Result<(), String> {
+fn save_plan_cmd(
+    app: AppHandle,
+    task_id: String,
+    plan: PlanningStandardInput,
+) -> Result<(), String> {
     emit_if_error(&app, "save_plan_cmd", save_plan(&task_id, plan))
 }
 
@@ -244,7 +258,10 @@ fn get_system_health_cmd(app: AppHandle) -> Result<Vec<SystemValidationIssue>, S
 }
 
 #[tauri::command]
-fn get_ai_provider_health_cmd(app: AppHandle, write_audit: Option<bool>) -> Result<Vec<AIProviderHealth>, String> {
+fn get_ai_provider_health_cmd(
+    app: AppHandle,
+    write_audit: Option<bool>,
+) -> Result<Vec<AIProviderHealth>, String> {
     emit_if_error(
         &app,
         "get_ai_provider_health_cmd",
@@ -387,7 +404,10 @@ fn get_db_size_cmd(app: AppHandle) -> Result<u64, String> {
 }
 
 #[tauri::command]
-fn get_operation_packages_cmd(app: AppHandle, task_id: String) -> Result<Vec<OperationPackageUi>, String> {
+fn get_operation_packages_cmd(
+    app: AppHandle,
+    task_id: String,
+) -> Result<Vec<OperationPackageUi>, String> {
     emit_if_error(
         &app,
         "get_operation_packages_cmd",
@@ -723,7 +743,9 @@ fn get_reports_cmd(app: AppHandle, task_id: String) -> Result<Vec<ReportUi>, Str
         (|| -> Result<Vec<ReportUi>, String> {
             let conn = init_db().map_err(|e| e.to_string())?;
             let mut stmt = conn
-                .prepare("SELECT CAST(id AS TEXT), report_type, content FROM reports WHERE task_id = ?1")
+                .prepare(
+                    "SELECT CAST(id AS TEXT), report_type, content FROM reports WHERE task_id = ?1",
+                )
                 .map_err(|e| e.to_string())?;
 
             let rows = stmt
@@ -763,75 +785,189 @@ pub struct SkillItemUi {
     pub description: String,
 }
 
+const SKILL_LIBRARY_DB_PATH_ENV: &str = "SKILL_LIBRARY_DB_PATH";
+const DEFAULT_SKILL_LIBRARY_DB_PATH: &str =
+    "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite";
+
+fn skill_library_db_path() -> PathBuf {
+    env::var_os(SKILL_LIBRARY_DB_PATH_ENV)
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(DEFAULT_SKILL_LIBRARY_DB_PATH))
+}
+
+fn open_skill_library_connection() -> Result<rusqlite::Connection, String> {
+    let db_path = skill_library_db_path();
+    if !db_path.exists() {
+        return Err(format!(
+            "Beceri kütüphanesi veritabanı bulunamadı: {}. {} ortam değişkeni ile geçerli SQLite dosyasını belirtin.",
+            db_path.display(),
+            SKILL_LIBRARY_DB_PATH_ENV
+        ));
+    }
+
+    rusqlite::Connection::open(&db_path).map_err(|err| {
+        format!(
+            "Beceri kütüphanesi veritabanı açılamadı ({}): {}",
+            db_path.display(),
+            err
+        )
+    })
+}
+
+fn get_skill_library_summary(conn: &rusqlite::Connection) -> Result<SkillSummary, String> {
+    let total_count = conn
+        .query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0))
+        .map_err(|err| format!("Toplam beceri sayısı okunamadı: {err}"))?;
+    let python_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM skills WHERE language = 'python'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|err| format!("Python beceri sayısı okunamadı: {err}"))?;
+    let javascript_count = conn
+        .query_row(
+            "SELECT COUNT(*) FROM skills WHERE language = 'javascript'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|err| format!("JavaScript beceri sayısı okunamadı: {err}"))?;
+
+    Ok(SkillSummary {
+        total_count,
+        python_count,
+        javascript_count,
+    })
+}
+
+fn search_skill_library(
+    conn: &rusqlite::Connection,
+    query: &str,
+    category: Option<&str>,
+) -> Result<Vec<SkillItemUi>, String> {
+    let mut sql = "SELECT skill_id, name, language, category, status, created_at, description FROM skills WHERE 1=1".to_string();
+    let mut params: Vec<String> = Vec::new();
+
+    let trimmed_query = query.trim();
+    if !trimmed_query.is_empty() {
+        sql.push_str(" AND (name LIKE ?1 OR skill_id LIKE ?1 OR description LIKE ?1)");
+        params.push(format!("%{}%", trimmed_query));
+    }
+
+    if let Some(category) = category.map(str::trim).filter(|value| !value.is_empty()) {
+        let idx = params.len() + 1;
+        sql.push_str(&format!(" AND category = ?{}", idx));
+        params.push(category.to_string());
+    }
+
+    sql.push_str(" ORDER BY created_at DESC LIMIT 100");
+
+    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            Ok(SkillItemUi {
+                skill_id: row.get(0)?,
+                name: row.get(1)?,
+                language: row.get(2)?,
+                category: row.get(3)?,
+                status: row.get(4)?,
+                created_at: row.get(5)?,
+                description: row.get(6)?,
+            })
+        })
+        .map_err(|err| err.to_string())?;
+
+    let mut list = Vec::new();
+    for item in rows {
+        list.push(item.map_err(|err| err.to_string())?);
+    }
+    Ok(list)
+}
+
 #[tauri::command]
 fn get_skill_library_summary_cmd(app: AppHandle) -> Result<SkillSummary, String> {
     emit_if_error(
         &app,
         "get_skill_library_summary_cmd",
         (|| -> Result<SkillSummary, String> {
-            let db_path = "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite";
-            let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
-            
-            let total_count: i64 = conn.query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0)).unwrap_or(0);
-            let python_count: i64 = conn.query_row("SELECT COUNT(*) FROM skills WHERE language = 'python'", [], |row| row.get(0)).unwrap_or(0);
-            let javascript_count: i64 = conn.query_row("SELECT COUNT(*) FROM skills WHERE language = 'javascript'", [], |row| row.get(0)).unwrap_or(0);
-            
-            Ok(SkillSummary {
-                total_count,
-                python_count,
-                javascript_count,
-            })
+            let conn = open_skill_library_connection()?;
+            get_skill_library_summary(&conn)
         })(),
     )
 }
 
 #[tauri::command]
-fn search_skill_library_cmd(app: AppHandle, query: String, category: Option<String>) -> Result<Vec<SkillItemUi>, String> {
+fn search_skill_library_cmd(
+    app: AppHandle,
+    query: String,
+    category: Option<String>,
+) -> Result<Vec<SkillItemUi>, String> {
     emit_if_error(
         &app,
         "search_skill_library_cmd",
         (|| -> Result<Vec<SkillItemUi>, String> {
-            let db_path = "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite";
-            let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
-            
-            let mut sql = "SELECT skill_id, name, language, category, status, created_at, description FROM skills WHERE 1=1".to_string();
-            let mut params: Vec<String> = Vec::new();
-            
-            if !query.is_empty() {
-                sql.push_str(" AND (name LIKE ?1 OR skill_id LIKE ?1 OR description LIKE ?1)");
-                params.push(format!("%{}%", query));
-            }
-            
-            if let Some(cat) = &category {
-                if !cat.is_empty() {
-                    let idx = params.len() + 1;
-                    sql.push_str(&format!(" AND category = ?{}", idx));
-                    params.push(cat.clone());
-                }
-            }
-            
-            sql.push_str(" ORDER BY created_at DESC LIMIT 100");
-            
-            let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-            let rows = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
-                Ok(SkillItemUi {
-                    skill_id: row.get(0)?,
-                    name: row.get(1)?,
-                    language: row.get(2)?,
-                    category: row.get(3)?,
-                    status: row.get(4)?,
-                    created_at: row.get(5)?,
-                    description: row.get(6)?,
-                })
-            }).map_err(|e| e.to_string())?;
-            
-            let mut list = Vec::new();
-            for item in rows {
-                list.push(item.map_err(|e| e.to_string())?);
-            }
-            Ok(list)
+            let conn = open_skill_library_connection()?;
+            search_skill_library(&conn, &query, category.as_deref())
         })(),
     )
+}
+
+#[cfg(test)]
+mod skill_library_tests {
+    use super::*;
+
+    fn skill_fixture() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("fixture sqlite opens");
+        conn.execute_batch(
+            r#"
+            CREATE TABLE skills (
+                skill_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                language TEXT NOT NULL,
+                category TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                description TEXT NOT NULL
+            );
+            INSERT INTO skills VALUES
+                ('py-audit', 'Audit Runner', 'python', 'Security_Audit', 'active', '2026-06-10T10:00:00Z', 'Dosya denetimi yapar'),
+                ('js-web', 'Web Panel Helper', 'javascript', 'Frontend_UI', 'active', '2026-06-10T11:00:00Z', 'Arayüz işlemlerini destekler'),
+                ('py-db', 'Database Guard', 'python', 'Database_Ops', 'pending', '2026-06-10T12:00:00Z', 'SQLite koruması');
+            "#,
+        )
+        .expect("fixture schema loads");
+        conn
+    }
+
+    #[test]
+    fn skill_summary_counts_languages() {
+        let conn = skill_fixture();
+        let summary = get_skill_library_summary(&conn).expect("summary loads");
+
+        assert_eq!(summary.total_count, 3);
+        assert_eq!(summary.python_count, 2);
+        assert_eq!(summary.javascript_count, 1);
+    }
+
+    #[test]
+    fn skill_search_filters_query_and_category() {
+        let conn = skill_fixture();
+        let rows = search_skill_library(&conn, "web", Some("Frontend_UI")).expect("search loads");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].skill_id, "js-web");
+        assert_eq!(rows[0].language, "javascript");
+    }
+
+    #[test]
+    fn skill_search_trims_empty_filters() {
+        let conn = skill_fixture();
+        let rows = search_skill_library(&conn, "   ", Some("  ")).expect("search loads");
+
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[0].skill_id, "py-db");
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
