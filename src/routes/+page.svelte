@@ -969,7 +969,7 @@
       <img src="/tauri.svg" alt="Tauri Logo" class="brand-logo" />
       <div class="brand-text">
         <h1>LOKAL BILGISAYAR</h1>
-        <span>KONTROL PANELI</span>
+        <span>MERKEZI KONTROL & TAKIP PANELI</span>
       </div>
     </div>
     <div class="brain-display">
@@ -994,7 +994,7 @@
          <div class="progress-step" class:active={activeSection === 'execution'}>4. TEST & RAPOR (Gate 8)</div>
       </div>
         <div class="agent-status-bar">
-      <strong>AJAN DURUMLARI:</strong>
+      <strong>AI SAGLAYICI VE AJAN DURUMLARI:</strong>
       {#each aiProviderHealth as agent}
         <span class="agent-badge" class:agent-ok={agent.enabled} class:agent-disabled={!agent.enabled}>
           {agent.name.split(' ')[0]}
@@ -1028,8 +1028,8 @@
         <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
         <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
         <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activeSection = 'security'}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
-        <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activeSection = 'skills'}>BECERİ KÜTÜPHANESİ</button>
-        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAGLANTILAR</button>
+        <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activeSection = 'skills'}>BECERI DEPOSU</button>
+        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAGLANTILAR & SAGLAYICILAR</button>
         <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activeSection = 'execution'}>TEST VE RAPOR (GATE 8)</button>
       </div>
       <div class="voice-controls">
@@ -1113,7 +1113,7 @@
         <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
         {#if askerMotoruStatus}
           <div class="asker-bridge-panel">
-            <h3>Asker Motoru Durum Köprüsü</h3>
+            <h3>Asker Motoru Ana Proje Durum Köprüsü</h3>
             <p>DB boyutu: {(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB</p>
             {#each askerMotoruStatus.files as file}
               <div class="asker-file" class:missing={!file.exists}>

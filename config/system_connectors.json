@@ -1,7 +1,7 @@
 [
   {
     "id": "local_projects",
-    "name": "Lokal Bilgisayar Kontrol Paneli Proje Kökü",
+    "name": "Lokal Bilgisayar Merkezi Kontrol ve Takip Paneli Proje Kökü",
     "type": "folder",
     "path": "$PROJECT_ROOT",
     "permissions": ["read", "write_with_approval"],
@@ -17,7 +17,7 @@
   },
   {
     "id": "local_app_db",
-    "name": "Lokal Bilgisayar Kontrol Paneli SQLite Veritabanı",
+    "name": "Lokal Bilgisayar Merkezi Kontrol ve Takip Paneli SQLite Veritabanı",
     "type": "sqlite",
     "path": "$PROJECT_ROOT/storage/app.db",
     "permissions": ["read", "db_write_with_approval"],

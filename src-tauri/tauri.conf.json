@@ -1,5 +1,5 @@
 {
-  "productName": "LOKAL BILGISAYAR KONTROL PANELI",
+  "productName": "LOKAL BILGISAYAR MERKEZI KONTROL VE TAKIP PANELI",
   "version": "0.1.0",
   "identifier": "com.engin.lokal-bilgisayar-kontrol-paneli",
   "bundle": {
@@ -22,7 +22,7 @@
   "app": {
     "windows": [
       {
-        "title": "Lokal Bilgisayar Kontrol Paneli",
+        "title": "Lokal Bilgisayar Merkezi Kontrol ve Takip Paneli",
         "width": 1024,
         "height": 768,
         "resizable": true

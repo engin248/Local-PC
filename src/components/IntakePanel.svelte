@@ -94,7 +94,7 @@
           <label><input type="checkbox" bind:checked={selectedAgents.codex} /> Codex (Uygulayıcı)</label>
           <label><input type="checkbox" bind:checked={selectedAgents.oam} /> OAM (Denetçi)</label>
           <label><input type="checkbox" bind:checked={selectedAgents.antigravity} /> AntiGrav (Çapraz Kontrol)</label>
-          <label><input type="checkbox" bind:checked={selectedAgents.cursor} /> Cursor (Dosya/Satır Okuma)</label>
+          <label><input type="checkbox" bind:checked={selectedAgents.cursor} /> Cursor Agents (Görev Yürütür)</label>
         </div>
       </fieldset>
     </div>

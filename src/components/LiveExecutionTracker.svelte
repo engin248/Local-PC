@@ -11,7 +11,7 @@
     { name: 'Codex', role: 'Yazılım Geliştirme Ajanı', icon: '💻', desc: 'Kod analizi ve modifikasyon önerileri hazırlar.' },
     { name: 'Open Agent Manager', role: 'Müfettiş & Swarm Orkestratörü', icon: '👁️', desc: 'Süreç adımlarını denetler, politika ihlallerini kontrol eder.' },
     { name: 'Antigravity', role: 'Sistem & Güvenlik Ajanı', icon: '🛡️', desc: 'Yerel sistem modifikasyonlarını ve Üçlü Kilit güvenliğini denetler.' },
-    { name: 'Cursor', role: 'Otonom Düzenleme Ajanı', icon: '📝', desc: 'Dosya ve şema değişikliklerini uygular.' }
+    { name: 'Cursor Agents', role: 'Görev Yürütücü Ajanlar', icon: '📝', desc: 'Atanan görevleri yürütür, patch ve test çıktısı üretir.' }
   ];
 
   function getRiskBadgeClass(level: string) {
