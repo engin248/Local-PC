@@ -64,6 +64,38 @@
     "read_only_default": true
   },
   {
+    "id": "pinokio_control_plane",
+    "name": "Pinokio Kontrol Düzlemi",
+    "type": "api",
+    "base_url": "http://127.0.0.1:42000",
+    "permissions": ["read"],
+    "enabled": true,
+    "dependency_level": "medium",
+    "live_system": true,
+    "network_required": true,
+    "allowed_actions": ["api_read"],
+    "approval_required_actions": [],
+    "rollback_required_actions": [],
+    "test_required_actions": ["api_read"],
+    "read_only_default": true
+  },
+  {
+    "id": "asker_motoru_live_api",
+    "name": "Asker Motoru Canlı API",
+    "type": "api",
+    "base_url": "http://127.0.0.1:3100",
+    "permissions": ["read", "api_write_with_approval"],
+    "enabled": false,
+    "dependency_level": "high",
+    "live_system": true,
+    "network_required": true,
+    "allowed_actions": ["api_read"],
+    "approval_required_actions": ["api_write"],
+    "rollback_required_actions": [],
+    "test_required_actions": ["api_read"],
+    "read_only_default": true
+  },
+  {
     "id": "pinecone_vector_db",
     "name": "Pinecone Vektör Veritabanı",
     "type": "api",

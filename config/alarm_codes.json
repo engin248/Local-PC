@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "locale": "tr-TR",
+  "codes": [
+    {
+      "code": "011",
+      "title": "Birinci Algoritma İzleme",
+      "severity": "critical",
+      "description": "Ana algoritma sağlık kontrolü ve heartbeat izleme",
+      "auto_speak": true,
+      "speak_template": "Alarm kodu sıfır on bir. {title}. {message}"
+    },
+    {
+      "code": "012",
+      "title": "Swarm Worker Kaybı",
+      "severity": "high",
+      "description": "Platform heartbeat dosyası eksik veya güncel değil",
+      "auto_speak": true,
+      "speak_template": "Alarm kodu sıfır on iki. {title}. {message}"
+    },
+    {
+      "code": "013",
+      "title": "Asker Motoru Sağlık Sapması",
+      "severity": "critical",
+      "description": "SISTEM_ALARM_DURUMU.json sağlık durumu HEALTHY değil",
+      "auto_speak": true,
+      "speak_template": "Alarm kodu sıfır on üç. {title}. {message}"
+    }
+  ]
+}

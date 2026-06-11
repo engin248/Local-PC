@@ -1,12 +1,16 @@
 <script lang="ts">
-  let { allocations = [], taskId = null } = $props<{
+  let { allocations = [], taskId = null, liveMode = false } = $props<{
     allocations: any[];
     taskId: string | null;
+    liveMode?: boolean;
   }>();
 </script>
 
-<div class="swarm-panel">
-  <h3>Swarm Tahsis Durumu</h3>
+<div class="swarm-panel" class:live={liveMode}>
+  <h3>{liveMode ? "Ajan Emir Paneli" : "Swarm Tahsis Durumu"}</h3>
+  {#if liveMode}
+    <p class="subtitle">Platformlara giden emirler canlı izlenir.</p>
+  {/if}
   {#if !taskId}
     <p class="empty-msg">Görev seçin; platform inbox tahsisleri burada görünür.</p>
   {:else if allocations.length === 0}
@@ -40,6 +44,8 @@
     color: #f4f4f5;
   }
   h3 { margin: 0 0 10px; color: #f2f2f4; }
+  .subtitle { margin: 0 0 10px; color: #9fd3ff; font-size: 0.82rem; }
+  .swarm-panel.live { border-color: #244a66; box-shadow: inset 0 0 0 1px rgba(80, 170, 255, 0.08); }
   .empty-msg { color: #888; font-size: 0.9rem; }
   ul { list-style: none; padding: 0; margin: 0; }
   li { padding: 0.5rem 0; border-bottom: 1px solid #333; }

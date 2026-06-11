@@ -25,6 +25,9 @@
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
   import OperationPackagePanel from "../components/OperationPackagePanel.svelte";
   import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
+  import CommandCenterLayout from "../components/CommandCenterLayout.svelte";
+  import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
+  import { speakText, stopSpeech, formatAlarmSpeech } from "../lib/voiceService";
 
 
   let tasks = $state<any[]>([]);
@@ -46,6 +49,11 @@
   let aiProviderHealth = $state<any[]>([]);
   let systemConnectorHealth = $state<any[]>([]);
   let alarmCards = $state<any[]>([]);
+  let commandFeed = $state<any[]>([]);
+  let burhanEvents = $state<any[]>([]);
+  let lastBurhanDispatch = $state<string | null>(null);
+  let askerMotoruLiveStatus = $state<any | null>(null);
+  let activeAlarmEvents = $state<any[]>([]);
 
   let activeSection = $state("planning");
   let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
@@ -63,6 +71,7 @@
   let speechQueue = $state<{ text: string; key: string }[]>([]);
   let isSpeaking = $state(false);
   let criticalErrorUnlisten: UnlistenFn | null = null;
+  let liveFeedUnlisteners: UnlistenFn[] = [];
   let criticalAlarmCounter = $state(0);
   let lastCriticalAlarmAt = $state<string | null>(null);
   let lastCriticalAlarmSource = $state<string | null>(null);
@@ -554,6 +563,50 @@
         return null;
       case "rollback_task_cmd":
         return true;
+      case "submit_command_sentence_cmd": {
+        const offlineTasks = readFallbackStore(offlineTasksKey, []);
+        const id = `offline-${Date.now()}`;
+        const sentence = args?.sentence || "";
+        const task = {
+          id,
+          title: sentence.slice(0, 80),
+          user_request: sentence,
+          status: "pending",
+          planning_status: "planning_incomplete",
+          execution_status: "not_started",
+          current_gate: "Command Center Gate",
+          last_valid_state_id: null,
+          risk_level: "medium",
+          approval_status: "browser_preview",
+          created_at: new Date().toISOString()
+        };
+        writeFallbackStore(offlineTasksKey, [task, ...offlineTasks]);
+        return {
+          task,
+          platforms: ["burhan_command", "codex", "open_agent_manager", "education_office"],
+          feed_id: `feed-${id}`,
+          alarm_scan: [],
+          burhan_message: "Albay Burhan emri aldı. Önizleme modu."
+        };
+      }
+      case "get_live_command_feed_cmd":
+        return readFallbackStore("localControlPanel.commandFeed", []);
+      case "get_alarm_codes_cmd":
+        return [{ code: "011", title: "Birinci Algoritma İzleme", severity: "critical", auto_speak: true }];
+      case "get_active_alarm_events_cmd":
+        return [];
+      case "scan_algorithm_health_cmd":
+        return { triggered_codes: [], events: [] };
+      case "get_asker_motoru_live_status_cmd":
+        return {
+          connected: false,
+          api_base_url: "http://127.0.0.1:3100",
+          health: "disabled",
+          module_count_hint: 314,
+          last_error: "PREVIEW / MOCK: Canlı API devre dışı."
+        };
+      case "get_pinokio_health_cmd":
+        return ["unavailable", "PREVIEW / MOCK: Pinokio erişilemiyor."];
       default:
         throw new Error(`Bilinmeyen komut: ${cmd}`);
     }
@@ -689,6 +742,7 @@
     if (!force && !voiceRepliesEnabled) return;
 
     lastSpokenVoiceKey = key;
+    if (speakText(text, key, force)) return;
 
     // Eğer otomatik (force = false) bir durum güncellemesi tetiklendiyse veya alarm ise,
     // kuyruktaki tüm eski bayat mesajları temizle ve çalan eski sesi iptal et.
@@ -752,11 +806,83 @@
   }
 
   function stopVoiceReply() {
+    stopSpeech();
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      speechQueue = []; // KuyruÄŸu temizle
+      speechQueue = [];
       isSpeaking = false;
-      window.speechSynthesis.cancel(); // Mevcut çalmayı durdur
+      window.speechSynthesis.cancel();
     }
+  }
+
+  function handleLiveFeedEvent(event: LiveFeedEvent) {
+    const feedItem = {
+      id: `${event.timestamp}-${event.source}`,
+      event_type: event.event_type,
+      source: event.source,
+      message: event.message,
+      task_id: event.task_id,
+      metadata_json: event.metadata_json,
+      created_at: event.timestamp,
+      timestamp: event.timestamp,
+    };
+
+    if (event.event_type === "burhan-dispatch") {
+      burhanEvents = [feedItem, ...burhanEvents].slice(0, 20);
+      lastBurhanDispatch = event.message;
+      if (voiceRepliesEnabled) {
+        speakReply(`Albay Burhan emir dağıttı. ${event.message}`, `burhan:${event.timestamp}`, true);
+      }
+    }
+
+    if (event.event_type === "command-submitted" || event.event_type === "live-feed") {
+      commandFeed = [feedItem, ...commandFeed].slice(0, 30);
+    }
+
+    if (event.event_type === "agent-status" && event.task_id) {
+      if (!selectedTaskId) selectedTaskId = event.task_id;
+      void refreshTaskDetails(event.task_id);
+    }
+
+    if (event.event_type === "report-returned" && voiceRepliesEnabled) {
+      speakReply(`Rapor hazır. ${event.message}`, `report-live:${event.timestamp}`, true);
+    }
+
+    if (event.event_type === "alarm-code") {
+      const metadata = parseMetadata<{ speak_text?: string; code?: string }>(event.metadata_json);
+      const speech = metadata?.speak_text
+        || formatAlarmSpeech(metadata?.code || "011", "Sistem alarmı", event.message);
+      raiseCriticalAlarm(event.source, event.message);
+      speakReply(speech, `alarm:${event.timestamp}`, true);
+    }
+  }
+
+  async function loadCommandFeed() {
+    try {
+      commandFeed = await safeInvoke("get_live_command_feed_cmd", { limit: 50 });
+    } catch (err) {
+      console.error("Komut akışı yüklenemedi:", err);
+    }
+  }
+
+  async function loadActiveAlarms() {
+    try {
+      activeAlarmEvents = await safeInvoke("get_active_alarm_events_cmd", { limit: 20 });
+      if (selectedTaskId) {
+        await safeInvoke("scan_algorithm_health_cmd", { taskId: selectedTaskId });
+      }
+    } catch (err) {
+      console.error("Alarm taraması başarısız:", err);
+    }
+  }
+
+  async function handleCommandSubmitted(result: any) {
+    if (result?.task?.id) {
+      selectedTaskId = result.task.id;
+      lastBurhanDispatch = result.burhan_message || null;
+    }
+    await loadTasks();
+    await loadCommandFeed();
+    await loadActiveAlarms();
   }
 
   function toggleVoiceReplies() {
@@ -815,7 +941,9 @@
       aiProviderHealth = await safeInvoke("get_ai_provider_health_cmd", { writeAudit });
       systemConnectorHealth = await safeInvoke("get_system_connector_health_cmd", { writeAudit });
       askerMotoruStatus = await safeInvoke("get_asker_motoru_status_cmd");
+      askerMotoruLiveStatus = await safeInvoke("get_asker_motoru_live_status_cmd");
       alarmCards = await safeInvoke("get_alarm_cards_cmd", { runtimeAlarms: alarmEvents });
+      await loadActiveAlarms();
       dbSizeBytes = await safeInvoke("get_db_size_cmd");
     } catch (err) {
       console.error("Bağlantı health-check hatası:", err);
@@ -970,7 +1098,7 @@
     }
   }
 
-  // 3 saniyede bir log ve durum güncellemesi yapalım (canlı izleme)
+  // 1 saniyede bir komuta merkezi güncellemesi (canlı izleme)
   onMount(() => {
     runtimeMode = isTauriRuntime() ? "tauri_runtime" : "browser_preview";
     let isMounted = true;
@@ -1023,6 +1151,7 @@
         }
 
         criticalErrorUnlisten = unlisten;
+        liveFeedUnlisteners = await subscribeLiveFeed(handleLiveFeedEvent);
     } catch (error) {
       console.error("Tauri kritik hata dinleyicisi kurulamadı:", error);
       raiseCriticalAlarm("Kritik hata dinleyicisi başlatılamadı", error);
@@ -1032,14 +1161,21 @@
     checkSystemHealth();
     refreshConnectionHealth(true);
     loadTasks();
+    loadCommandFeed();
     loadOperationAuditTrail();
     const interval = setInterval(() => {
       loadTasks();
+      loadCommandFeed();
+      loadActiveAlarms();
       loadOperationAuditTrail();
-    }, 3000);
+    }, 1000);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      for (const unlisten of liveFeedUnlisteners) {
+        unlisten();
+      }
+      liveFeedUnlisteners = [];
       if (criticalErrorUnlisten) {
         criticalErrorUnlisten();
         criticalErrorUnlisten = null;
@@ -1187,6 +1323,17 @@
     {/if}
 
     <div class="workspace-scroll-area">
+      <CommandCenterLayout
+        commandFeed={commandFeed}
+        burhanEvents={burhanEvents}
+        lastBurhanDispatch={lastBurhanDispatch}
+        selectedTaskId={selectedTaskId}
+        swarmAllocations={swarmAllocations}
+        reports={reports}
+        voiceRepliesEnabled={voiceRepliesEnabled}
+        onCommandSubmitted={handleCommandSubmitted}
+        onSpeakReport={(text, key) => speakReply(text, key, true)}
+      />
       <OperationDoctrinePanel />
       <TaskDetail task={selectedTask} onExecute={handleExecute} />
       <OperationPackagePanel packages={operationPackages} />
@@ -1207,6 +1354,28 @@
         <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <AlarmCardsPanel alarms={alarmCards} />
         <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
+        {#if activeAlarmEvents.length > 0}
+          <div class="alarm-code-panel">
+            <h3>Aktif Alarm Kodları</h3>
+            {#each activeAlarmEvents as alarm}
+              <div class="alarm-code-item">
+                <strong>{alarm.alarm_code || "000"}</strong>
+                <span>{alarm.source}</span>
+                <p>{alarm.message}</p>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        {#if askerMotoruLiveStatus}
+          <div class="asker-live-panel">
+            <h3>Asker Motoru Canlı API</h3>
+            <p>Durum: {askerMotoruLiveStatus.health} / Bağlı: {askerMotoruLiveStatus.connected ? "evet" : "hayır"}</p>
+            <p>Modül envanteri: {askerMotoruLiveStatus.module_count_hint || 314}</p>
+            {#if askerMotoruLiveStatus.last_error}
+              <pre>{askerMotoruLiveStatus.last_error}</pre>
+            {/if}
+          </div>
+        {/if}
         {#if askerMotoruStatus}
           <div class="asker-bridge-panel">
             <h3>Asker Motoru Durum Köprüsü</h3>
@@ -1868,6 +2037,8 @@
   .agent-msg strong { display: block; margin-bottom: 6px; color: #47d18c; font-size: 12px; }
   .agent-msg pre { margin: 0; font-family: monospace; font-size: 12px; color: #b8b8bf; white-space: pre-wrap; }
   .empty-stream { color: #8d8d95; font-size: 13px; font-style: italic; }
+  .alarm-code-panel,
+  .asker-live-panel,
   .asker-bridge-panel {
     padding: 18px;
     border: 1px solid #2a2a2d;
@@ -1875,6 +2046,21 @@
     border-radius: 6px;
     margin-bottom: 16px;
     color: #f4f4f5;
+  }
+  .alarm-code-item {
+    padding: 8px;
+    margin-top: 8px;
+    border: 1px solid #5a2020;
+    border-radius: 6px;
+    background: #1a1010;
+  }
+  .alarm-code-item strong {
+    color: #ff8a8a;
+    margin-right: 8px;
+  }
+  .asker-live-panel {
+    border-color: #2f4a66;
+    background: #101820;
   }
   .asker-file {
     padding: 10px;

@@ -86,6 +86,61 @@ impl Database {
         }
     }
 
+    fn ensure_extended_platform_tables(conn: &Connection) -> Result<()> {
+        let needs_upgrade: bool = conn
+            .prepare(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'ai_task_allocations'",
+            )
+            .ok()
+            .and_then(|mut stmt| {
+                stmt.query_row([], |row| row.get::<_, String>(0)).ok()
+            })
+            .map(|sql| !sql.contains("burhan_command"))
+            .unwrap_or(false);
+
+        if !needs_upgrade {
+            return Ok(());
+        }
+
+        conn.execute_batch(
+            r#"
+            CREATE TABLE IF NOT EXISTS ai_task_allocations_v2 (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                platform_name TEXT NOT NULL,
+                assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                status TEXT NOT NULL CHECK(status IN ('waiting', 'processing', 'submitted', 'failed', 'rejected')),
+                payload_file_path TEXT NOT NULL,
+                FOREIGN KEY(task_id) REFERENCES ai_tasks(id) ON DELETE CASCADE,
+                UNIQUE(task_id, platform_name)
+            );
+            INSERT OR IGNORE INTO ai_task_allocations_v2
+                SELECT id, task_id, platform_name, assigned_at, status, payload_file_path
+                FROM ai_task_allocations;
+            DROP TABLE IF EXISTS ai_task_allocations;
+            ALTER TABLE ai_task_allocations_v2 RENAME TO ai_task_allocations;
+
+            CREATE TABLE IF NOT EXISTS ai_collected_reports_v2 (
+                id TEXT PRIMARY KEY,
+                task_id TEXT NOT NULL,
+                platform_name TEXT NOT NULL,
+                submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                report_path TEXT NOT NULL,
+                is_verified INTEGER DEFAULT 0 CHECK(is_verified IN (0, 1)),
+                verification_error TEXT,
+                FOREIGN KEY(task_id) REFERENCES ai_tasks(id) ON DELETE CASCADE,
+                UNIQUE(task_id, platform_name)
+            );
+            INSERT OR IGNORE INTO ai_collected_reports_v2
+                SELECT id, task_id, platform_name, submitted_at, report_path, is_verified, verification_error
+                FROM ai_collected_reports;
+            DROP TABLE IF EXISTS ai_collected_reports;
+            ALTER TABLE ai_collected_reports_v2 RENAME TO ai_collected_reports;
+            "#,
+        )?;
+        Ok(())
+    }
+
     fn ensure_optional_columns(conn: &Connection) -> Result<()> {
         Self::add_column_if_missing(conn, "approvals", "approver_id TEXT")?;
         Self::add_column_if_missing(conn, "approvals", "approver_role TEXT")?;
@@ -112,6 +167,8 @@ impl Database {
         Self::add_column_if_missing(conn, "operation_steps", "controller_role TEXT")?;
         Self::add_column_if_missing(conn, "operation_steps", "independent_verifier_role TEXT")?;
         Self::add_column_if_missing(conn, "operation_steps", "final_approver_role TEXT")?;
+        Self::add_column_if_missing(conn, "system_alarm_events", "alarm_code TEXT")?;
+        Self::ensure_extended_platform_tables(conn)?;
         Ok(())
     }
 

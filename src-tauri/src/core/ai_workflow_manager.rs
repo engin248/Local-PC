@@ -265,6 +265,8 @@ impl AiWorkflowManager {
                 "cursor" => "cursor",
                 "perplexity" => "perplexity",
                 "verdent" => "verdent",
+                "burhan" | "burhan_command" | "albay" | "albay_burhan" => "burhan_command",
+                "egitim" | "education" | "education_office" => "education_office",
                 _ => return None,
             }
             .to_string(),

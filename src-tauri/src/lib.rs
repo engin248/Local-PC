@@ -387,6 +387,172 @@ fn get_asker_motoru_status_cmd(
 }
 
 #[tauri::command]
+fn submit_command_sentence_cmd(
+    app: AppHandle,
+    sentence: String,
+    operator_id: Option<String>,
+) -> Result<crate::core::command_orchestrator::CommandSentenceResult, String> {
+    emit_if_error(
+        &app,
+        "submit_command_sentence_cmd",
+        crate::core::command_orchestrator::CommandOrchestrator::submit_sentence(
+            &app,
+            &sentence,
+            operator_id.as_deref(),
+        ),
+    )
+}
+
+#[tauri::command]
+fn get_live_command_feed_cmd(
+    app: AppHandle,
+    limit: Option<usize>,
+) -> Result<Vec<crate::core::command_orchestrator::CommandFeedItem>, String> {
+    emit_if_error(
+        &app,
+        "get_live_command_feed_cmd",
+        crate::core::command_orchestrator::CommandOrchestrator::get_feed(limit.unwrap_or(50)),
+    )
+}
+
+#[tauri::command]
+fn get_alarm_codes_cmd(
+    app: AppHandle,
+) -> Result<Vec<crate::core::alarm_registry::AlarmCodeDefinition>, String> {
+    emit_if_error(
+        &app,
+        "get_alarm_codes_cmd",
+        crate::core::alarm_registry::AlarmRegistry::list_codes(),
+    )
+}
+
+#[tauri::command]
+fn raise_alarm_code_cmd(
+    app: AppHandle,
+    code: String,
+    source: String,
+    message: String,
+) -> Result<crate::core::alarm_registry::AlarmEventRecord, String> {
+    emit_if_error(
+        &app,
+        "raise_alarm_code_cmd",
+        (|| -> Result<crate::core::alarm_registry::AlarmEventRecord, String> {
+            let event = crate::core::alarm_registry::AlarmRegistry::raise_code(
+                &code,
+                &source,
+                &message,
+                "manual",
+            )?;
+            crate::core::live_event_bus::LiveEventBus::alarm_code(
+                &app,
+                &code,
+                &message,
+                event.speak_text.clone(),
+            );
+            Ok(event)
+        })(),
+    )
+}
+
+#[tauri::command]
+fn resolve_alarm_code_cmd(app: AppHandle, alarm_id: String) -> Result<bool, String> {
+    emit_if_error(
+        &app,
+        "resolve_alarm_code_cmd",
+        crate::core::alarm_registry::AlarmRegistry::resolve_code(&alarm_id),
+    )
+}
+
+#[tauri::command]
+fn scan_algorithm_health_cmd(
+    app: AppHandle,
+    task_id: Option<String>,
+) -> Result<crate::core::alarm_registry::HealthScanResult, String> {
+    emit_if_error(
+        &app,
+        "scan_algorithm_health_cmd",
+        (|| -> Result<crate::core::alarm_registry::HealthScanResult, String> {
+            let scan = crate::core::alarm_registry::AlarmRegistry::scan_algorithm_health(
+                task_id.as_deref(),
+            )?;
+            for event in &scan.events {
+                if let Some(code) = &event.alarm_code {
+                    crate::core::live_event_bus::LiveEventBus::alarm_code(
+                        &app,
+                        code,
+                        &event.message,
+                        event.speak_text.clone(),
+                    );
+                }
+            }
+            Ok(scan)
+        })(),
+    )
+}
+
+#[tauri::command]
+fn get_active_alarm_events_cmd(
+    app: AppHandle,
+    limit: Option<usize>,
+) -> Result<Vec<crate::core::alarm_registry::AlarmEventRecord>, String> {
+    emit_if_error(
+        &app,
+        "get_active_alarm_events_cmd",
+        crate::core::alarm_registry::AlarmRegistry::list_active_events(limit.unwrap_or(20)),
+    )
+}
+
+#[tauri::command]
+fn get_asker_motoru_live_status_cmd(
+    app: AppHandle,
+) -> Result<crate::core::asker_motoru_live_bridge::LiveStatusSnapshot, String> {
+    emit_if_error(
+        &app,
+        "get_asker_motoru_live_status_cmd",
+        Ok(crate::core::asker_motoru_live_bridge::AskerMotoruLiveBridge::fetch_live_status()),
+    )
+}
+
+#[tauri::command]
+fn post_asker_motoru_command_cmd(app: AppHandle, sentence: String) -> Result<String, String> {
+    emit_if_error(
+        &app,
+        "post_asker_motoru_command_cmd",
+        crate::core::asker_motoru_live_bridge::AskerMotoruLiveBridge::post_command(&sentence),
+    )
+}
+
+#[tauri::command]
+fn get_pinokio_health_cmd(app: AppHandle) -> Result<(String, Option<String>), String> {
+    emit_if_error(
+        &app,
+        "get_pinokio_health_cmd",
+        Ok(crate::system_connectors::pinokio_connector::PinokioConnector::health_check()),
+    )
+}
+
+#[tauri::command]
+fn get_pinokio_app_status_cmd(
+    app: AppHandle,
+    app_id: String,
+) -> Result<crate::system_connectors::pinokio_connector::PinokioAppStatus, String> {
+    emit_if_error(
+        &app,
+        "get_pinokio_app_status_cmd",
+        Ok(crate::system_connectors::pinokio_connector::PinokioConnector::status(&app_id)),
+    )
+}
+
+#[tauri::command]
+fn run_pinokio_app_cmd(app: AppHandle, app_id: String) -> Result<String, String> {
+    emit_if_error(
+        &app,
+        "run_pinokio_app_cmd",
+        crate::system_connectors::pinokio_connector::PinokioConnector::run_app(&app_id),
+    )
+}
+
+#[tauri::command]
 fn get_alarm_cards_cmd(
     app: AppHandle,
     runtime_alarms: Option<Vec<RuntimeAlarmInput>>,
@@ -987,6 +1153,18 @@ pub fn run() {
             get_operation_packages_cmd,
             get_swarm_allocations_cmd,
             get_asker_motoru_status_cmd,
+            submit_command_sentence_cmd,
+            get_live_command_feed_cmd,
+            get_alarm_codes_cmd,
+            raise_alarm_code_cmd,
+            resolve_alarm_code_cmd,
+            scan_algorithm_health_cmd,
+            get_active_alarm_events_cmd,
+            get_asker_motoru_live_status_cmd,
+            post_asker_motoru_command_cmd,
+            get_pinokio_health_cmd,
+            get_pinokio_app_status_cmd,
+            run_pinokio_app_cmd,
             sync_supabase_cmd,
             get_db_size_cmd,
             get_skill_library_summary_cmd,

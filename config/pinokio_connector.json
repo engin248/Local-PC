@@ -1,0 +1,5 @@
+{
+  "control_plane_url": "http://127.0.0.1:42000",
+  "pterm_path": "",
+  "timeout_ms": 5000
+}

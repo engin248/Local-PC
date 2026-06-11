@@ -340,6 +340,17 @@ pub fn get_migrations() -> Vec<&'static str> {
             ON approvals(task_id, decision_node_id, action, risk_level, approver_id, approver_role, status);"#,
         r#"CREATE INDEX IF NOT EXISTS idx_operation_audit_events_created_at
             ON operation_audit_events(created_at DESC);"#,
+        r#"CREATE TABLE IF NOT EXISTS command_feed (
+            id TEXT PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            source TEXT NOT NULL,
+            message TEXT NOT NULL,
+            task_id TEXT,
+            metadata_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );"#,
+        r#"CREATE INDEX IF NOT EXISTS idx_command_feed_created_at
+            ON command_feed(created_at DESC);"#,
     ]
 }
 

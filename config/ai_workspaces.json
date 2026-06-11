@@ -67,6 +67,28 @@
         "user_impact_assessment",
         "write_operations_report"
       ]
+    },
+    "burhan_command": {
+      "role": "supreme_commander",
+      "inbox": "ai_workflow/platforms/burhan_command/inbox",
+      "outbox": "ai_workflow/platforms/burhan_command/outbox",
+      "allowed_actions": [
+        "receive_command",
+        "dispatch_orders",
+        "coordinate_agents",
+        "write_command_report"
+      ]
+    },
+    "education_office": {
+      "role": "turkish_culture_trainer",
+      "inbox": "ai_workflow/platforms/education_office/inbox",
+      "outbox": "ai_workflow/platforms/education_office/outbox",
+      "allowed_actions": [
+        "teach_turkish",
+        "teach_culture",
+        "verify_language_compliance",
+        "write_training_report"
+      ]
     }
   },
   "shared_paths": {

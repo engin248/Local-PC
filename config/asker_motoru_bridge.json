@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "windows_root": "",
+  "linux_root": "",
+  "roots": [],
+  "live_api": {
+    "enabled": false,
+    "api_base_url": "http://127.0.0.1:3100",
+    "ws_url": "ws://127.0.0.1:3100/ws",
+    "timeout_ms": 5000,
+    "poll_interval_ms": 2000
+  },
+  "status_files": [
+    "PLANLAMA_DURUMU.json",
+    "SISTEM_ALARM_DURUMU.json",
+    "EGITIM_DURUMU.json",
+    "SON_PLANLAMA_OPERASYONU.json"
+  ]
+}
