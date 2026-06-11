@@ -14,19 +14,14 @@
   import RollbackPanel from "../components/RollbackPanel.svelte";
   import LiveLog from "../components/LiveLog.svelte";
   import StructuredReportPanel from "../components/StructuredReportPanel.svelte";
-  import SwarmMonitorPanel from "../components/SwarmMonitorPanel.svelte";
   import { isTauriRuntime } from "../lib/runtime";
   import DefinitiveAnswerPanel from "../components/DefinitiveAnswerPanel.svelte";
-  import AIConnectionsPanel from "../components/AIConnectionsPanel.svelte";
-  import SystemConnectionsPanel from "../components/SystemConnectionsPanel.svelte";
-  import AlarmCardsPanel from "../components/AlarmCardsPanel.svelte";
   import IntakePanel from "../components/IntakePanel.svelte";
   import LiveExecutionTracker from "../components/LiveExecutionTracker.svelte";
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
   import OperationPackagePanel from "../components/OperationPackagePanel.svelte";
   import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
-  import AskerModuleInventoryPanel from "../components/AskerModuleInventoryPanel.svelte";
-  import CommandCenterLayout from "../components/CommandCenterLayout.svelte";
+  import KontrolDepartmaniPanel from "../components/KontrolDepartmaniPanel.svelte";
   import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
   import { speakText, stopSpeech, formatAlarmSpeech } from "../lib/voiceService";
   import { resolveFlowStage, isCommandCenterTask } from "../lib/commandFlow";
@@ -58,7 +53,7 @@
   let askerMotoruLiveStatus = $state<any | null>(null);
   let activeAlarmEvents = $state<any[]>([]);
 
-  let activeSection = $state("planning");
+  let activeSection = $state("kontrol");
   let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
   let globalError = $state<string | null>(null);
   let alarmMuted = $state(false);
@@ -1269,11 +1264,11 @@
         {/if}
       </div>
       <div class="navigation-tabs">
+        <button class="nav-btn" class:active={activeSection === 'kontrol'} onclick={() => activeSection = 'kontrol'}>KONTROL DEPARTMANI</button>
         <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
         <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
         <button class="nav-btn" class:active={activeSection === 'security'} onclick={() => activeSection = 'security'}>GUVENLIK DUVARI & ONAY (GATE 5-7)</button>
         <button class="nav-btn" class:active={activeSection === 'skills'} onclick={() => activeSection = 'skills'}>BECERİ KÜTÜPHANESİ</button>
-        <button class="nav-btn" class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>BAGLANTILAR</button>
         <button class="nav-btn" class:active={activeSection === 'execution'} onclick={() => activeSection = 'execution'}>TEST VE RAPOR (GATE 8)</button>
       </div>
       <div class="voice-controls">
@@ -1336,83 +1331,43 @@
     {/if}
 
     <div class="workspace-scroll-area">
-      <CommandCenterLayout
-        commandFeed={commandFeed}
-        burhanEvents={burhanEvents}
-        lastBurhanDispatch={lastBurhanDispatch}
-        selectedTaskId={selectedTaskId}
-        swarmAllocations={swarmAllocations}
-        reports={reports}
-        voiceRepliesEnabled={voiceRepliesEnabled}
-        flowStage={commandFlowStage}
-        onCommandSubmitted={handleCommandSubmitted}
-        onSpeakReport={(text, key) => speakReply(text, key, true)}
-      />
-      <OperationDoctrinePanel />
-      <TaskDetail task={selectedTask} onExecute={handleExecute} operationsAllowed={commandFlowStage !== "awaiting_task"} />
-      <OperationPackagePanel packages={operationPackages} />
-      <DefinitiveAnswerPanel
-        task={selectedTask}
-        approvals={approvals}
-        tests={tests}
-        reports={reports}
-        voiceRepliesEnabled={voiceRepliesEnabled}
-        onSpeakAnswer={speakReply}
-        onStopVoice={stopVoiceReply}
-      />
-
-      <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} allocations={swarmAllocations} />
-
-      {#if activeSection === 'connections'}
-        <AskerModuleInventoryPanel />
-        <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
-        <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
-        <AlarmCardsPanel alarms={alarmCards} />
-        <SwarmMonitorPanel allocations={swarmAllocations} taskId={selectedTaskId} />
-        {#if activeAlarmEvents.length > 0}
-          <div class="alarm-code-panel">
-            <h3>Aktif Alarm Kodları</h3>
-            {#each activeAlarmEvents as alarm}
-              <div class="alarm-code-item">
-                <strong>{alarm.alarm_code || "000"}</strong>
-                <span>{alarm.source}</span>
-                <p>{alarm.message}</p>
-              </div>
-            {/each}
-          </div>
-        {/if}
-        {#if askerMotoruLiveStatus}
-          <div class="asker-live-panel">
-            <h3>Asker Motoru Canlı API</h3>
-            <p>Durum: {askerMotoruLiveStatus.health} / Bağlı: {askerMotoruLiveStatus.connected ? "evet" : "hayır"}</p>
-            {#if askerMotoruLiveStatus.last_error}
-              <pre>{askerMotoruLiveStatus.last_error}</pre>
-            {/if}
-          </div>
-        {/if}
-        {#if askerMotoruStatus}
-          <div class="asker-bridge-panel">
-            <h3>Asker Motoru Durum Köprüsü</h3>
-            <p>DB boyutu: {(dbSizeBytes / (1024 * 1024)).toFixed(2)} MB</p>
-            {#each askerMotoruStatus.root_sources || [] as root}
-              <div class="asker-file" class:missing={root.health !== "available"}>
-                <strong>{root.kind}: {root.source_path || "bağlı değil"}</strong>
-                <span>{root.source_kind} / {root.health}</span>
-                <pre>{root.error || "Kaynak erişilebilir."}</pre>
-              </div>
-            {/each}
-            {#each askerMotoruStatus.files as file}
-              <div class="asker-file" class:missing={!file.exists}>
-                <strong>{file.path}</strong>
-                <span>{file.source_kind} / {file.health}</span>
-                <pre>{file.preview}</pre>
-              </div>
-            {/each}
-          </div>
-        {/if}
+      {#if activeSection === 'kontrol'}
+        <KontrolDepartmaniPanel
+          commandFeed={commandFeed}
+          burhanEvents={burhanEvents}
+          lastBurhanDispatch={lastBurhanDispatch}
+          selectedTaskId={selectedTaskId}
+          swarmAllocations={swarmAllocations}
+          reports={reports}
+          voiceRepliesEnabled={voiceRepliesEnabled}
+          flowStage={commandFlowStage}
+          providers={aiProviderHealth}
+          connectors={systemConnectorHealth}
+          alarms={alarmCards}
+          askerMotoruStatus={askerMotoruStatus}
+          askerMotoruLiveStatus={askerMotoruLiveStatus}
+          dbSizeBytes={dbSizeBytes}
+          activeAlarmEvents={activeAlarmEvents}
+          onCommandSubmitted={handleCommandSubmitted}
+          onSpeakReport={(text, key) => speakReply(text, key, true)}
+          onRefresh={() => refreshConnectionHealth(true)}
+        />
       {:else if activeSection === 'skills'}
         <SkillLibraryExplorer />
       {:else if selectedTask}
+        <OperationDoctrinePanel />
+        <TaskDetail task={selectedTask} onExecute={handleExecute} operationsAllowed={commandFlowStage !== "awaiting_task"} />
+        <OperationPackagePanel packages={operationPackages} />
+        <DefinitiveAnswerPanel
+          task={selectedTask}
+          approvals={approvals}
+          tests={tests}
+          reports={reports}
+          voiceRepliesEnabled={voiceRepliesEnabled}
+          onSpeakAnswer={speakReply}
+          onStopVoice={stopVoiceReply}
+        />
+        <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} allocations={swarmAllocations} />
         {#if activeSection === 'planning'}
           <PlanningStatus task={selectedTask} onSavePlan={handleSavePlan} />
         {:else if activeSection === 'decisions'}
@@ -2051,64 +2006,6 @@
   .agent-msg strong { display: block; margin-bottom: 6px; color: #47d18c; font-size: 12px; }
   .agent-msg pre { margin: 0; font-family: monospace; font-size: 12px; color: #b8b8bf; white-space: pre-wrap; }
   .empty-stream { color: #8d8d95; font-size: 13px; font-style: italic; }
-  .alarm-code-panel,
-  .asker-live-panel,
-  .asker-bridge-panel {
-    padding: 18px;
-    border: 1px solid #2a2a2d;
-    background: #18181a;
-    border-radius: 6px;
-    margin-bottom: 16px;
-    color: #f4f4f5;
-  }
-  .alarm-code-item {
-    padding: 8px;
-    margin-top: 8px;
-    border: 1px solid #5a2020;
-    border-radius: 6px;
-    background: #1a1010;
-  }
-  .alarm-code-item strong {
-    color: #ff8a8a;
-    margin-right: 8px;
-  }
-  .asker-live-panel {
-    border-color: #2f4a66;
-    background: #101820;
-  }
-  .asker-file {
-    padding: 10px;
-    margin-top: 8px;
-    border: 1px solid #2d2d31;
-    border-radius: 6px;
-    background: #111113;
-  }
-  .asker-file.missing {
-    border-color: rgba(248, 193, 74, 0.35);
-  }
-  .asker-file strong,
-  .asker-file span {
-    display: block;
-    color: #dfe4ec;
-    overflow-wrap: anywhere;
-  }
-  .asker-file span {
-    width: fit-content;
-    margin-top: 4px;
-    padding: 2px 6px;
-    border: 1px solid #3b3b40;
-    border-radius: 999px;
-    color: #9fd3ff;
-    font-size: 10px;
-    font-weight: 800;
-  }
-  .asker-file pre {
-    margin: 8px 0 0;
-    color: #b8b8bf;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    font-size: 12px;
-  }
   .progress-bar-container { display: flex; align-items: center; justify-content: center; padding: 12px 20px; background: #0c0c0d; border-bottom: 1px solid #1f1f21; }
   .progress-step { font-size: 11px; font-weight: bold; color: #555; padding: 4px 10px; border-radius: 12px; background: #18181a; border: 1px solid #2d2d31; }
   .progress-step.active { color: #15110a; background: #f59e0b; border-color: #f59e0b; }
