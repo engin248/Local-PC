@@ -30,7 +30,6 @@ pub struct LiveStatusSnapshot {
     pub education_status: Option<String>,
     pub alarm_status: Option<String>,
     pub last_error: Option<String>,
-    pub module_count_hint: Option<u32>,
 }
 
 pub struct AskerMotoruLiveBridge;
@@ -79,7 +78,6 @@ impl AskerMotoruLiveBridge {
                 education_status: None,
                 alarm_status: None,
                 last_error: Some("Canlı API köprüsü devre dışı. Dosya köprüsü aktif.".to_string()),
-                module_count_hint: Some(314),
             };
         }
 
@@ -104,7 +102,6 @@ impl AskerMotoruLiveBridge {
                     education_status: Self::extract_field(&body, "education"),
                     alarm_status: Self::extract_field(&body, "alarm"),
                     last_error: None,
-                    module_count_hint: Some(314),
                 }
             }
             Err(err) => LiveStatusSnapshot {
@@ -115,7 +112,6 @@ impl AskerMotoruLiveBridge {
                 education_status: None,
                 alarm_status: None,
                 last_error: Some(format!("Canlı API erişilemedi: {err}")),
-                module_count_hint: Some(314),
             },
         }
     }

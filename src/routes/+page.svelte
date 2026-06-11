@@ -604,7 +604,6 @@
           connected: false,
           api_base_url: "http://127.0.0.1:3100",
           health: "disabled",
-          module_count_hint: 314,
           last_error: "PREVIEW / MOCK: Canlı API devre dışı."
         };
       case "get_pinokio_health_cmd":
@@ -1369,7 +1368,6 @@
           <div class="asker-live-panel">
             <h3>Asker Motoru Canlı API</h3>
             <p>Durum: {askerMotoruLiveStatus.health} / Bağlı: {askerMotoruLiveStatus.connected ? "evet" : "hayır"}</p>
-            <p>Modül envanteri: {askerMotoruLiveStatus.module_count_hint || 314}</p>
             {#if askerMotoruLiveStatus.last_error}
               <pre>{askerMotoruLiveStatus.last_error}</pre>
             {/if}
