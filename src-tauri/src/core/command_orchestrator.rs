@@ -37,6 +37,30 @@ pub struct CommandFeedItem {
 pub struct CommandOrchestrator;
 
 impl CommandOrchestrator {
+    pub fn is_command_center_task(user_request: &str) -> bool {
+        user_request.contains("[KomutMerkezi:")
+    }
+
+    pub fn assert_operations_allowed(task_id: &str) -> Result<(), String> {
+        let db = Database::new();
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let user_request: String = conn
+            .query_row(
+                "SELECT user_request FROM tasks WHERE id = ?1",
+                params![task_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| format!("Görev bulunamadı: {task_id}"))?;
+        if Self::is_command_center_task(&user_request) {
+            Ok(())
+        } else {
+            Err(
+                "Operasyon başlatılamaz. Önce Komuta Panelinden Albay Burhan'a görev atayın."
+                    .to_string(),
+            )
+        }
+    }
+
     pub fn submit_sentence(
         app: &AppHandle,
         sentence: &str,
@@ -158,5 +182,18 @@ impl CommandOrchestrator {
         )
         .map_err(|e| e.to_string())?;
         Ok(id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CommandOrchestrator;
+
+    #[test]
+    fn detects_command_center_tasks() {
+        assert!(CommandOrchestrator::is_command_center_task(
+            "[KomutMerkezi:kurucu] test"
+        ));
+        assert!(!CommandOrchestrator::is_command_center_task("normal task"));
     }
 }

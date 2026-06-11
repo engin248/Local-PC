@@ -28,6 +28,7 @@
   import CommandCenterLayout from "../components/CommandCenterLayout.svelte";
   import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
   import { speakText, stopSpeech, formatAlarmSpeech } from "../lib/voiceService";
+  import { resolveFlowStage, isCommandCenterTask } from "../lib/commandFlow";
 
 
   let tasks = $state<any[]>([]);
@@ -52,6 +53,7 @@
   let commandFeed = $state<any[]>([]);
   let burhanEvents = $state<any[]>([]);
   let lastBurhanDispatch = $state<string | null>(null);
+  let commandFlowStage = $derived(resolveFlowStage(selectedTask, !!lastBurhanDispatch));
   let askerMotoruLiveStatus = $state<any | null>(null);
   let activeAlarmEvents = $state<any[]>([]);
 
@@ -977,25 +979,16 @@
   }
 
 
-  async function handleCreateTask(title: string, userRequest: string) {
-    try {
-      const beforeTotal = tasks.length;
-      const newTask: any = await invokeWithAudit("create_task_cmd", { title, userRequest }, {
-        action: "create_task",
-        details: `Task created: ${title}`,
-        context: {
-          before: { task_count: beforeTotal },
-          after: { title, user_request: userRequest },
-        },
-      });
-      selectedTaskId = newTask.id;
-      await loadTasks();
-      await loadOperationAuditTrail();
-      speakReply("Görev kaydedildi. Kesin cevap için planlama ve güvenlik kapıları bekleniyor.", `task-created:${newTask.id}`, true);
-    } catch (err) {
-      console.error("Görev oluşturulamadı:", err);
-      raiseCriticalAlarm("Görev oluşturulamadı", err);
-    }
+  async function handleCreateTask(_title: string, _userRequest: string) {
+    speakReply(
+      "Görev yalnızca üst panelden Albay Burhan'a atanır.",
+      "intake-blocked",
+      true,
+    );
+    raiseCriticalAlarm(
+      "Akış ihlali",
+      "Intake paneli devre dışı. Önce Panel 1'den görev atayın.",
+    );
   }
 
   async function handleSavePlan(planInput: any) {
@@ -1021,6 +1014,11 @@
 
   async function handleExecute() {
     if (!selectedTaskId) return;
+    if (!isCommandCenterTask(selectedTask)) {
+      speakReply("Operasyon kilitli. Önce görev atayın.", "execute-blocked", true);
+      raiseCriticalAlarm("Operasyon kilitli", "Komuta panelinden görev atılmadan operasyon başlatılamaz.");
+      return;
+    }
     try {
       const beforeTask = selectedTask;
       const res: any = await invokeWithAudit("execute_task_cmd", { taskId: selectedTaskId });
@@ -1331,11 +1329,12 @@
         swarmAllocations={swarmAllocations}
         reports={reports}
         voiceRepliesEnabled={voiceRepliesEnabled}
+        flowStage={commandFlowStage}
         onCommandSubmitted={handleCommandSubmitted}
         onSpeakReport={(text, key) => speakReply(text, key, true)}
       />
       <OperationDoctrinePanel />
-      <TaskDetail task={selectedTask} onExecute={handleExecute} />
+      <TaskDetail task={selectedTask} onExecute={handleExecute} operationsAllowed={commandFlowStage !== "awaiting_task"} />
       <OperationPackagePanel packages={operationPackages} />
       <DefinitiveAnswerPanel
         task={selectedTask}

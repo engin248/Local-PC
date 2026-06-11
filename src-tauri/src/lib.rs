@@ -147,7 +147,16 @@ fn save_plan_cmd(app: AppHandle, task_id: String, plan: PlanningStandardInput) -
 
 #[tauri::command]
 fn execute_task_cmd(app: AppHandle, task_id: String) -> Result<ExecutionResult, String> {
-    emit_if_error(&app, "execute_task_cmd", execute_task_pipeline(&task_id))
+    emit_if_error(
+        &app,
+        "execute_task_cmd",
+        (|| -> Result<ExecutionResult, String> {
+            crate::core::command_orchestrator::CommandOrchestrator::assert_operations_allowed(
+                &task_id,
+            )?;
+            execute_task_pipeline(&task_id)
+        })(),
+    )
 }
 
 #[tauri::command]

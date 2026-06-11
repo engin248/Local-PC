@@ -1,8 +1,15 @@
 <script lang="ts">
-  let { task = null, onExecute } = $props<{
+  import { isCommandCenterTask } from "../lib/commandFlow";
+
+  let { task = null, onExecute, operationsAllowed = true } = $props<{
     task: any;
     onExecute: () => void;
+    operationsAllowed?: boolean;
   }>();
+
+  const canExecute = $derived(
+    operationsAllowed && isCommandCenterTask(task) && task?.planning_status === "planning_complete" && task?.status !== "completed"
+  );
 
   let createdAt = $derived(
     task?.created_at ? task.created_at.substring(0, 19).replace('T', ' ') : "kayıt yok"
@@ -54,7 +61,9 @@
     </div>
 
     <div class="action-bar">
-      {#if task.planning_status === 'planning_complete' && task.status !== 'completed'}
+      {#if !isCommandCenterTask(task)}
+        <span class="blocked-msg">Operasyon kilitli. Önce üst panelden Albay Burhan'a görev atayın.</span>
+      {:else if canExecute}
         <button class="btn execute-btn" onclick={onExecute}>Execution Engine Başlat (8 Kapı)</button>
       {:else if task.status === 'completed'}
         <span class="completed-msg">İşlem 8 kapıdan geçti ve tamamlandı.</span>
@@ -150,5 +159,6 @@
   
   .completed-msg { color: #4ec9b0; font-weight: bold; font-size: 0.85rem; }
   .warning-msg { color: #ce9178; font-weight: bold; font-size: 0.85rem; }
+  .blocked-msg { color: #ff9b9b; font-weight: 700; font-size: 0.85rem; }
   .no-task { text-align: center; color: #666; font-size: 0.9rem; padding: 40px 0; }
 </style>
