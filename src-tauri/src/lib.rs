@@ -5,7 +5,11 @@ pub mod system_connectors;
 
 use crate::ai_providers::ai_provider_manager::AIProviderManager;
 use crate::ai_providers::provider_base::AIProviderHealth;
+use crate::core::asker_module_registry::{
+    AskerModuleRecord, AskerModuleRegistry, AskerModuleSummary,
+};
 use crate::core::approval_manager::submit_approval;
+use crate::core::skill_library::SkillLibrary;
 use crate::core::audit_logger::AuditLogger;
 use crate::core::execution_engine::{execute_task_pipeline, ExecutionResult};
 use crate::core::planning_gate::{save_plan, PlanningStandardInput};
@@ -1050,12 +1054,44 @@ pub struct SkillItemUi {
 }
 
 #[tauri::command]
+fn get_asker_module_summary_cmd(app: AppHandle) -> Result<AskerModuleSummary, String> {
+    emit_if_error(
+        &app,
+        "get_asker_module_summary_cmd",
+        Ok(AskerModuleRegistry::summary()),
+    )
+}
+
+#[tauri::command]
+fn get_asker_module_inventory_cmd(
+    app: AppHandle,
+    limit: Option<usize>,
+) -> Result<Vec<AskerModuleRecord>, String> {
+    emit_if_error(
+        &app,
+        "get_asker_module_inventory_cmd",
+        AskerModuleRegistry::list_modules(limit.unwrap_or(200)),
+    )
+}
+
+#[tauri::command]
+fn get_module_skills_cmd(app: AppHandle, module_id: String) -> Result<Vec<String>, String> {
+    emit_if_error(
+        &app,
+        "get_module_skills_cmd",
+        AskerModuleRegistry::module_skills(&module_id),
+    )
+}
+
+#[tauri::command]
 fn get_skill_library_summary_cmd(app: AppHandle) -> Result<SkillSummary, String> {
     emit_if_error(
         &app,
         "get_skill_library_summary_cmd",
         (|| -> Result<SkillSummary, String> {
-            let db_path = "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite";
+            let db_path = SkillLibrary::resolve_db_path().ok_or_else(|| {
+                "Beceri kütüphanesi SQLite yolu bulunamadı. SKILL_LIBRARY_DB_PATH veya config/skill_library.json ayarlayın.".to_string()
+            })?;
             let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
             
             let total_count: i64 = conn.query_row("SELECT COUNT(*) FROM skills", [], |row| row.get(0)).unwrap_or(0);
@@ -1077,7 +1113,9 @@ fn search_skill_library_cmd(app: AppHandle, query: String, category: Option<Stri
         &app,
         "search_skill_library_cmd",
         (|| -> Result<Vec<SkillItemUi>, String> {
-            let db_path = "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite";
+            let db_path = SkillLibrary::resolve_db_path().ok_or_else(|| {
+                "Beceri kütüphanesi SQLite yolu bulunamadı. SKILL_LIBRARY_DB_PATH veya config/skill_library.json ayarlayın.".to_string()
+            })?;
             let conn = rusqlite::Connection::open(db_path).map_err(|e| e.to_string())?;
             
             let mut sql = "SELECT skill_id, name, language, category, status, created_at, description FROM skills WHERE 1=1".to_string();
@@ -1176,6 +1214,9 @@ pub fn run() {
             run_pinokio_app_cmd,
             sync_supabase_cmd,
             get_db_size_cmd,
+            get_asker_module_summary_cmd,
+            get_asker_module_inventory_cmd,
+            get_module_skills_cmd,
             get_skill_library_summary_cmd,
             search_skill_library_cmd
         ])

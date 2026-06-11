@@ -18,7 +18,7 @@
     description: string;
   }
 
-  let summary: SkillSummary = { total_count: 14603, python_count: 12000, javascript_count: 2603 };
+  let summary: SkillSummary = { total_count: 0, python_count: 0, javascript_count: 0 };
   let searchQuery = "";
   let selectedCategory = "";
   let skills: SkillItem[] = [];

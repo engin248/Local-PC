@@ -25,6 +25,7 @@
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
   import OperationPackagePanel from "../components/OperationPackagePanel.svelte";
   import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
+  import AskerModuleInventoryPanel from "../components/AskerModuleInventoryPanel.svelte";
   import CommandCenterLayout from "../components/CommandCenterLayout.svelte";
   import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
   import { speakText, stopSpeech, formatAlarmSpeech } from "../lib/voiceService";
@@ -606,6 +607,21 @@
           health: "disabled",
           last_error: "PREVIEW / MOCK: Canlı API devre dışı."
         };
+      case "get_asker_module_summary_cmd":
+        return {
+          expected_module_total: 314,
+          registered_module_count: 0,
+          active_in_panel_count: 0,
+          skill_count: 0,
+          source_kind: "preview",
+          source_path: null,
+          inventory_match: false,
+          last_error: "PREVIEW / MOCK: UZMAN_HAVUZU.json veya skill_library.sqlite bağlı değil."
+        };
+      case "get_asker_module_inventory_cmd":
+        return [];
+      case "get_module_skills_cmd":
+        return [];
       case "get_pinokio_health_cmd":
         return ["unavailable", "PREVIEW / MOCK: Pinokio erişilemiyor."];
       default:
@@ -1348,6 +1364,7 @@
       <LiveExecutionTracker task={selectedTask} breakdowns={breakdowns} allocations={swarmAllocations} />
 
       {#if activeSection === 'connections'}
+        <AskerModuleInventoryPanel />
         <AIConnectionsPanel providers={aiProviderHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <SystemConnectionsPanel connectors={systemConnectorHealth} onRefresh={() => refreshConnectionHealth(true)} />
         <AlarmCardsPanel alarms={alarmCards} />

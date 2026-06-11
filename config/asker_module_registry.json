@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "expected_module_total": 314,
+  "inventory_files": [
+    "UZMAN_HAVUZU.json",
+    "module_inventory.json",
+    "MODUL_ENVANTERI.json",
+    "ASKER_MOTORU_AI_AJAN_TAM_ENVANTER_002_EGITIM.md"
+  ],
+  "sqlite": {
+    "module_table_candidates": ["modules", "swarm_modules", "asker_modules"],
+    "skill_table": "skills",
+    "module_id_columns": ["module_id", "modul_id", "module_no", "modul_no"]
+  }
+}
