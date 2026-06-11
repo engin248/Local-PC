@@ -25,6 +25,7 @@
   import OperationDoctrinePanel from "../components/OperationDoctrinePanel.svelte";
   import OperationPackagePanel from "../components/OperationPackagePanel.svelte";
   import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
+  import AskerMotoruCommandCenter from "../components/AskerMotoruCommandCenter.svelte";
 
 
   let tasks = $state<any[]>([]);
@@ -848,6 +849,15 @@
     }
   }
 
+  function openConnectionsCenter() {
+    activeSection = "connections";
+  }
+
+  function openTaskIntake() {
+    selectedTaskId = null;
+    activeSection = "planning";
+  }
+
 
   async function handleCreateTask(title: string, userRequest: string) {
     try {
@@ -1037,9 +1047,13 @@
       loadTasks();
       loadOperationAuditTrail();
     }, 3000);
+    const connectionHealthInterval = setInterval(() => {
+      refreshConnectionHealth(false);
+    }, 15000);
     return () => {
       isMounted = false;
       clearInterval(interval);
+      clearInterval(connectionHealthInterval);
       if (criticalErrorUnlisten) {
         criticalErrorUnlisten();
         criticalErrorUnlisten = null;
@@ -1187,6 +1201,23 @@
     {/if}
 
     <div class="workspace-scroll-area">
+      <AskerMotoruCommandCenter
+        tasks={tasks}
+        selectedTask={selectedTask}
+        providers={aiProviderHealth}
+        connectors={systemConnectorHealth}
+        allocations={swarmAllocations}
+        askerMotoruStatus={askerMotoruStatus}
+        dbSizeBytes={dbSizeBytes}
+        runtimeMode={runtimeMode}
+        criticalAlarmCounter={criticalAlarmCounter}
+        lastCriticalAlarmSource={lastCriticalAlarmSource}
+        lastCriticalAlarmAt={lastCriticalAlarmAt}
+        onRefresh={() => refreshConnectionHealth(true)}
+        onOpenConnections={openConnectionsCenter}
+        onNewTask={openTaskIntake}
+        onSelectTask={handleSelectTask}
+      />
       <OperationDoctrinePanel />
       <TaskDetail task={selectedTask} onExecute={handleExecute} />
       <OperationPackagePanel packages={operationPackages} />
