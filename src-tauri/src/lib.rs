@@ -15,6 +15,7 @@ use crate::core::task_intake::{create_task, Task, TaskIntakeRequest};
 use crate::storage::db::init_db;
 use crate::system_connectors::connector_base::SystemConnectorHealth;
 use crate::system_connectors::system_connector_manager::SystemConnectorManager;
+use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 use std::panic::PanicHookInfo;
@@ -56,6 +57,26 @@ struct NewOperationAudit {
     metadata_json: Option<String>,
     error_message: Option<String>,
     correlation_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct RuntimeAlarmInput {
+    source: String,
+    message: String,
+    timestamp: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct AlarmCard {
+    id: String,
+    title: String,
+    source_kind: String,
+    health: String,
+    runtime_only: bool,
+    source_path: Option<String>,
+    last_checked: String,
+    error: Option<String>,
+    details: String,
 }
 
 fn emit_critical_error(app: &AppHandle, command: &str, source: &str, message: &str, correlation_id: Option<String>) {
@@ -362,6 +383,96 @@ fn get_asker_motoru_status_cmd(
         &app,
         "get_asker_motoru_status_cmd",
         Ok(crate::core::asker_motoru_bridge::AskerMotoruBridge::scan_status_files()),
+    )
+}
+
+#[tauri::command]
+fn get_alarm_cards_cmd(
+    app: AppHandle,
+    runtime_alarms: Option<Vec<RuntimeAlarmInput>>,
+) -> Result<Vec<AlarmCard>, String> {
+    emit_if_error(
+        &app,
+        "get_alarm_cards_cmd",
+        (|| -> Result<Vec<AlarmCard>, String> {
+            let now = chrono::Utc::now().to_rfc3339();
+            let mut cards = Vec::new();
+
+            for (index, alarm) in runtime_alarms.unwrap_or_default().into_iter().enumerate() {
+                cards.push(AlarmCard {
+                    id: format!("runtime-{}", index),
+                    title: alarm.source,
+                    source_kind: "unavailable".to_string(),
+                    health: "runtime_only".to_string(),
+                    runtime_only: true,
+                    source_path: None,
+                    last_checked: alarm.timestamp.unwrap_or_else(|| now.clone()),
+                    error: Some("runtime only".to_string()),
+                    details: alarm.message,
+                });
+            }
+
+            match crate::core::asker_motoru_bridge::AskerMotoruBridge::read_alarm_status_file() {
+                Some((path, content)) => cards.push(AlarmCard {
+                    id: "asker-motoru-json".to_string(),
+                    title: "SISTEM_ALARM_DURUMU.json".to_string(),
+                    source_kind: "json".to_string(),
+                    health: "available".to_string(),
+                    runtime_only: false,
+                    source_path: Some(path),
+                    last_checked: now.clone(),
+                    error: None,
+                    details: content.chars().take(500).collect(),
+                }),
+                None => cards.push(AlarmCard {
+                    id: "asker-motoru-json".to_string(),
+                    title: "SISTEM_ALARM_DURUMU.json".to_string(),
+                    source_kind: "unavailable".to_string(),
+                    health: "unavailable".to_string(),
+                    runtime_only: false,
+                    source_path: None,
+                    last_checked: now.clone(),
+                    error: Some("SISTEM_ALARM_DURUMU.json bağlı değil.".to_string()),
+                    details: "bağlı değil".to_string(),
+                }),
+            }
+
+            let conn = init_db().map_err(|e| e.to_string())?;
+            let persistent_count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM system_alarm_events WHERE resolved_at IS NULL",
+                    [],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            let last_persistent: Option<(String, String, String)> = conn
+                .query_row(
+                    "SELECT source, message, persisted_at FROM system_alarm_events WHERE resolved_at IS NULL ORDER BY persisted_at DESC LIMIT 1",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+            cards.push(AlarmCard {
+                id: "sqlite-persistent-alarms".to_string(),
+                title: "SQLite kalıcı alarm kaydı".to_string(),
+                source_kind: "sqlite".to_string(),
+                health: if persistent_count > 0 { "available" } else { "available_empty" }.to_string(),
+                runtime_only: false,
+                source_path: Some("storage/app.db:system_alarm_events".to_string()),
+                last_checked: now,
+                error: None,
+                details: match last_persistent {
+                    Some((source, message, persisted_at)) => format!(
+                        "{} aktif kalıcı alarm. Son: {} / {} / {}",
+                        persistent_count, source, message, persisted_at
+                    ),
+                    None => "Aktif kalıcı alarm yok.".to_string(),
+                },
+            });
+
+            Ok(cards)
+        })(),
     )
 }
 
@@ -863,6 +974,7 @@ pub fn run() {
             get_system_health_cmd,
             get_ai_provider_health_cmd,
             get_system_connector_health_cmd,
+            get_alarm_cards_cmd,
             get_tasks_cmd,
             get_task_logs_cmd,
             get_decisions_cmd,

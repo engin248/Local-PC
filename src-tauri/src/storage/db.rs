@@ -24,7 +24,7 @@ impl Database {
     pub fn try_new() -> std::result::Result<Self, String> {
         let root = crate::core::dependency_analyzer::DependencyAnalyzer::get_project_root()
             .map_err(|e| format!("KRITIK HATA: Proje kok dizini bulunamadi: {}", e))?;
-        let storage_path = root.join("storage");
+        let storage_path = root.join(Self::storage_dir_name());
         let storage_dir = storage_path.to_string_lossy().into_owned();
 
         // Create storage and subdirectories
@@ -41,6 +41,24 @@ impl Database {
         let db = Database { db_path };
         db.run_migrations().map_err(|e| e.to_string())?;
         Ok(db)
+    }
+
+    fn storage_dir_name() -> String {
+        #[cfg(test)]
+        {
+            let thread_id = format!("{:?}", std::thread::current().id())
+                .replace("ThreadId(", "")
+                .replace(')', "");
+            return std::env::temp_dir()
+                .join("lokal_panel_test_storage")
+                .join(format!("{}-{}", std::process::id(), thread_id))
+                .to_string_lossy()
+                .into_owned();
+        }
+        #[cfg(not(test))]
+        {
+            "storage".to_string()
+        }
     }
 
     pub fn get_connection(&self) -> Result<Connection> {

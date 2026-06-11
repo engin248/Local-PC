@@ -325,6 +325,15 @@ pub fn get_migrations() -> Vec<&'static str> {
             FOREIGN KEY(task_id) REFERENCES ai_tasks(id) ON DELETE CASCADE,
             UNIQUE(task_id, platform_name)
         );"#,
+        r#"CREATE TABLE IF NOT EXISTS system_alarm_events (
+            id TEXT PRIMARY KEY,
+            source TEXT NOT NULL,
+            message TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'runtime',
+            source_kind TEXT NOT NULL DEFAULT 'sqlite',
+            persisted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            resolved_at DATETIME
+        );"#,
         r#"CREATE INDEX IF NOT EXISTS idx_approvals_task_node_action_risk_status
             ON approvals(task_id, decision_node_id, action, risk_level, status);"#,
         r#"CREATE INDEX IF NOT EXISTS idx_approvals_authorized_signatures

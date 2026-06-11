@@ -6,6 +6,7 @@ use rusqlite::{params, Connection};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 pub struct SystemConnectorManager;
 
@@ -33,49 +34,66 @@ impl SystemConnectorManager {
     }
 
     fn health_check(config: &SystemConnectorConfig) -> SystemConnectorHealth {
-        let target = config.path.clone().or_else(|| config.base_url.clone());
+        let resolved_path = config.path.as_deref().and_then(Self::resolve_path);
+        let source_path = resolved_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .or_else(|| config.path.clone());
+        let endpoint = config.base_url.clone();
+        let target = source_path.clone().or_else(|| endpoint.clone());
+        let source_kind = Self::source_kind(config, resolved_path.as_deref());
         let mut status = if config.enabled {
             "available"
         } else {
             "disabled"
         }
         .to_string();
+        let mut health = status.clone();
         let mut last_error = None;
 
         if config.enabled {
             match config.connector_type.as_str() {
-                "folder" | "file" => match config.path.as_deref().and_then(Self::resolve_path) {
+                "folder" | "file" => match resolved_path.as_deref() {
                     Some(path) if path.exists() => {
                         status = "available".to_string();
+                        health = "available".to_string();
                     }
                     Some(path) => {
                         status = "error".to_string();
+                        health = "unavailable".to_string();
                         last_error = Some(format!("Path bulunamadı: {}", path.display()));
                     }
                     None => {
                         status = "error".to_string();
+                        health = "unavailable".to_string();
                         last_error = Some("Path çözümlenemedi.".to_string());
                     }
                 },
-                "sqlite" => match config.path.as_deref().and_then(Self::resolve_path) {
+                "sqlite" => match resolved_path.as_deref() {
                     Some(path) if path.exists() => {
                         match Connection::open_with_flags(
                             &path,
                             rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
                         ) {
-                            Ok(_) => status = "available".to_string(),
+                            Ok(_) => {
+                                status = "available".to_string();
+                                health = "available".to_string();
+                            }
                             Err(e) => {
                                 status = "error".to_string();
+                                health = "unavailable".to_string();
                                 last_error = Some(format!("SQLite read-only açılamadı: {}", e));
                             }
                         }
                     }
                     Some(path) => {
                         status = "error".to_string();
+                        health = "unavailable".to_string();
                         last_error = Some(format!("SQLite dosyası bulunamadı: {}", path.display()));
                     }
                     None => {
                         status = "error".to_string();
+                        health = "unavailable".to_string();
                         last_error = Some("SQLite path çözümlenemedi.".to_string());
                     }
                 },
@@ -83,31 +101,38 @@ impl SystemConnectorManager {
                     if let Some(ref base_url) = config.base_url {
                         if base_url.trim().is_empty() {
                             status = "error".to_string();
+                            health = "unavailable".to_string();
                             last_error = Some("base_url boş.".to_string());
                         } else {
-                            match Self::check_tcp_connection(base_url, 3) {
+                            match Self::check_http_endpoint(base_url) {
                                 Ok(_) => {
                                     status = "available".to_string();
+                                    health = "available".to_string();
                                 }
                                 Err(e) => {
                                     status = "connection_failed".to_string();
+                                    health = "unavailable".to_string();
                                     last_error = Some(e);
                                 }
                             }
                         }
                     } else {
                         status = "error".to_string();
+                        health = "unavailable".to_string();
                         last_error = Some("base_url tanımsız.".to_string());
                     }
                 }
                 "terminal" => {
                     status = "approval_required".to_string();
+                    health = "unavailable".to_string();
                 }
                 "custom_connector" => {
                     status = "disabled".to_string();
+                    health = "disabled".to_string();
                 }
                 other => {
                     status = "error".to_string();
+                    health = "unavailable".to_string();
                     last_error = Some(format!("Desteklenmeyen connector tipi: {}", other));
                 }
             }
@@ -117,7 +142,10 @@ impl SystemConnectorManager {
             id: config.id.clone(),
             name: config.name.clone(),
             connector_type: config.connector_type.clone(),
+            source_kind,
             target,
+            source_path,
+            endpoint,
             permissions: config.permissions.clone(),
             enabled: config.enabled,
             read_only: config.read_only_default,
@@ -129,60 +157,29 @@ impl SystemConnectorManager {
             rollback_required_actions: config.rollback_required_actions.clone(),
             test_required_actions: config.test_required_actions.clone(),
             status,
+            health,
             last_error,
             last_checked_at: Self::now_string(),
         }
     }
 
-    fn check_tcp_connection(url_str: &str, timeout_secs: u64) -> Result<(), String> {
-        use std::net::{TcpStream, ToSocketAddrs};
-        use std::time::Duration;
-
-        let without_protocol = if let Some(stripped) = url_str.strip_prefix("https://") {
-            stripped
-        } else if let Some(stripped) = url_str.strip_prefix("http://") {
-            stripped
-        } else {
-            url_str
-        };
-
-        let authority = without_protocol.split('/').next().unwrap_or(without_protocol);
-
-        let (host, port) = if let Some(pos) = authority.find(':') {
-            let (h, p) = authority.split_at(pos);
-            (h, p.trim_start_matches(':'))
-        } else {
-            if url_str.starts_with("https://") {
-                (authority, "443")
-            } else {
-                (authority, "80")
+    fn check_http_endpoint(url_str: &str) -> Result<(), String> {
+        let agent = ureq::AgentBuilder::new()
+            .timeout(Duration::from_secs(3))
+            .build();
+        match agent.get(url_str).set("Accept", "application/json").call() {
+            Ok(response) if (200..500).contains(&response.status()) => Ok(()),
+            Ok(response) => Err(format!("HTTP {} döndü.", response.status())),
+            Err(ureq::Error::Status(code, response)) if (200..500).contains(&code) => {
+                let _ = response;
+                Ok(())
             }
-        };
-
-        let addr_str = format!("{}:{}", host, port);
-        let socket_addrs = addr_str
-            .to_socket_addrs()
-            .map_err(|e| format!("Adres çözümlenemedi ({}): {}", addr_str, e))?;
-
-        let mut success = false;
-        let mut last_err = "Host adresi bulunamadı".to_string();
-
-        for addr in socket_addrs {
-            match TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs)) {
-                Ok(_) => {
-                    success = true;
-                    break;
-                }
-                Err(e) => {
-                    last_err = format!("Bağlantı zaman aşımına uğradı veya reddedildi ({}): {}", addr, e);
-                }
-            }
-        }
-
-        if success {
-            Ok(())
-        } else {
-            Err(last_err)
+            Err(ureq::Error::Status(code, response)) => Err(format!(
+                "HTTP {} döndü: {}",
+                code,
+                response.status_text()
+            )),
+            Err(err) => Err(format!("HTTP endpoint doğrulaması başarısız: {}", err)),
         }
     }
 
@@ -207,6 +204,28 @@ impl SystemConnectorManager {
             return Some(root.join(path));
         }
         Some(Path::new(path).to_path_buf())
+    }
+
+    fn source_kind(config: &SystemConnectorConfig, resolved_path: Option<&Path>) -> String {
+        if !config.enabled {
+            return "unavailable".to_string();
+        }
+        match config.connector_type.as_str() {
+            "sqlite" => "sqlite".to_string(),
+            "api" | "live_api" => "api".to_string(),
+            "file" | "folder" => {
+                if resolved_path
+                    .and_then(|path| path.extension())
+                    .map(|ext| ext.to_string_lossy().eq_ignore_ascii_case("json"))
+                    .unwrap_or(false)
+                {
+                    "json".to_string()
+                } else {
+                    "unavailable".to_string()
+                }
+            }
+            _ => "unavailable".to_string(),
+        }
     }
 
     fn audit_connector_health(result: &SystemConnectorHealth) -> Result<(), String> {
@@ -287,12 +306,14 @@ mod tests {
     fn disabled_api_connector_is_not_called() {
         let result = SystemConnectorManager::health_check(&connector("api", false));
         assert_eq!(result.status, "disabled");
+        assert_eq!(result.source_kind, "unavailable");
     }
 
     #[test]
     fn terminal_connector_requires_approval_without_execution() {
         let result = SystemConnectorManager::health_check(&connector("terminal", true));
         assert_eq!(result.status, "approval_required");
+        assert_eq!(result.health, "unavailable");
     }
 
     #[test]
@@ -314,6 +335,8 @@ mod tests {
 
         let result = SystemConnectorManager::health_check(&config);
         assert_eq!(result.status, "available");
+        assert_eq!(result.source_kind, "sqlite");
+        assert_eq!(result.source_path, Some(db_path.to_string_lossy().into_owned()));
 
         let _ = std::fs::remove_file(db_path);
     }
