@@ -34,6 +34,12 @@ The main runnable product is **Lokal Bilgisayar Kontrol Paneli** at the reposito
 
 5. **Optional services** (Supabase, AI APIs, Pinecone): configured under `config/`; app runs without them.
 
+### Dev DB & task-creation gotchas (non-obvious)
+
+- In dev mode the Rust backend resolves the project root to the repo and uses the dev SQLite DB at `storage/app.db` (gitignored). `cargo test` runs against this same file and seeds many `test_*` rows into it. To reset to a clean state, stop the app and delete `storage/app.db` (and `-wal`/`-shm`); it is recreated/migrated on next launch.
+- A system task `__connection_audit__` ("Bağlantı Aktivite Audit Kaydı") is always present, so the task list is never empty and the IntakePanel is not the default landing view.
+- Creating a task through the UI intake form is unreliable for automated testing: clicking **+ YENİ İŞLEM BAŞLAT** sets no selected task, but a `setInterval(loadTasks, 3000)` in `src/routes/+page.svelte` re-selects the first task within ~3s and dismisses the form. For reliable end-to-end task creation, invoke the same backend command the submit button uses — in the WebView devtools console: `window.__TAURI_INTERNALS__.invoke('create_task_cmd', { title: '...', userRequest: '...' })`. The new task then appears in the sidebar and opens its detail/Planning Gate view.
+
 ### Secrets (optional)
 
 - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` or `SUPABASE_ANON_KEY` — cloud sync
