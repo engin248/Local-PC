@@ -756,11 +756,33 @@ export type StatusSummary = Record<string, unknown>;
 
 export type HealthSnapshot = Record<string, unknown>;
 
+export type HealthChannelAccountSummary = {
+  accountId: string;
+  configured?: boolean;
+  linked?: boolean;
+  probe?: unknown;
+  lastProbeAt?: number | null;
+  [key: string]: unknown;
+};
+
+export type HealthChannelSummary = HealthChannelAccountSummary & {
+  accounts?: Record<string, HealthChannelAccountSummary>;
+};
+
+export type HealthModelPricingSummary = {
+  state: "ok" | "degraded" | "disabled";
+  detail?: string;
+};
+
 /** Strongly-typed health response from the gateway (richer than HealthSnapshot). */
 export type HealthSummary = {
   ok: boolean;
   ts: number;
   durationMs: number;
+  modelPricing?: HealthModelPricingSummary;
+  channels?: Record<string, HealthChannelSummary>;
+  channelOrder?: string[];
+  channelLabels?: Record<string, string>;
   heartbeatSeconds: number;
   defaultAgentId: string;
   agents: Array<{ id: string; name?: string }>;

@@ -43,6 +43,7 @@ const mocks = vi.hoisted(() => ({
   loadDebugMock: vi.fn(async () => {}),
   loadDevicesMock: vi.fn(async () => {}),
   loadExecApprovalsMock: vi.fn(async () => {}),
+  loadHealthStateMock: vi.fn(async () => {}),
   loadLogsMock: vi.fn(async () => {}),
   loadModelAuthStatusStateMock: vi.fn(async () => {}),
   loadNodesMock: vi.fn(async () => {}),
@@ -106,6 +107,9 @@ vi.mock("./controllers/devices.ts", () => ({
 }));
 vi.mock("./controllers/exec-approvals.ts", () => ({
   loadExecApprovals: mocks.loadExecApprovalsMock,
+}));
+vi.mock("./controllers/health.ts", () => ({
+  loadHealthState: mocks.loadHealthStateMock,
 }));
 vi.mock("./controllers/logs.ts", () => ({
   loadLogs: mocks.loadLogsMock,
@@ -328,6 +332,7 @@ describe("refreshActiveTab", () => {
     expect(mocks.loadChannelsMock).toHaveBeenCalled();
     expect(mocks.loadSessionsMock).toHaveBeenCalled();
     expect(mocks.loadUsageMock).toHaveBeenCalled();
+    expect(mocks.loadHealthStateMock).toHaveBeenCalledWith(host);
   });
 
   it("skips overview usage refresh if the user leaves while primary loaders run", async () => {

@@ -1947,6 +1947,7 @@ export function renderApp(state: AppViewState) {
               usageResult: state.usageResult,
               sessionsResult: state.sessionsResult,
               skillsReport: state.skillsReport,
+              healthResult: state.healthResult,
               cronJobs: state.cronJobs,
               cronStatus: state.cronStatus,
               attentionItems: state.attentionItems,
