@@ -421,6 +421,7 @@ export type AppViewState = {
     healthLoading: boolean;
     healthResult: HealthSummary | null;
     healthError: string | null;
+    overviewModelCatalog: ModelCatalogEntry[];
     modelAuthStatusLoading: boolean;
     modelAuthStatusResult: ModelAuthStatusResult | null;
     modelAuthStatusError: string | null;

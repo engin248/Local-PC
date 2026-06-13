@@ -567,6 +567,7 @@ export class OpenClawApp extends LitElement {
   @state() overviewShowGatewayPassword = false;
   @state() overviewLogLines: string[] = [];
   @state() overviewLogCursor = 0;
+  @state() overviewModelCatalog: ModelCatalogEntry[] = [];
 
   @state() skillsLoading = false;
   @state() skillsReport: SkillStatusReport | null = null;
