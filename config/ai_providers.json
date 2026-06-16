@@ -6,6 +6,9 @@
     "base_url": "https://api.openai.com/v1",
     "api_key_env": "OPENAI_API_KEY",
     "model": "gpt-4o",
+    "requires_api_key": true,
+    "health_endpoint": "/models",
+    "auth_mode": "bearer",
     "enabled": false,
     "network_required": true,
     "dependency_level": "high",
@@ -34,6 +37,9 @@
     "base_url": "https://generativelanguage.googleapis.com/v1beta",
     "api_key_env": "GEMINI_API_KEY",
     "model": "gemini-1.5-pro",
+    "requires_api_key": true,
+    "health_endpoint": "/models",
+    "auth_mode": "query_key",
     "enabled": false,
     "network_required": true,
     "dependency_level": "high",
@@ -62,6 +68,9 @@
     "base_url": "https://api.perplexity.ai",
     "api_key_env": "PERPLEXITY_API_KEY",
     "model": "sonar",
+    "requires_api_key": true,
+    "health_endpoint": "/models",
+    "auth_mode": "bearer",
     "enabled": false,
     "network_required": true,
     "dependency_level": "high",
@@ -90,6 +99,9 @@
     "base_url": "http://127.0.0.1:8081",
     "api_key_env": "CODEX_API_KEY",
     "model": "codex-agent-v1",
+    "requires_api_key": false,
+    "health_endpoint": "/health",
+    "auth_mode": "none",
     "enabled": true,
     "network_required": false,
     "dependency_level": "critical",
@@ -111,6 +123,9 @@
     "base_url": "http://127.0.0.1:8082",
     "api_key_env": "OAM_API_KEY",
     "model": "oam-v1",
+    "requires_api_key": false,
+    "health_endpoint": "/health",
+    "auth_mode": "none",
     "enabled": true,
     "network_required": false,
     "dependency_level": "high",
@@ -132,6 +147,9 @@
     "base_url": "http://127.0.0.1:8083",
     "api_key_env": "ANTIGRAVITY_API_KEY",
     "model": "antigravity-v1",
+    "requires_api_key": false,
+    "health_endpoint": "/health",
+    "auth_mode": "none",
     "enabled": true,
     "network_required": false,
     "dependency_level": "high",
@@ -153,6 +171,9 @@
     "base_url": "http://127.0.0.1:8084",
     "api_key_env": "CURSOR_API_KEY",
     "model": "cursor-v1",
+    "requires_api_key": false,
+    "health_endpoint": "/health",
+    "auth_mode": "none",
     "enabled": true,
     "network_required": false,
     "dependency_level": "medium",
@@ -174,8 +195,228 @@
     "base_url": "http://127.0.0.1:11434/v1",
     "api_key_env": "OLLAMA_API_KEY",
     "model": "qwen2.5:14b",
+    "requires_api_key": false,
+    "health_endpoint": "http://127.0.0.1:11434/api/tags",
+    "auth_mode": "none",
     "enabled": true,
     "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "lm_studio",
+    "name": "LM Studio (Yerel OpenAI Uyumlu)",
+    "type": "openai_compatible",
+    "base_url": "http://127.0.0.1:1234/v1",
+    "api_key_env": "LM_STUDIO_API_KEY",
+    "model": "local-model",
+    "requires_api_key": false,
+    "health_endpoint": "/models",
+    "auth_mode": "none",
+    "enabled": false,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "litellm",
+    "name": "LiteLLM Proxy",
+    "type": "openai_compatible",
+    "base_url": "http://127.0.0.1:4000/v1",
+    "api_key_env": "LITELLM_API_KEY",
+    "model": "router/default",
+    "requires_api_key": false,
+    "health_endpoint": "/models",
+    "auth_mode": "optional_bearer",
+    "enabled": false,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "vllm",
+    "name": "vLLM Local Server",
+    "type": "openai_compatible",
+    "base_url": "http://127.0.0.1:8000/v1",
+    "api_key_env": "VLLM_API_KEY",
+    "model": "local-vllm-model",
+    "requires_api_key": false,
+    "health_endpoint": "/models",
+    "auth_mode": "none",
+    "enabled": false,
+    "network_required": false,
+    "dependency_level": "medium",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "openrouter",
+    "name": "OpenRouter Free/Router",
+    "type": "openai_compatible",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "model": "openrouter/auto",
+    "requires_api_key": true,
+    "health_endpoint": "/models",
+    "auth_mode": "bearer",
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "high",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "groq",
+    "name": "Groq Free Tier",
+    "type": "openai_compatible",
+    "base_url": "https://api.groq.com/openai/v1",
+    "api_key_env": "GROQ_API_KEY",
+    "model": "llama-3.1-8b-instant",
+    "requires_api_key": true,
+    "health_endpoint": "/models",
+    "auth_mode": "bearer",
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "high",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "deepseek",
+    "name": "DeepSeek Uygun Maliyetli API",
+    "type": "openai_compatible",
+    "base_url": "https://api.deepseek.com/v1",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "model": "deepseek-chat",
+    "requires_api_key": true,
+    "health_endpoint": "/models",
+    "auth_mode": "bearer",
+    "enabled": false,
+    "network_required": true,
+    "dependency_level": "high",
+    "allowed_task_types": [
+      "health_check",
+      "statement_generate",
+      "analysis_answer",
+      "alternative_suggest",
+      "risk_comment",
+      "report_draft"
+    ],
+    "max_payload_policy": {
+      "max_chars": 12000,
+      "truncate_strategy": "deny_if_exceeds"
+    },
+    "sensitive_data_policy": {
+      "send_secrets": false,
+      "send_personal_data": false,
+      "requires_user_confirmation_for_sensitive_context": true
+    }
+  },
+  {
+    "id": "huggingface",
+    "name": "HuggingFace Router / Local-Compatible",
+    "type": "openai_compatible",
+    "base_url": "https://router.huggingface.co/v1",
+    "api_key_env": "HUGGINGFACE_API_KEY",
+    "model": "meta-llama/Llama-3.1-8B-Instruct",
+    "requires_api_key": true,
+    "health_endpoint": "/models",
+    "auth_mode": "bearer",
+    "enabled": false,
+    "network_required": true,
     "dependency_level": "medium",
     "allowed_task_types": [
       "health_check",

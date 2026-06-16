@@ -9,6 +9,12 @@ pub struct AIProviderConfig {
     pub base_url: String,
     pub api_key_env: String,
     pub model: String,
+    #[serde(default)]
+    pub requires_api_key: Option<bool>,
+    #[serde(default)]
+    pub health_endpoint: Option<String>,
+    #[serde(default)]
+    pub auth_mode: Option<String>,
     pub enabled: bool,
     pub network_required: bool,
     pub dependency_level: String,

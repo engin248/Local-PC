@@ -188,18 +188,22 @@ impl DependencyAnalyzer {
                     || lower.contains("fake")
                     || lower.contains("sahte")
             }
-            serde_json::Value::Array(items) => items
-                .iter()
-                .any(Self::contains_forbidden_production_text),
-            serde_json::Value::Object(map) => map
-                .values()
-                .any(Self::contains_forbidden_production_text),
+            serde_json::Value::Array(items) => {
+                items.iter().any(Self::contains_forbidden_production_text)
+            }
+            serde_json::Value::Object(map) => {
+                map.values().any(Self::contains_forbidden_production_text)
+            }
             _ => false,
         }
     }
 
-    fn embedded_config_files() -> [(&'static str, &'static str); 9] {
+    fn embedded_config_files() -> [(&'static str, &'static str); 11] {
         [
+            (
+                "asker_motoru_bridge.json",
+                include_str!("../../../config/asker_motoru_bridge.json"),
+            ),
             (
                 "ai_providers.json",
                 include_str!("../../../config/ai_providers.json"),
@@ -231,6 +235,10 @@ impl DependencyAnalyzer {
             (
                 "system_connectors.json",
                 include_str!("../../../config/system_connectors.json"),
+            ),
+            (
+                "skill_library.json",
+                include_str!("../../../config/skill_library.json"),
             ),
             (
                 "system_rules.json",
@@ -376,8 +384,10 @@ impl DependencyAnalyzer {
                         reason = format!("Lokal path eriÅŸilebilir: {}", resolved_path);
                     } else {
                         status = "unavailable".to_string();
-                        reason =
-                            format!("Lokal path bulunamadÄ± veya eriÅŸilemedi: {}", resolved_path);
+                        reason = format!(
+                            "Lokal path bulunamadÄ± veya eriÅŸilemedi: {}",
+                            resolved_path
+                        );
                     }
                 }
                 None => {
@@ -506,17 +516,27 @@ impl DependencyAnalyzer {
         technology_name: &str,
     ) -> Result<DependencyAssessment, String> {
         let (dep_level, status, reason) = match technology_name.to_lowercase().as_str() {
-            "rust" | "tauri" => ("low", "available", "Lokal gÃ¼venli derleme dili ve runtime."),
-            "svelte" | "javascript" | "typescript" => {
-                ("low", "available", "Frontend UI kÃ¼tÃ¼phanesi ve betik dili.")
-            }
+            "rust" | "tauri" => (
+                "low",
+                "available",
+                "Lokal gÃ¼venli derleme dili ve runtime.",
+            ),
+            "svelte" | "javascript" | "typescript" => (
+                "low",
+                "available",
+                "Frontend UI kÃ¼tÃ¼phanesi ve betik dili.",
+            ),
             "sqlite" => ("low", "available", "Lokal dosya tabanlÄ± veritabanÄ±."),
             "postgresql" | "supabase" => (
                 "high",
                 "available",
                 "Harici aÄŸ veya veritabanÄ± sunucusu baÄŸÄ±mlÄ±lÄ±ÄŸÄ±.",
             ),
-            _ => ("critical", "available", "Bilinmeyen teknoloji baÄŸÄ±mlÄ±lÄ±ÄŸÄ±."),
+            _ => (
+                "critical",
+                "available",
+                "Bilinmeyen teknoloji baÄŸÄ±mlÄ±lÄ±ÄŸÄ±.",
+            ),
         };
 
         let assessment = DependencyAssessment {
@@ -857,4 +877,3 @@ mod tests {
         let _ = std::fs::remove_file(exists_sqlite_file);
     }
 }
-

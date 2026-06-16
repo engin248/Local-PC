@@ -1,9 +1,12 @@
 {
   "schema_version": 1,
+  "sqlite_path": "",
   "env_var": "SKILL_LIBRARY_DB_PATH",
   "windows_default": "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite",
   "relative_candidates": [
     "../Lokal Kütüphane/database/skill_library.sqlite",
     "storage/skill_library.sqlite"
-  ]
+  ],
+  "enabled": false,
+  "read_only_default": true
 }

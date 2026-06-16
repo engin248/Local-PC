@@ -78,14 +78,20 @@ impl AskerMotoruBridge {
                 source_kind: "unavailable".to_string(),
                 source_path: None,
                 health: "unavailable".to_string(),
-                error: Some("ASKER_MOTORU_WINDOWS_ROOT veya config/asker_motoru_bridge.json tanımlı değil.".to_string()),
+                error: Some(
+                    "ASKER_MOTORU_WINDOWS_ROOT veya config/asker_motoru_bridge.json tanımlı değil."
+                        .to_string(),
+                ),
             });
             root_sources.push(AskerMotoruRootStatus {
                 kind: "linux".to_string(),
                 source_kind: "unavailable".to_string(),
                 source_path: None,
                 health: "unavailable".to_string(),
-                error: Some("ASKER_MOTORU_LINUX_ROOT veya config/asker_motoru_bridge.json tanımlı değil.".to_string()),
+                error: Some(
+                    "ASKER_MOTORU_LINUX_ROOT veya config/asker_motoru_bridge.json tanımlı değil."
+                        .to_string(),
+                ),
             });
         }
 
@@ -129,7 +135,9 @@ impl AskerMotoruBridge {
     }
 
     fn config_roots() -> Vec<(String, PathBuf)> {
-        let Ok(config_path) = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path("asker_motoru_bridge.json") else {
+        let Ok(config_path) = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path(
+            "asker_motoru_bridge.json",
+        ) else {
             return Vec::new();
         };
         let Ok(data) = fs::read_to_string(config_path) else {
@@ -142,7 +150,10 @@ impl AskerMotoruBridge {
         for key in ["windows_root", "linux_root", "root"] {
             if let Some(path) = value.get(key).and_then(|item| item.as_str()) {
                 if !path.trim().is_empty() {
-                    roots.push((key.trim_end_matches("_root").to_string(), PathBuf::from(path)));
+                    roots.push((
+                        key.trim_end_matches("_root").to_string(),
+                        PathBuf::from(path),
+                    ));
                 }
             }
         }
@@ -168,12 +179,43 @@ impl AskerMotoruBridge {
                 return names;
             }
         }
+        let config_names = Self::config_status_files();
+        if !config_names.is_empty() {
+            return config_names;
+        }
         vec![
             "PLANLAMA_DURUMU.json".to_string(),
             "SISTEM_ALARM_DURUMU.json".to_string(),
             "EGITIM_DURUMU.json".to_string(),
             "SON_PLANLAMA_OPERASYONU.json".to_string(),
         ]
+    }
+
+    fn config_status_files() -> Vec<String> {
+        let Ok(config_path) = crate::core::dependency_analyzer::DependencyAnalyzer::get_config_path(
+            "asker_motoru_bridge.json",
+        ) else {
+            return Vec::new();
+        };
+        let Ok(data) = fs::read_to_string(config_path) else {
+            return Vec::new();
+        };
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(&data) else {
+            return Vec::new();
+        };
+        value
+            .get("status_files")
+            .and_then(|item| item.as_array())
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str())
+                    .map(str::trim)
+                    .filter(|name| !name.is_empty())
+                    .map(ToString::to_string)
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     fn root_status(kind: &str, root: &PathBuf) -> AskerMotoruRootStatus {
@@ -186,7 +228,11 @@ impl AskerMotoruBridge {
             error: if exists {
                 None
             } else {
-                Some(format!("Asker Motoru {} path bulunamadı: {}", kind, root.display()))
+                Some(format!(
+                    "Asker Motoru {} path bulunamadı: {}",
+                    kind,
+                    root.display()
+                ))
             },
         }
     }

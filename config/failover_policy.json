@@ -1,6 +1,18 @@
 {
   "schema_version": 1,
-  "primary_order": ["chatgpt", "gemini", "ollama", "perplexity"],
-  "fallback_on_status": ["connection_failed", "missing_api_key"],
+  "primary_order": [
+    "ollama",
+    "lm_studio",
+    "vllm",
+    "litellm",
+    "gemini",
+    "groq",
+    "openrouter",
+    "deepseek",
+    "huggingface",
+    "chatgpt",
+    "perplexity"
+  ],
+  "fallback_on_status": ["connection_failed", "api_key_required", "missing_api_key"],
   "max_failover_attempts": 3
 }

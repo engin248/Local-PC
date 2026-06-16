@@ -6,9 +6,12 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillLibraryConfig {
     pub schema_version: u32,
+    pub sqlite_path: Option<String>,
     pub env_var: Option<String>,
     pub windows_default: Option<String>,
     pub relative_candidates: Option<Vec<String>>,
+    pub enabled: Option<bool>,
+    pub read_only_default: Option<bool>,
 }
 
 pub struct SkillLibrary;
@@ -17,6 +20,7 @@ impl SkillLibrary {
     pub fn load_config() -> SkillLibraryConfig {
         let default = SkillLibraryConfig {
             schema_version: 1,
+            sqlite_path: None,
             env_var: Some("SKILL_LIBRARY_DB_PATH".to_string()),
             windows_default: Some(
                 "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite"
@@ -26,6 +30,8 @@ impl SkillLibrary {
                 "../Lokal Kütüphane/database/skill_library.sqlite".to_string(),
                 "storage/skill_library.sqlite".to_string(),
             ]),
+            enabled: Some(false),
+            read_only_default: Some(true),
         };
         let Ok(path) = DependencyAnalyzer::get_config_path("skill_library.json") else {
             return default;
@@ -45,6 +51,14 @@ impl SkillLibrary {
                     if candidate.exists() {
                         return Some(candidate);
                     }
+                }
+            }
+        }
+        if let Some(path) = &config.sqlite_path {
+            if !path.trim().is_empty() {
+                let candidate = PathBuf::from(path);
+                if candidate.exists() {
+                    return Some(candidate);
                 }
             }
         }

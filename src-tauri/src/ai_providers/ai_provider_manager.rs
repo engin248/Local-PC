@@ -4,8 +4,8 @@ use crate::core::dependency_analyzer::DependencyAnalyzer;
 use crate::storage::db::Database;
 use rusqlite::params;
 use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub struct AIProviderManager;
 
@@ -94,35 +94,48 @@ impl AIProviderManager {
     }
 
     fn check_http_health(config: &AIProviderConfig, endpoint: &str) -> Result<(), String> {
+        let endpoint = Self::endpoint_with_auth(config, endpoint);
         let agent = ureq::AgentBuilder::new()
             .timeout(Duration::from_secs(3))
             .build();
-        let mut request = agent.get(endpoint).set("Accept", "application/json");
+        let mut request = agent.get(&endpoint).set("Accept", "application/json");
 
         if let Ok(api_key) = std::env::var(&config.api_key_env) {
-            if !api_key.trim().is_empty() && !config.provider_type.eq_ignore_ascii_case("gemini") {
+            let auth_mode = config.auth_mode.as_deref().unwrap_or("bearer");
+            if !api_key.trim().is_empty()
+                && matches!(auth_mode, "bearer" | "optional_bearer")
+                && !config.provider_type.eq_ignore_ascii_case("gemini")
+            {
                 request = request.set("Authorization", &format!("Bearer {}", api_key));
             }
         }
 
         match request.call() {
-            Ok(response) if (200..300).contains(&response.status()) => {
-                response
-                    .into_json::<serde_json::Value>()
-                    .map(|_| ())
-                    .map_err(|e| format!("HTTP cevap JSON olarak okunamadı: {}", e))
-            }
+            Ok(response) if (200..300).contains(&response.status()) => response
+                .into_json::<serde_json::Value>()
+                .map(|_| ())
+                .map_err(|e| format!("HTTP cevap JSON olarak okunamadı: {}", e)),
             Ok(response) => Err(format!("HTTP {} döndü.", response.status())),
-            Err(ureq::Error::Status(code, response)) => Err(format!(
-                "HTTP {} döndü: {}",
-                code,
-                response.status_text()
-            )),
+            Err(ureq::Error::Status(code, response)) => {
+                Err(format!("HTTP {} döndü: {}", code, response.status_text()))
+            }
             Err(err) => Err(format!("HTTP health isteği başarısız: {}", err)),
         }
     }
 
     fn health_endpoint(config: &AIProviderConfig) -> String {
+        if let Some(endpoint) = config.health_endpoint.as_deref() {
+            if !endpoint.trim().is_empty() {
+                if endpoint.starts_with("http://") || endpoint.starts_with("https://") {
+                    return endpoint.to_string();
+                }
+                if endpoint.starts_with("/api/") {
+                    return Self::join_url(&Self::strip_suffix(&config.base_url, "/v1"), endpoint);
+                }
+                return Self::join_url(&config.base_url, endpoint);
+            }
+        }
+
         let key = format!(
             "{} {} {}",
             config.id.to_ascii_lowercase(),
@@ -154,6 +167,10 @@ impl AIProviderManager {
     }
 
     fn requires_api_key(config: &AIProviderConfig) -> bool {
+        if let Some(required) = config.requires_api_key {
+            return required;
+        }
+
         let key = format!(
             "{} {} {}",
             config.id.to_ascii_lowercase(),
@@ -169,13 +186,25 @@ impl AIProviderManager {
         config.network_required || config.base_url.starts_with("https://")
     }
 
+    fn endpoint_with_auth(config: &AIProviderConfig, endpoint: &str) -> String {
+        if config.auth_mode.as_deref() != Some("query_key") {
+            return endpoint.to_string();
+        }
+        let Ok(api_key) = std::env::var(&config.api_key_env) else {
+            return endpoint.to_string();
+        };
+        if api_key.trim().is_empty() {
+            return endpoint.to_string();
+        }
+        let separator = if endpoint.contains('?') { '&' } else { '?' };
+        format!("{}{}key={}", endpoint, separator, api_key)
+    }
+
     fn redacted_endpoint(config: &AIProviderConfig, endpoint: &str) -> String {
-        if config.provider_type.eq_ignore_ascii_case("gemini") {
-            return endpoint
-                .split("?key=")
-                .next()
-                .unwrap_or(endpoint)
-                .to_string();
+        if config.auth_mode.as_deref() == Some("query_key")
+            || config.provider_type.eq_ignore_ascii_case("gemini")
+        {
+            return endpoint.split('?').next().unwrap_or(endpoint).to_string();
         }
         endpoint.to_string()
     }
@@ -270,8 +299,8 @@ impl AIProviderManager {
         let path = DependencyAnalyzer::get_config_path("failover_policy.json")?;
         let data = fs::read_to_string(&path)
             .map_err(|e| format!("failover_policy.json okunamadı: {}", e))?;
-        let value: serde_json::Value =
-            serde_json::from_str(&data).map_err(|e| format!("failover_policy.json geçersiz: {}", e))?;
+        let value: serde_json::Value = serde_json::from_str(&data)
+            .map_err(|e| format!("failover_policy.json geçersiz: {}", e))?;
         let mut order = Vec::new();
         if let Some(arr) = value.get("primary_order").and_then(|v| v.as_array()) {
             for item in arr {
@@ -304,6 +333,9 @@ mod tests {
             base_url: "https://provider-domain.invalid".to_string(),
             api_key_env: api_key_env.to_string(),
             model: "test-model".to_string(),
+            requires_api_key: None,
+            health_endpoint: None,
+            auth_mode: None,
             enabled,
             network_required: true,
             dependency_level: "high".to_string(),
@@ -321,6 +353,9 @@ mod tests {
             base_url: "http://127.0.0.1:65534/v1".to_string(),
             api_key_env: "LOKAL_PANEL_INTENTIONALLY_MISSING_TEST_KEY".to_string(),
             model: "test-model".to_string(),
+            requires_api_key: Some(false),
+            health_endpoint: Some("/api/tags".to_string()),
+            auth_mode: Some("none".to_string()),
             enabled,
             network_required: false,
             dependency_level: "high".to_string(),
@@ -360,6 +395,9 @@ mod tests {
     fn provider_health_audit_path_does_not_call_external_api() {
         let results = AIProviderManager::health_check_all(true).unwrap();
         assert!(!results.is_empty());
-        assert!(results.iter().all(|provider| provider.status == "disabled" || provider.status == "api_key_required" || provider.status == "available" || provider.status == "connection_failed"));
+        assert!(results.iter().all(|provider| provider.status == "disabled"
+            || provider.status == "api_key_required"
+            || provider.status == "available"
+            || provider.status == "connection_failed"));
     }
 }
