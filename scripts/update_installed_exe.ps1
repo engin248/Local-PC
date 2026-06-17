@@ -13,28 +13,6 @@ if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
     $ProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 }
 
-function Stop-PanelProcesses {
-    param([string]$ExePath)
-
-    Get-Process -Name "lokal_bilgisayar_kontrol_paneli" -ErrorAction SilentlyContinue |
-        ForEach-Object {
-            Write-Host "Kapatiliyor: PID $($_.Id)"
-            Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
-        }
-
-    if (Test-Path -LiteralPath $ExePath) {
-        $resolved = (Resolve-Path -LiteralPath $ExePath).Path
-        Get-CimInstance Win32_Process -Filter "Name='lokal_bilgisayar_kontrol_paneli.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.ExecutablePath -and $_.ExecutablePath -eq $resolved } |
-            ForEach-Object {
-                Write-Host "Kapatiliyor (kurulu yol): PID $($_.ProcessId)"
-                Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
-            }
-    }
-
-    Start-Sleep -Seconds 1
-}
-
 function Backup-InstalledExe {
     param([string]$InstalledExe)
 
@@ -55,6 +33,14 @@ if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot "package.json"))) {
 
 Set-Location -LiteralPath $ProjectRoot
 
+$installedExe = Join-Path $InstallDir "lokal_bilgisayar_kontrol_paneli.exe"
+
+Write-Host "Eski panel surecleri kapatiliyor (ses durdurma)..."
+& (Join-Path $PSScriptRoot "stop_panel_processes.ps1") -InstallDir $InstallDir -ProjectRoot $ProjectRoot
+if ($LASTEXITCODE -ne 0) {
+    throw "Eski panel kapatilamadi. Once ACIL_PANEL_KAPAT.cmd calistirin veya Gorev Yoneticisi'nden sonlandirin."
+}
+
 if (-not $SkipPull) {
     Write-Host "Git guncelleniyor: origin/$Branch"
     git fetch origin $Branch
@@ -73,13 +59,12 @@ npm run tauri build
 
 $targetExe = Join-Path $ProjectRoot "src-tauri\target\release\lokal_bilgisayar_kontrol_paneli.exe"
 $nsisInstaller = Join-Path $ProjectRoot "src-tauri\target\release\bundle\nsis\LOKAL BILGISAYAR KONTROL PANELI_0.1.0_x64-setup.exe"
-$installedExe = Join-Path $InstallDir "lokal_bilgisayar_kontrol_paneli.exe"
 
 if (-not (Test-Path -LiteralPath $targetExe)) {
     throw "Build cikti exe bulunamadi: $targetExe"
 }
 
-Stop-PanelProcesses -ExePath $installedExe
+& (Join-Path $PSScriptRoot "stop_panel_processes.ps1") -InstallDir $InstallDir -ProjectRoot $ProjectRoot | Out-Null
 
 $useInstaller = -not $DirectCopy
 

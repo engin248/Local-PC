@@ -38,7 +38,19 @@ Paketlenen dosya `src-tauri/target/release/bundle/msi/` veya `exe/` altında olu
 Kurulu uygulama yolu:
 `C:\Users\Esisya\AppData\Local\LOKAL BILGISAYAR KONTROL PANELI\lokal_bilgisayar_kontrol_paneli.exe`
 
-Proje klasöründe çift tıklayın veya PowerShell'de:
+**Ses durmuyorsa önce eski süreci öldürün** (F5/yenileme yetmez):
+
+```powershell
+.\ACIL_PANEL_KAPAT.cmd
+```
+
+Ardından tek seferde kapat + güncelle + yeni panel aç:
+
+```powershell
+.\ACIL_SES_KES_VE_GUNCELLE.cmd
+```
+
+veya sadece güncelleme:
 
 ```powershell
 .\KURULU_SURUMU_GUNCELLE.cmd

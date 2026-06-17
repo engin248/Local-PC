@@ -757,7 +757,11 @@
     return isRepeatedError ? " (tekrar)" : "";
   }
 
-  function raiseCriticalAlarm(source: string, err: unknown, options?: { force?: boolean }) {
+  function raiseCriticalAlarm(
+    source: string,
+    err: unknown,
+    options?: { force?: boolean; speechText?: string },
+  ) {
     if (shouldSuppressCriticalAlarm(source, err)) {
       console.warn("Alarm bastırıldı (ses/gürültü):", source, err);
       return;
@@ -791,7 +795,9 @@
     const audioBlocked = alarmMuted || isAlarmSilenced();
     if (!audioBlocked) {
       playSiren();
-      speakReply(`Acil sistem alarmi. ${message}${repeatedSuffix}`, `critical:${message}:${Date.now()}`, true);
+      const speech =
+        options?.speechText ?? `Acil sistem alarmi. ${message}${repeatedSuffix}`;
+      speakReply(speech, `critical:${message}:${Date.now()}`, true);
     }
   }
 
@@ -952,8 +958,7 @@
       const metadata = parseMetadata<{ speak_text?: string; code?: string }>(event.metadata_json);
       const speech = metadata?.speak_text
         || formatAlarmSpeech(metadata?.code || "011", "Sistem alarmı", event.message);
-      raiseCriticalAlarm(event.source, event.message);
-      speakReply(speech, `alarm:${event.timestamp}`, true);
+      raiseCriticalAlarm(event.source, event.message, { speechText: speech });
     }
   }
 
