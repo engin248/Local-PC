@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
+  import { invokePanel } from "../lib/tauriInvoke";
 
   interface SkillSummary {
     total_count: number;
@@ -37,7 +37,7 @@
 
   async function fetchSummary() {
     try {
-      summary = await invoke<SkillSummary>("get_skill_library_summary_cmd");
+      summary = await invokePanel("get_skill_library_summary_cmd");
     } catch (e) {
       console.error("Failed to load skill summary from SQLite:", e);
     }
@@ -47,9 +47,9 @@
     isLoading = true;
     errorMsg = "";
     try {
-      skills = await invoke<SkillItem[]>("search_skill_library_cmd", {
+      skills = await invokePanel("search_skill_library_cmd", {
         query: searchQuery,
-        category: selectedCategory ? selectedCategory : null
+        category: selectedCategory ? selectedCategory : null,
       });
     } catch (e: any) {
       errorMsg = "SQLite beceri arama hatası: " + e.toString();

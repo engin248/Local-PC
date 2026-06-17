@@ -91,8 +91,8 @@
     "network_required": true,
     "allowed_actions": ["api_read"],
     "approval_required_actions": ["api_write"],
-    "rollback_required_actions": [],
-    "test_required_actions": ["api_read"],
+    "rollback_required_actions": ["api_write"],
+    "test_required_actions": ["api_read", "api_write"],
     "read_only_default": true
   },
   {

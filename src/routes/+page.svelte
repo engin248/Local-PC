@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import TaskTabs from "../components/TaskTabs.svelte";
   import TaskDetail from "../components/TaskDetail.svelte";
@@ -24,6 +23,21 @@
   import KontrolDepartmaniPanel from "../components/KontrolDepartmaniPanel.svelte";
   import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
   import { speakText, stopSpeech, formatAlarmSpeech } from "../lib/voiceService";
+  import { invokePanel } from "../lib/tauriInvoke";
+  import {
+    ALARM_DEDUPE_MS,
+    isOperationalReadError,
+    isSpeechSynthesisNoise,
+    shouldSuppressCriticalAlarm,
+  } from "../lib/alarmPolicy";
+  import {
+    activateAlarmCircuitBreaker,
+    isAlarmSilenced,
+    recordAlarmBurstAndTripBreaker,
+    remainingSilenceLabel,
+    resetAlarmCircuit,
+    silenceAlarmsForMs,
+  } from "../lib/alarmSilence";
   import { resolveFlowStage, isCommandCenterTask } from "../lib/commandFlow";
 
 
@@ -61,7 +75,7 @@
   let runtimeMode = $state("browser_preview");
   let alarmEvents = $state<any[]>([]);
   const alarmSoundFailureThrottleMs = 10000;
-  const criticalAlarmsAlwaysAudible = true;
+  let alarmSilenceLabel = $state<string | null>(null);
   let lastAlarmSoundFailureAt = 0;
   let voiceRepliesEnabled = $state(true);
   let voiceAvailable = $state(true);
@@ -80,6 +94,9 @@
 
   let audioCtx: AudioContext | null = null;
   let alarmInterval: any = null;
+  let sirenBeepTimers: ReturnType<typeof setTimeout>[] = [];
+  let lastCriticalRaisedAtMs = 0;
+  let lastCriticalRaisedMessage = "";
 
   const operationAuditStorageKey = "localControlPanel.operationAuditLog";
   const operatorStorageKey = "localControlPanel.operatorId";
@@ -188,10 +205,10 @@
 
     if (detectTauriRuntime()) {
       try {
-        await invoke("append_operation_audit_cmd", payload);
+        await invokePanel("append_operation_audit_cmd", payload);
       } catch (err) {
-        console.error("Audit kayıt hatası:", err);
-        raiseCriticalAlarm("Audit kayıt hatası", err);
+        // Audit kaydı başarısız olsa da ana işlem devam eder; kritik alarm tetiklenmez.
+        console.warn("Audit kayıt uyarısı (işlem devam ediyor):", err);
       }
       return;
     }
@@ -227,7 +244,9 @@
     const action = options.action || cmd;
     const startedAt = Date.now();
     try {
-      const result = detectTauriRuntime() ? await invoke(cmd, args) : await safeInvoke(cmd, args);
+      const result = detectTauriRuntime()
+        ? await invokePanel(cmd, args)
+        : await safeInvoke(cmd, args);
       await appendOperationAudit({
         action,
         status: options.status || "PASS",
@@ -269,8 +288,7 @@
         operationAuditTrail = await safeInvoke("get_operation_audit_logs_cmd", { limit: 20 });
         return;
       } catch (err) {
-        console.error("Operasyon audit logu yüklenemedi:", err);
-        raiseCriticalAlarm("Operasyon audit logu yüklenemedi", err);
+        console.warn("Operasyon audit logu yüklenemedi:", err);
       }
     }
 
@@ -327,7 +345,7 @@
 
   async function safeInvoke(cmd: string, args?: any): Promise<any> {
     if (detectTauriRuntime()) {
-      return await invoke(cmd, args);
+      return await invokePanel(cmd, args);
     }
     if (!import.meta.env.DEV) {
       throw new Error(`Tauri köprüsü yok: ${cmd} komutu üretim ortamında çalıştırılamaz.`);
@@ -624,8 +642,29 @@
     }
   }
 
+  function silenceAllAudio() {
+    stopSiren();
+    stopVoiceReply();
+    stopSpeech();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }
+
+  function refreshSilenceLabel() {
+    alarmSilenceLabel = remainingSilenceLabel();
+  }
+
+  /** Acil: tüm sesleri kes ve 30 dk yeni alarm sesi engelle. */
+  function emergencyStopAllSound() {
+    alarmMuted = true;
+    activateAlarmCircuitBreaker(30 * 60 * 1000);
+    silenceAllAudio();
+    refreshSilenceLabel();
+  }
+
   function playSiren() {
-    if (alarmMuted && !criticalAlarmsAlwaysAudible) return;
+    if (alarmMuted || isAlarmSilenced()) return;
     try {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -633,15 +672,14 @@
       if (audioCtx.state === 'suspended') {
         audioCtx.resume();
       }
-      
+
       if (alarmInterval) {
         clearInterval(alarmInterval);
         alarmInterval = null;
       }
-      
-      // Çift bip uyarısı çal ve bitir (Sürekli kafa üreten veya döngüyü uzatan sesi engeller!)
+
       const playBeep = (delay: number, freq: number) => {
-        setTimeout(() => {
+        const timerId = setTimeout(() => {
           if (!audioCtx) return;
           try {
             const osc = audioCtx.createOscillator();
@@ -655,26 +693,16 @@
             osc.start();
             osc.stop(audioCtx.currentTime + 0.18);
           } catch (err) {
-            console.error("Beep calinamadi:", err);
-            const now = Date.now();
-            if (now - lastAlarmSoundFailureAt > alarmSoundFailureThrottleMs) {
-              lastAlarmSoundFailureAt = now;
-              appendAlarmEvent("Bip sesi üretilemedi", err);
-            }
+            console.warn("Bip sesi üretilemedi:", err);
           }
         }, delay);
+        sirenBeepTimers.push(timerId);
       };
 
-      // Tatlı bir çift uyarı melodisi çal (Cevap sesini bastırmaz ve kafa karıştırmaz)
       playBeep(0, 880);
       playBeep(180, 1100);
     } catch (e) {
-      console.error("Siren sesi çalışma hatası:", e);
-      const now = Date.now();
-      if (now - lastAlarmSoundFailureAt > alarmSoundFailureThrottleMs) {
-        lastAlarmSoundFailureAt = now;
-        appendAlarmEvent("Alarm ses sistemi hatası", e);
-      }
+      console.warn("Siren sesi çalışma hatası:", e);
     }
   }
 
@@ -682,6 +710,17 @@
     if (alarmInterval) {
       clearInterval(alarmInterval);
       alarmInterval = null;
+    }
+    for (const timerId of sirenBeepTimers) {
+      clearTimeout(timerId);
+    }
+    sirenBeepTimers = [];
+    if (audioCtx?.state === "running") {
+      try {
+        audioCtx.suspend();
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -695,7 +734,6 @@
     criticalAlarmCounter += 1;
     lastCriticalAlarmAt = new Date().toLocaleString("tr-TR");
     lastCriticalAlarmSource = source;
-    alarmMuted = false;
     alarmEvents = [
       {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -719,24 +757,55 @@
     return isRepeatedError ? " (tekrar)" : "";
   }
 
-  function raiseCriticalAlarm(source: string, err: unknown) {
+  function raiseCriticalAlarm(source: string, err: unknown, options?: { force?: boolean }) {
+    if (shouldSuppressCriticalAlarm(source, err)) {
+      console.warn("Alarm bastırıldı (ses/gürültü):", source, err);
+      return;
+    }
+    if (!options?.force && isOperationalReadError(source)) {
+      console.warn("Operasyonel okuma uyarısı (siren yok):", source, formatError(err));
+      return;
+    }
+
     const message = `${source}: ${formatError(err)}`;
+    const now = Date.now();
+    if (
+      !options?.force &&
+      message === lastCriticalRaisedMessage &&
+      now - lastCriticalRaisedAtMs < ALARM_DEDUPE_MS
+    ) {
+      return;
+    }
+    lastCriticalRaisedMessage = message;
+    lastCriticalRaisedAtMs = now;
+
+    const tripped = recordAlarmBurstAndTripBreaker();
+    if (tripped) {
+      emergencyStopAllSound();
+      appendAlarmEvent("Alarm devre kesici", "60 saniyede 3 alarm — ses otomatik kapatıldı.");
+      refreshSilenceLabel();
+      return;
+    }
+
     const repeatedSuffix = appendAlarmEvent(source, err);
-    playSiren();
-    speakReply(`Acil sistem alarmi. ${message}${repeatedSuffix}`, `critical:${message}:${Date.now()}`, true);
+    const audioBlocked = alarmMuted || isAlarmSilenced();
+    if (!audioBlocked) {
+      playSiren();
+      speakReply(`Acil sistem alarmi. ${message}${repeatedSuffix}`, `critical:${message}:${Date.now()}`, true);
+    }
   }
 
   function muteAlarm() {
-    stopSiren();
-    stopVoiceReply();
+    alarmMuted = true;
+    silenceAlarmsForMs(30 * 60 * 1000);
+    silenceAllAudio();
+    refreshSilenceLabel();
   }
 
   function clearAlarm() {
     globalError = null;
     lastAlarmKey = "";
-    alarmMuted = false;
-    stopSiren();
-    stopVoiceReply();
+    silenceAllAudio();
     alarmPulse = false;
     if (alarmPulseTimer) {
       clearTimeout(alarmPulseTimer);
@@ -744,9 +813,20 @@
     }
   }
 
+  function resetAlarmSilence() {
+    alarmMuted = false;
+    resetAlarmCircuit();
+    refreshSilenceLabel();
+  }
+
   function speakReply(text: string, key = text, force = true) {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       voiceAvailable = false;
+      return;
+    }
+
+    const isAlarmSpeech = key.startsWith("critical") || key.startsWith("alarm");
+    if ((alarmMuted || isAlarmSilenced()) && isAlarmSpeech) {
       return;
     }
 
@@ -808,8 +888,13 @@
 
     // Ses hatayla kesildiğinde veya çalmadığında da takılmaması için sıradakine geç
     utterance.onerror = (e) => {
-      console.error("Speech Synthesis Error:", e);
-      raiseCriticalAlarm("Seslendirme motoru hatası", e);
+      const errType = String((e as SpeechSynthesisErrorEvent)?.error || "");
+      if (isSpeechSynthesisNoise(errType) || isSpeechSynthesisNoise(e)) {
+        speechQueue.shift();
+        processSpeechQueue();
+        return;
+      }
+      console.warn("Speech synthesis uyarısı:", e);
       speechQueue.shift();
       processSpeechQueue();
     };
@@ -860,6 +945,10 @@
     }
 
     if (event.event_type === "alarm-code") {
+      if (alarmMuted || isAlarmSilenced()) {
+        appendAlarmEvent(event.source, event.message);
+        return;
+      }
       const metadata = parseMetadata<{ speak_text?: string; code?: string }>(event.metadata_json);
       const speech = metadata?.speak_text
         || formatAlarmSpeech(metadata?.code || "011", "Sistem alarmı", event.message);
@@ -929,7 +1018,7 @@
       }
     } catch (err) {
       console.error("Yükleme hatası:", err);
-      raiseCriticalAlarm("Görevler yüklenirken hata oluştu", err);
+      console.warn("Görev listesi yüklenemedi:", formatError(err));
     }
   }
 
@@ -938,13 +1027,13 @@
       const issues: any[] = await safeInvoke("get_system_health_cmd");
       const blockers = issues.filter((issue) => issue.severity === "error");
       if (blockers.length > 0) {
-        raiseCriticalAlarm(
-          "Sistem sağlık kontrolü başarısız",
-          blockers.map((issue) => `${issue.code}: ${issue.message}`).join(" | ")
+        console.warn(
+          "Sistem yapılandırma uyarıları (siren tetiklenmedi):",
+          blockers.map((issue) => `${issue.code}: ${issue.message}`).join(" | "),
         );
       }
     } catch (err) {
-      raiseCriticalAlarm("Sistem sağlık kontrolü çalıştırılamadı", err);
+      console.warn("Sistem sağlık kontrolü okunamadı:", formatError(err));
     }
   }
 
@@ -958,26 +1047,56 @@
       await loadActiveAlarms();
       dbSizeBytes = await safeInvoke("get_db_size_cmd");
     } catch (err) {
-      console.error("Bağlantı health-check hatası:", err);
-      raiseCriticalAlarm("Bağlantı health-check sırasında hata oluştu", err);
+      console.warn("Bağlantı health-check uyarısı:", formatError(err));
     }
   }
 
   async function refreshTaskDetails(taskId: string) {
-    try {
-      logs = await safeInvoke("get_task_logs_cmd", { taskId });
-      decisions = await safeInvoke("get_decisions_cmd", { taskId });
-      alternatives = await safeInvoke("get_alternatives_cmd", { taskId });
-      approvals = await safeInvoke("get_approvals_cmd", { taskId });
-      checkpoints = await safeInvoke("get_checkpoints_cmd", { taskId });
-      tests = await safeInvoke("get_tests_cmd", { taskId });
-      reports = await safeInvoke("get_reports_cmd", { taskId });
-      breakdowns = await safeInvoke("get_task_breakdowns_cmd", { taskId });
-      operationPackages = await safeInvoke("get_operation_packages_cmd", { taskId });
-      swarmAllocations = await safeInvoke("get_swarm_allocations_cmd", { taskId });
-    } catch (err) {
-      console.error("Detay yükleme hatası:", err);
-      raiseCriticalAlarm("Görev detayları yüklenirken hata oluştu", err);
+    if (!taskId?.trim()) return;
+
+    const requests: Array<{ key: string; cmd: string }> = [
+      { key: "logs", cmd: "get_task_logs_cmd" },
+      { key: "decisions", cmd: "get_decisions_cmd" },
+      { key: "alternatives", cmd: "get_alternatives_cmd" },
+      { key: "approvals", cmd: "get_approvals_cmd" },
+      { key: "checkpoints", cmd: "get_checkpoints_cmd" },
+      { key: "tests", cmd: "get_tests_cmd" },
+      { key: "reports", cmd: "get_reports_cmd" },
+      { key: "breakdowns", cmd: "get_task_breakdowns_cmd" },
+      { key: "operationPackages", cmd: "get_operation_packages_cmd" },
+      { key: "swarmAllocations", cmd: "get_swarm_allocations_cmd" },
+    ];
+
+    const results = await Promise.allSettled(
+      requests.map((item) => safeInvoke(item.cmd, { taskId })),
+    );
+
+    const failures: string[] = [];
+    results.forEach((result, index) => {
+      const key = requests[index].key;
+      if (result.status === "fulfilled") {
+        const value = result.value ?? [];
+        switch (key) {
+          case "logs": logs = value; break;
+          case "decisions": decisions = value; break;
+          case "alternatives": alternatives = value; break;
+          case "approvals": approvals = value; break;
+          case "checkpoints": checkpoints = value; break;
+          case "tests": tests = value; break;
+          case "reports": reports = value; break;
+          case "breakdowns": breakdowns = value; break;
+          case "operationPackages": operationPackages = value; break;
+          case "swarmAllocations": swarmAllocations = value; break;
+        }
+      } else {
+        failures.push(`${requests[index].cmd}: ${formatError(result.reason)}`);
+      }
+    });
+
+    if (failures.length === requests.length) {
+      console.error("Görev detayları tamamen yüklenemedi:", failures.join(" | "));
+    } else if (failures.length > 0) {
+      console.warn("Görev detayları kısmi yüklendi:", failures.join(" | "));
     }
   }
 
@@ -1108,9 +1227,18 @@
 
   // 1 saniyede bir komuta merkezi güncellemesi (canlı izleme)
   onMount(() => {
+    silenceAllAudio();
+    refreshSilenceLabel();
+    if (isAlarmSilenced()) {
+      alarmMuted = true;
+    }
     runtimeMode = isTauriRuntime() ? "tauri_runtime" : "browser_preview";
     let isMounted = true;
     setOperatorId(getOperatorId());
+
+    const stopAudioOnHide = () => silenceAllAudio();
+    window.addEventListener("pagehide", stopAudioOnHide);
+    window.addEventListener("beforeunload", stopAudioOnHide);
 
     const savedVoiceSetting = localStorage.getItem("voiceRepliesEnabled");
     if (savedVoiceSetting !== null) {
@@ -1150,6 +1278,10 @@
               ? payload.error
               : JSON.stringify(payload);
           const command = typeof payload.command === "string" ? payload.command : "";
+          if (command.startsWith("get_")) {
+            console.warn("Salt okunur komut hatası (alarm tetiklenmedi):", source, message);
+            return;
+          }
           raiseCriticalAlarm(source, message);
         });
 
@@ -1179,6 +1311,9 @@
     }, 1000);
     return () => {
       isMounted = false;
+      window.removeEventListener("pagehide", stopAudioOnHide);
+      window.removeEventListener("beforeunload", stopAudioOnHide);
+      silenceAllAudio();
       clearInterval(interval);
       for (const unlisten of liveFeedUnlisteners) {
         unlisten();
@@ -1273,6 +1408,17 @@
       </div>
       <div class="voice-controls">
         <button
+          type="button"
+          class="voice-btn emergency-stop"
+          onclick={emergencyStopAllSound}
+          title="Tüm alarm seslerini anında keser (30 dakika)"
+        >
+          ACİL SES KES
+        </button>
+        {#if alarmSilenceLabel}
+          <span class="silence-badge">{alarmSilenceLabel}</span>
+        {/if}
+        <button
           class="voice-btn"
           class:active={voiceRepliesEnabled}
           disabled={!voiceAvailable}
@@ -1310,11 +1456,13 @@
         <div class="error-message">
           <strong>SISTEM HATASI TESPIT EDILDI</strong>
           <span>{globalError}</span>
-            <small>{criticalAlarmsAlwaysAudible ? "Kritik alarm panosu ve sesli alarm her hata anında aktif." : "Aynı hata tekrarlanırsa ses otomatik olarak yeniden başlatılmaz."}</small>
+            <small>{alarmSilenceLabel || "Alarm sesi ACİL SES KES ile anında durdurulabilir."}</small>
         </div>
         <div class="alarm-actions">
-          <button class="alarm-action-btn" onclick={muteAlarm}>Geçici Sessizleştir</button>
+          <button class="alarm-action-btn emergency" onclick={emergencyStopAllSound}>ACİL SES KES</button>
+          <button class="alarm-action-btn" onclick={muteAlarm}>30 Dk Sessiz</button>
           <button class="alarm-action-btn secondary" onclick={clearAlarm}>Hata Kaydını Kapat</button>
+          <button class="alarm-action-btn secondary" onclick={resetAlarmSilence}>Sessizliği Sıfırla</button>
         </div>
       </div>
 
@@ -1629,6 +1777,8 @@
     display: flex;
     gap: 8px;
     flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: center;
   }
 
   .voice-btn {
@@ -1651,6 +1801,21 @@
   .voice-btn.stop {
     background: #2a2020;
     border-color: #4a2b2b;
+  }
+
+  .voice-btn.emergency-stop {
+    background: #8a1f11;
+    border-color: #ff6b6b;
+    color: #fff;
+  }
+
+  .silence-badge {
+    font-size: 0.68rem;
+    color: #f8c14a;
+    font-weight: 700;
+    padding: 4px 8px;
+    border: 1px solid #8a5a12;
+    border-radius: 4px;
   }
 
   .voice-btn:disabled {
@@ -1748,6 +1913,11 @@
   .alarm-action-btn.secondary {
     border-color: rgba(255, 179, 179, 0.28);
     color: #ffd7d7;
+  }
+
+  .alarm-action-btn.emergency {
+    background: #8a1f11;
+    border-color: #ff6b6b;
   }
 
   .alarm-history-panel {

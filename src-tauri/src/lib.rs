@@ -125,7 +125,10 @@ fn install_rust_panic_listener() {
 
 fn emit_if_error<T>(app: &AppHandle, command: &str, result: Result<T, String>) -> Result<T, String> {
     result.map_err(|error| {
-        emit_critical_error(app, command, command, &error, None);
+        // Salt okunur sorgular kritik alarm tetiklemez; UI zaten hatayı yönetir.
+        if !command.starts_with("get_") {
+            emit_critical_error(app, command, command, &error, None);
+        }
         error
     })
 }

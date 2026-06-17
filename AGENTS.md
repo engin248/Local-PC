@@ -34,8 +34,6 @@ The main runnable product is **Lokal Bilgisayar Kontrol Paneli** at the reposito
 
 5. **Optional services** (Supabase, AI APIs, Pinecone): configured under `config/`; app runs without them.
 
-6. **Known audit-logging alarm on writes**: In the running app, every mutating UI action (create task, save plan, execute, approve, rollback) triggers a red `SİSTEM HATASI / KRİTİK ALARM` banner reading `Audit kayıt hatası: ... append_operation_audit_cmd missing required key input`. This is a pre-existing frontend/backend contract mismatch (the Rust `append_operation_audit_cmd` expects a wrapped `{ input: {...} }` arg, but `+page.svelte`'s `appendOperationAudit` sends fields un-wrapped). The underlying operation (e.g. `create_task_cmd`) still succeeds and persists to SQLite before the audit call fails, so the alarm does NOT mean the environment is broken. Do not treat this alarm as a setup failure.
-
 ### Secrets (optional)
 
 - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` or `SUPABASE_ANON_KEY` — cloud sync

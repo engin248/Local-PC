@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
+  import { invokePanel } from "../lib/tauriInvoke";
   import { startVoiceCommand, speakText } from "../lib/voiceService";
   import { isBrowserPreview } from "../lib/runtime";
   import {
@@ -58,7 +58,7 @@
         sentence = "";
         return;
       }
-      const result = await invoke("submit_command_sentence_cmd", {
+      const result = await invokePanel("submit_command_sentence_cmd", {
         sentence: trimmed,
         operatorId: "kurucu",
       });

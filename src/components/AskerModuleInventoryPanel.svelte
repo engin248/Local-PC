@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { invoke } from "@tauri-apps/api/core";
+  import { invokePanel } from "../lib/tauriInvoke";
 
   interface AskerModuleSummary {
     expected_module_total: number;
@@ -49,9 +49,9 @@
     isLoading = true;
     errorMsg = "";
     try {
-      summary = await invoke<AskerModuleSummary>("get_asker_module_summary_cmd");
-      modules = await invoke<AskerModuleRecord[]>("get_asker_module_inventory_cmd", {
-        limit: 500
+      summary = await invokePanel("get_asker_module_summary_cmd");
+      modules = await invokePanel("get_asker_module_inventory_cmd", {
+        limit: 500,
       });
       if (selectedModuleId) {
         await loadModuleSkills(selectedModuleId);
@@ -66,7 +66,7 @@
   async function loadModuleSkills(moduleId: string) {
     selectedModuleId = moduleId;
     try {
-      moduleSkills = await invoke<string[]>("get_module_skills_cmd", { moduleId });
+      moduleSkills = await invokePanel("get_module_skills_cmd", { moduleId });
     } catch {
       moduleSkills = [];
     }
