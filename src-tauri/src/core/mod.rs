@@ -26,3 +26,4 @@ pub mod system_validator;
 pub mod task_decomposer;
 pub mod task_intake;
 pub mod test_manager;
+pub mod voice_persona;

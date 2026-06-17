@@ -16,6 +16,7 @@ use crate::core::planning_gate::{save_plan, PlanningStandardInput};
 use crate::core::rollback_manager::rollback_task;
 use crate::core::system_validator::{SystemValidationIssue, SystemValidator};
 use crate::core::task_intake::{create_task, Task, TaskIntakeRequest};
+use crate::core::voice_persona::VoicePersonaRegistry;
 use crate::storage::db::init_db;
 use crate::system_connectors::connector_base::SystemConnectorHealth;
 use crate::system_connectors::system_connector_manager::SystemConnectorManager;
@@ -1057,6 +1058,15 @@ pub struct SkillItemUi {
 }
 
 #[tauri::command]
+fn get_voice_persona_cmd(app: AppHandle) -> Result<crate::core::voice_persona::VoicePersonaConfig, String> {
+    emit_if_error(
+        &app,
+        "get_voice_persona_cmd",
+        VoicePersonaRegistry::load_config(),
+    )
+}
+
+#[tauri::command]
 fn get_asker_module_summary_cmd(app: AppHandle) -> Result<AskerModuleSummary, String> {
     emit_if_error(
         &app,
@@ -1218,6 +1228,7 @@ pub fn run() {
             sync_supabase_cmd,
             get_db_size_cmd,
             get_asker_module_summary_cmd,
+            get_voice_persona_cmd,
             get_asker_module_inventory_cmd,
             get_module_skills_cmd,
             get_skill_library_summary_cmd,

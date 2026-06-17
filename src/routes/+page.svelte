@@ -21,6 +21,7 @@
   import OperationPackagePanel from "../components/OperationPackagePanel.svelte";
   import SkillLibraryExplorer from "../components/SkillLibraryExplorer.svelte";
   import KontrolDepartmaniPanel from "../components/KontrolDepartmaniPanel.svelte";
+  import YarbayEmelSohbetPanel from "../components/YarbayEmelSohbetPanel.svelte";
   import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
   import { speakText, stopSpeech, formatAlarmSpeech } from "../lib/voiceService";
   import { invokePanel } from "../lib/tauriInvoke";
@@ -38,6 +39,7 @@
     resetAlarmCircuit,
     silenceAlarmsForMs,
   } from "../lib/alarmSilence";
+  import { formatVoiceTemplate, getOperatorName, loadVoicePersonaConfig } from "../lib/voicePersona";
   import { resolveFlowStage, isCommandCenterTask } from "../lib/commandFlow";
 
 
@@ -67,7 +69,10 @@
   let askerMotoruLiveStatus = $state<any | null>(null);
   let activeAlarmEvents = $state<any[]>([]);
 
-  let activeSection = $state("kontrol");
+  let activeSection = $state("emel");
+  let emelMessages = $state<{ id: string; text: string; at: string; source?: string }[]>([]);
+  let emelAutoRead = $state(true);
+  let operatorVoiceName = $state("Yarbay Emel Hanım");
   let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
   let globalError = $state<string | null>(null);
   let alarmMuted = $state(false);
@@ -825,7 +830,23 @@
     refreshSilenceLabel();
   }
 
-  function speakReply(text: string, key = text, force = true) {
+  function pushEmelMessage(text: string, source = operatorVoiceName) {
+    emelMessages = [
+      {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        text,
+        at: new Date().toLocaleString("tr-TR"),
+        source,
+      },
+      ...emelMessages,
+    ].slice(0, 40);
+  }
+
+  function handleEmelAddMessage(text: string, source?: string) {
+    speakReply(text, `emel-user:${Date.now()}`, true, source || "Komutan");
+  }
+
+  function speakReply(text: string, key = text, force = true, feedSource?: string) {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       voiceAvailable = false;
       return;
@@ -838,6 +859,11 @@
 
     if (!force && key === lastSpokenVoiceKey) return;
     if (!force && !voiceRepliesEnabled) return;
+
+    const isDisplayOnlyAlarm = key.startsWith("critical") || key.startsWith("alarm");
+    if (voiceRepliesEnabled && !isDisplayOnlyAlarm) {
+      pushEmelMessage(text, feedSource || operatorVoiceName);
+    }
 
     lastSpokenVoiceKey = key;
     if (speakText(text, key, force)) return;
@@ -933,7 +959,7 @@
       burhanEvents = [feedItem, ...burhanEvents].slice(0, 20);
       lastBurhanDispatch = event.message;
       if (voiceRepliesEnabled) {
-        speakReply(`Albay Burhan emir dağıttı. ${event.message}`, `burhan:${event.timestamp}`, true);
+        speakReply(formatVoiceTemplate("burhan_dispatch", { summary: event.message }), `burhan:${event.timestamp}`, true);
       }
     }
 
@@ -947,7 +973,7 @@
     }
 
     if (event.event_type === "report-returned" && voiceRepliesEnabled) {
-      speakReply(`Rapor hazır. ${event.message}`, `report-live:${event.timestamp}`, true);
+      speakReply(formatVoiceTemplate("report_ready", { summary: event.message }), `report-live:${event.timestamp}`, true);
     }
 
     if (event.event_type === "alarm-code") {
@@ -996,7 +1022,7 @@
     localStorage.setItem("voiceRepliesEnabled", String(voiceRepliesEnabled));
 
     if (voiceRepliesEnabled) {
-      speakReply("Sesli cevap açıldı.", "voice-enabled", true);
+      speakReply(formatVoiceTemplate("greeting"), "voice-enabled", true);
     } else {
       stopVoiceReply();
     }
@@ -1250,6 +1276,13 @@
       voiceRepliesEnabled = savedVoiceSetting === "true";
     }
 
+    void loadVoicePersonaConfig().then(() => {
+      operatorVoiceName = getOperatorName();
+      if (!isMounted || !voiceRepliesEnabled) return;
+      const greeting = formatVoiceTemplate("greeting");
+      window.setTimeout(() => speakReply(greeting, "emel-greeting", true, operatorVoiceName), 900);
+    });
+
     const globalErrorHandler = (event: ErrorEvent) => {
       const detail = event.error instanceof Error ? event.error.message : String(event.message || event.error || "Bilinmeyen hata");
       raiseCriticalAlarm("Beklenmeyen istemci hatası", detail);
@@ -1404,6 +1437,7 @@
         {/if}
       </div>
       <div class="navigation-tabs">
+        <button class="nav-btn" class:active={activeSection === 'emel'} onclick={() => activeSection = 'emel'}>YARBAY EMEL — SESLİ</button>
         <button class="nav-btn" class:active={activeSection === 'kontrol'} onclick={() => activeSection = 'kontrol'}>KONTROL DEPARTMANI</button>
         <button class="nav-btn" class:active={activeSection === 'planning'} onclick={() => activeSection = 'planning'}>PLANLAMA (GATE 1)</button>
         <button class="nav-btn" class:active={activeSection === 'decisions'} onclick={() => activeSection = 'decisions'}>KARAR AGACI & ALTERNATIFLER (GATE 2-4)</button>
@@ -1429,7 +1463,7 @@
           disabled={!voiceAvailable}
           onclick={toggleVoiceReplies}
         >
-          {voiceRepliesEnabled ? "Sesli Cevap Acik" : "Sesli Cevap Kapali"}
+          {voiceRepliesEnabled ? "Yarbay Emel — Sesli Okuma Açık" : "Yarbay Emel — Sesli Okuma Kapalı"}
         </button>
         <button class="voice-btn stop" disabled={!voiceAvailable} onclick={stopVoiceReply}>Cevap Sesini Durdur</button>
       </div>
@@ -1484,7 +1518,14 @@
     {/if}
 
     <div class="workspace-scroll-area">
-      {#if activeSection === 'kontrol'}
+      {#if activeSection === 'emel'}
+        <YarbayEmelSohbetPanel
+          messages={emelMessages}
+          {voiceRepliesEnabled}
+          onSpeak={(text, key) => speakReply(text, key || `emel:${Date.now()}`, true)}
+          onAddMessage={handleEmelAddMessage}
+        />
+      {:else if activeSection === 'kontrol'}
         <KontrolDepartmaniPanel
           commandFeed={commandFeed}
           burhanEvents={burhanEvents}

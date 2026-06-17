@@ -4,6 +4,7 @@ export type VoicePersona = {
   pitch: number;
   volume: number;
   preferFemaleVoice: boolean;
+  voiceHints?: string[];
 };
 
 const defaultPersona: VoicePersona = {
@@ -23,12 +24,20 @@ export function setVoicePersona(next: Partial<VoicePersona>) {
   persona = { ...persona, ...next };
 }
 
+export function getVoicePersona(): VoicePersona {
+  return { ...persona };
+}
+
 function pickTurkishVoice(synth: SpeechSynthesis): SpeechSynthesisVoice | undefined {
   const voices = synth.getVoices();
   const turkish = voices.filter((voice) => voice.lang.toLowerCase().startsWith("tr"));
   if (!turkish.length) return undefined;
   if (persona.preferFemaleVoice) {
-    const female = turkish.find((voice) => /female|kadın|woman|zira|yelda/i.test(`${voice.name} ${voice.voiceURI}`));
+    const hints = persona.voiceHints?.length
+      ? persona.voiceHints
+      : ["female", "kadın", "woman", "zira", "yelda", "emel"];
+    const pattern = new RegExp(hints.join("|"), "i");
+    const female = turkish.find((voice) => pattern.test(`${voice.name} ${voice.voiceURI}`));
     if (female) return female;
   }
   return turkish[0];
