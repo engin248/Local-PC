@@ -1,12 +1,17 @@
 param(
-    [string]$ProjectRoot = "C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli",
+    [string]$ProjectRoot = "",
     [string]$InstallDir = "C:\Users\Esisya\AppData\Local\LOKAL BILGISAYAR KONTROL PANELI",
     [string]$Branch = "master",
     [switch]$SkipPull,
-    [switch]$UseInstaller
+    [switch]$SkipVerify,
+    [switch]$DirectCopy
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+    $ProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+}
 
 function Stop-PanelProcesses {
     param([string]$ExePath)
@@ -53,8 +58,11 @@ Set-Location -LiteralPath $ProjectRoot
 if (-not $SkipPull) {
     Write-Host "Git guncelleniyor: origin/$Branch"
     git fetch origin $Branch
-    git checkout $Branch
-    git pull origin $Branch
+    $currentBranch = (git rev-parse --abbrev-ref HEAD 2>$null)
+    if ($currentBranch -ne $Branch) {
+        git checkout $Branch
+    }
+    git pull --ff-only origin $Branch
 }
 
 Write-Host "Bagimliliklar kuruluyor..."
@@ -73,14 +81,19 @@ if (-not (Test-Path -LiteralPath $targetExe)) {
 
 Stop-PanelProcesses -ExePath $installedExe
 
-if ($UseInstaller) {
+$useInstaller = -not $DirectCopy
+
+if ($useInstaller) {
     if (-not (Test-Path -LiteralPath $nsisInstaller)) {
         throw "NSIS installer bulunamadi: $nsisInstaller"
     }
 
-    Write-Host "NSIS kurulumu calistiriliyor..."
-    & $nsisInstaller /S
-    Start-Sleep -Seconds 3
+    Write-Host "NSIS sessiz kurulum calistiriliyor (onerilen yontem)..."
+    $installProc = Start-Process -FilePath $nsisInstaller -ArgumentList "/S" -Wait -PassThru
+    if ($installProc.ExitCode -ne 0) {
+        throw "NSIS kurulumu basarisiz. ExitCode=$($installProc.ExitCode)"
+    }
+    Start-Sleep -Seconds 2
 } else {
     if (-not (Test-Path -LiteralPath $InstallDir)) {
         New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
@@ -88,11 +101,18 @@ if ($UseInstaller) {
 
     $null = Backup-InstalledExe -InstalledExe $installedExe
     Copy-Item -LiteralPath $targetExe -Destination $installedExe -Force
-    Write-Host "Kurulu exe guncellendi: $installedExe"
+    Write-Host "Kurulu exe dogrudan kopyalandi: $installedExe"
 }
 
-& (Join-Path $PSScriptRoot "verify_installed_release.ps1") `
-    -ProjectRoot $ProjectRoot `
-    -InstallDir $InstallDir
+if (-not $SkipVerify) {
+    & (Join-Path $PSScriptRoot "verify_installed_release.ps1") `
+        -ProjectRoot $ProjectRoot `
+        -InstallDir $InstallDir
+} else {
+    Write-Host "Dogrulama atlandi (-SkipVerify)."
+}
 
-Write-Host "TAMAM: Kurulu surum guncellendi. Paneli baslatmak icin masaustu kisayolunu veya kurulu exe'yi kullanin."
+Write-Host ""
+Write-Host "TAMAM: Kurulu surum guncellendi."
+Write-Host "  Yol: $installedExe"
+Write-Host "  Gelistirme modu icin: npm run tauri dev"

@@ -33,6 +33,33 @@ npm run tauri build
 ```
 Paketlenen dosya `src-tauri/target/release/bundle/msi/` veya `exe/` altında oluşacaktır.
 
+### 5. Adım: Kurulu sürümü güncelleme (Windows)
+
+Kurulu uygulama yolu:
+`C:\Users\Esisya\AppData\Local\LOKAL BILGISAYAR KONTROL PANELI\lokal_bilgisayar_kontrol_paneli.exe`
+
+Proje klasöründe çift tıklayın veya PowerShell'de:
+
+```powershell
+.\KURULU_SURUMU_GUNCELLE.cmd
+```
+
+veya:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\update_installed_exe.ps1
+```
+
+Script sırasıyla: `git pull` → `npm install` → `npm run tauri build` → NSIS sessiz kurulum → doğrulama.
+
+Geliştirme modu:
+
+```powershell
+npm run tauri dev
+```
+
+veya `TAURI_DEV.cmd` / `scripts\tauri_dev.ps1`.
+
 ---
 
 ## 🏗️ Çekirdek Mimari Kapıları (Execution Gates)

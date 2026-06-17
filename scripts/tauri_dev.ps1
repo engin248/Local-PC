@@ -1,8 +1,12 @@
 param(
-    [string]$ProjectRoot = "C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli"
+    [string]$ProjectRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+    $ProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+}
 
 if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot "package.json"))) {
     throw "Proje kokunde package.json yok: $ProjectRoot"
