@@ -23,7 +23,7 @@
   import KontrolDepartmaniPanel from "../components/KontrolDepartmaniPanel.svelte";
   import YarbayEmelSohbetPanel from "../components/YarbayEmelSohbetPanel.svelte";
   import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
-  import { speakText, stopSpeech, formatAlarmSpeech } from "../lib/voiceService";
+  import { speakText, stopSpeech, formatAlarmSpeech, bootstrapOperatorVoice, isOperatorVoiceBootstrapped, getLastSpeakError, hydrateSpeechVoices } from "../lib/voiceService";
   import { invokePanel } from "../lib/tauriInvoke";
   import {
     ALARM_DEDUPE_MS,
@@ -73,6 +73,8 @@
   let emelMessages = $state<{ id: string; text: string; at: string; source?: string }[]>([]);
   let emelAutoRead = $state(true);
   let operatorVoiceName = $state("Yarbay Emel Hanım");
+  let emelVoiceBootstrapped = $state(false);
+  let emelVoiceStatus = $state<string | null>(null);
   let footerTab = $state("agent_stream"); // "planning", "decisions", "security", "connections", "execution"
   let globalError = $state<string | null>(null);
   let alarmMuted = $state(false);
@@ -842,6 +844,28 @@
     ].slice(0, 40);
   }
 
+  function isEmelOperatorSpeech(key: string, feedSource?: string): boolean {
+    return (
+      key.startsWith("emel") ||
+      key === "voice-enabled" ||
+      feedSource === "Komutan" ||
+      feedSource === operatorVoiceName
+    );
+  }
+
+  async function bootstrapEmelVoice() {
+    emelVoiceStatus = "Ses hattı açılıyor...";
+    const greeting = formatVoiceTemplate("greeting");
+    const result = await bootstrapOperatorVoice(greeting);
+    emelVoiceBootstrapped = result.ok;
+    if (result.ok) {
+      emelVoiceStatus = `Ses aktif: ${result.voiceName || "Türkçe"}`;
+      pushEmelMessage(greeting, operatorVoiceName);
+    } else {
+      emelVoiceStatus = result.error || getLastSpeakError() || "Ses açılamadı";
+    }
+  }
+
   function handleEmelAddMessage(text: string, source?: string) {
     speakReply(text, `emel-user:${Date.now()}`, true, source || "Komutan");
   }
@@ -853,22 +877,36 @@
     }
 
     const isAlarmSpeech = key.startsWith("critical") || key.startsWith("alarm");
+    const isEmelSpeech = isEmelOperatorSpeech(key, feedSource);
+
     if ((alarmMuted || isAlarmSilenced()) && isAlarmSpeech) {
       return;
     }
 
     if (!force && key === lastSpokenVoiceKey) return;
-    if (!force && !voiceRepliesEnabled) return;
+    if (!force && !voiceRepliesEnabled && !isEmelSpeech) return;
 
-    const isDisplayOnlyAlarm = key.startsWith("critical") || key.startsWith("alarm");
-    if (voiceRepliesEnabled && !isDisplayOnlyAlarm) {
+    if (!emelVoiceBootstrapped && isEmelSpeech) {
+      emelVoiceStatus = "Önce 'Emel'i Başlat' düğmesine tıklayın.";
+      pushEmelMessage(text, feedSource || "Komutan");
+      return;
+    }
+
+    const isDisplayOnlyAlarm = isAlarmSpeech;
+    if (voiceRepliesEnabled || isEmelSpeech) {
       pushEmelMessage(text, feedSource || operatorVoiceName);
     }
 
     lastSpokenVoiceKey = key;
-    if (speakText(text, key, force)) return;
+    void hydrateSpeechVoices().then(() => {
+      if (!speakText(text, key, force)) {
+        emelVoiceStatus = getLastSpeakError() || "Ses üretilemedi";
+        processSpeechQueueFallback(text, key, force);
+      }
+    });
+  }
 
-    // Eğer otomatik (force = false) bir durum güncellemesi tetiklendiyse veya alarm ise,
+  function processSpeechQueueFallback(text: string, key: string, force: boolean) {
     // kuyruktaki tüm eski bayat mesajları temizle ve çalan eski sesi iptal et.
     // Bu sayede aynı anda sadece TEK BİR SES çalacaktır.
     if (!force || key.startsWith("critical")) {
@@ -1278,9 +1316,14 @@
 
     void loadVoicePersonaConfig().then(() => {
       operatorVoiceName = getOperatorName();
-      if (!isMounted || !voiceRepliesEnabled) return;
-      const greeting = formatVoiceTemplate("greeting");
-      window.setTimeout(() => speakReply(greeting, "emel-greeting", true, operatorVoiceName), 900);
+      emelVoiceBootstrapped = isOperatorVoiceBootstrapped();
+      if (!isMounted) return;
+      if (emelVoiceBootstrapped && voiceRepliesEnabled) {
+        const greeting = formatVoiceTemplate("greeting");
+        window.setTimeout(() => speakReply(greeting, "emel-greeting", true, operatorVoiceName), 400);
+      } else if (!emelVoiceBootstrapped) {
+        emelVoiceStatus = "Ses için 'Emel'i Başlat' düğmesine bir kez tıklayın.";
+      }
     });
 
     const globalErrorHandler = (event: ErrorEvent) => {
@@ -1522,6 +1565,9 @@
         <YarbayEmelSohbetPanel
           messages={emelMessages}
           {voiceRepliesEnabled}
+          voiceBootstrapped={emelVoiceBootstrapped}
+          voiceStatus={emelVoiceStatus}
+          onBootstrap={bootstrapEmelVoice}
           onSpeak={(text, key) => speakReply(text, key || `emel:${Date.now()}`, true)}
           onAddMessage={handleEmelAddMessage}
         />

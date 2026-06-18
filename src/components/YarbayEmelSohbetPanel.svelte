@@ -11,11 +11,17 @@
   let {
     messages = [],
     voiceRepliesEnabled = true,
+    voiceBootstrapped = false,
+    voiceStatus = null as string | null,
+    onBootstrap,
     onSpeak,
     onAddMessage,
   } = $props<{
     messages?: EmelMessage[];
     voiceRepliesEnabled?: boolean;
+    voiceBootstrapped?: boolean;
+    voiceStatus?: string | null;
+    onBootstrap?: () => void | Promise<void>;
     onSpeak?: (text: string, key?: string) => void;
     onAddMessage?: (text: string, source?: string) => void;
   }>();
@@ -57,6 +63,21 @@
       Albay Burhan komutayı yürütür; {operatorName} size seslendirir.
     </p>
   </header>
+
+  {#if !voiceBootstrapped}
+    <div class="bootstrap-box" role="alert">
+      <p><strong>Ses gelmiyorsa:</strong> Windows ve Tauri ilk ses için bir tıklama ister.</p>
+      <button type="button" class="btn bootstrap" onclick={() => onBootstrap?.()}>
+        Emel'i Başlat — Ses Hattını Aç
+      </button>
+    </div>
+  {:else}
+    <p class="status-ok">Ses hattı açık. {voiceStatus || "Hazır."}</p>
+  {/if}
+
+  {#if voiceStatus && !voiceBootstrapped}
+    <p class="warn">{voiceStatus}</p>
+  {/if}
 
   <div class="controls">
     <label class="toggle">
@@ -235,5 +256,31 @@
 
   .warn {
     color: #ffb74d;
+  }
+
+  .bootstrap-box {
+    background: #1a3020;
+    border: 2px solid #ffb74d;
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+  }
+
+  .bootstrap-box p {
+    margin: 0 0 0.75rem;
+    font-size: 1.2rem;
+  }
+
+  .btn.bootstrap {
+    background: #c77800;
+    border-color: #ffb74d;
+    font-size: 1.35rem;
+    padding: 0.9rem 1.4rem;
+    width: 100%;
+  }
+
+  .status-ok {
+    font-size: 1.1rem;
+    color: #7fdc8a;
+    margin: 0;
   }
 </style>

@@ -19,6 +19,9 @@ let persona: VoicePersona = { ...defaultPersona };
 const queue: { text: string; key: string }[] = [];
 let speaking = false;
 let lastKey = "";
+let voicesHydrated = false;
+let operatorVoiceBootstrapped = false;
+let lastSpeakError: string | null = null;
 
 export function setVoicePersona(next: Partial<VoicePersona>) {
   persona = { ...persona, ...next };
@@ -28,14 +31,77 @@ export function getVoicePersona(): VoicePersona {
   return { ...persona };
 }
 
+export function isOperatorVoiceBootstrapped(): boolean {
+  return operatorVoiceBootstrapped;
+}
+
+export function getLastSpeakError(): string | null {
+  return lastSpeakError;
+}
+
+export function hydrateSpeechVoices(): Promise<SpeechSynthesisVoice[]> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      resolve([]);
+      return;
+    }
+    const synth = window.speechSynthesis;
+    const finish = () => {
+      const voices = synth.getVoices();
+      if (voices.length > 0) voicesHydrated = true;
+      resolve(voices);
+    };
+    finish();
+    if (!voicesHydrated) {
+      synth.addEventListener("voiceschanged", () => finish(), { once: true });
+      window.setTimeout(finish, 1000);
+    }
+  });
+}
+
+/** Tarayıcı/Tauri: ilk ses kullanıcı tıklaması gerektirir. */
+export async function bootstrapOperatorVoice(testPhrase?: string): Promise<{
+  ok: boolean;
+  voiceName?: string;
+  error?: string;
+}> {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return { ok: false, error: "Bu ortamda ses sentezi (speechSynthesis) yok." };
+  }
+
+  await hydrateSpeechVoices();
+  const synth = window.speechSynthesis;
+  try {
+    synth.cancel();
+    synth.resume();
+  } catch {
+    /* ignore */
+  }
+
+  operatorVoiceBootstrapped = true;
+  const voice = pickTurkishVoice(synth);
+  const phrase =
+    testPhrase || "Yarbay Emel Hanım görevde. Ses hattı açıldı. Komutanım, hazırım.";
+  speakText(phrase, "emel-bootstrap", true);
+
+  return {
+    ok: true,
+    voiceName: voice?.name || "varsayılan Türkçe",
+  };
+}
+
 function pickTurkishVoice(synth: SpeechSynthesis): SpeechSynthesisVoice | undefined {
   const voices = synth.getVoices();
   const turkish = voices.filter((voice) => voice.lang.toLowerCase().startsWith("tr"));
-  if (!turkish.length) return undefined;
+  if (!turkish.length) {
+    const loose = voices.filter((voice) => /tr/i.test(voice.lang));
+    if (!loose.length) return undefined;
+    return loose[0];
+  }
   if (persona.preferFemaleVoice) {
     const hints = persona.voiceHints?.length
       ? persona.voiceHints
-      : ["female", "kadın", "woman", "zira", "yelda", "emel"];
+      : ["female", "kadın", "woman", "zira", "yelda", "ayşe"];
     const pattern = new RegExp(hints.join("|"), "i");
     const female = turkish.find((voice) => pattern.test(`${voice.name} ${voice.voiceURI}`));
     if (female) return female;
@@ -56,6 +122,13 @@ function processQueue() {
     speaking = false;
     return;
   }
+
+  try {
+    synth.resume();
+  } catch {
+    /* ignore */
+  }
+
   const utterance = new SpeechSynthesisUtterance(current.text);
   const voice = pickTurkishVoice(synth);
   utterance.lang = persona.lang;
@@ -63,21 +136,57 @@ function processQueue() {
   utterance.pitch = persona.pitch;
   utterance.volume = persona.volume;
   if (voice) utterance.voice = voice;
+
+  utterance.onstart = () => {
+    lastSpeakError = null;
+  };
   utterance.onend = () => processQueue();
-  utterance.onerror = () => processQueue();
+  utterance.onerror = (event) => {
+    lastSpeakError = String((event as SpeechSynthesisErrorEvent)?.error || "speech-error");
+    processQueue();
+  };
+
   synth.speak(utterance);
+
+  // Chrome/WebView2: konuşma takılırsa resume dene
+  window.setTimeout(() => {
+    if (speaking && synth.speaking) {
+      try {
+        synth.resume();
+      } catch {
+        /* ignore */
+      }
+    }
+  }, 250);
 }
 
 export function speakText(text: string, key = text, force = true) {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return false;
+  if (!text?.trim()) return false;
+
+  const isOperatorSpeech =
+    key.startsWith("emel") || key === "voice-enabled" || key.startsWith("emel-user");
+
+  if (!operatorVoiceBootstrapped && !force && !key.startsWith("critical") && !key.startsWith("alarm")) {
+    if (isOperatorSpeech) {
+      lastSpeakError = "Önce 'Emel'i Başlat' düğmesine tıklayın.";
+      return false;
+    }
+  }
+
   if (!force && key === lastKey) return false;
   lastKey = key;
-  if (force || key.startsWith("critical") || key.startsWith("alarm")) {
+
+  if (force || key.startsWith("critical") || key.startsWith("alarm") || isOperatorSpeech) {
     queue.length = 0;
     window.speechSynthesis.cancel();
   }
-  queue.push({ text, key });
-  if (!speaking) processQueue();
+
+  void hydrateSpeechVoices().then(() => {
+    queue.push({ text, key });
+    if (!speaking) processQueue();
+  });
+
   return true;
 }
 
@@ -126,4 +235,8 @@ export function startVoiceCommand(
   recognition.onerror = (event) => onError?.(event.error);
   recognition.start();
   return () => recognition.stop();
+}
+
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  void hydrateSpeechVoices();
 }
