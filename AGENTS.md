@@ -1,53 +1,65 @@
 # AGENTS.md
 
-## Cursor Cloud specific instructions
+## Komutan kuralı (öncelik)
 
-### Primary product
+- **GCP / gcloud / Cloud Agent kullanılmaz** — sistem sıfırlandı, yerel depot.
+- **Git push/pull:** komutan açık onayı olmadan **yapılmaz**.
+- **Komutan PC işleri** (exe, ses, yol): yalnızca **Windows yerel Cursor Agent** veya `.cmd` çift tık.
+- Agent **tünel, köprü uzaktan erişim, Cloud Agent** önermez; `YEREL_HAZIR_BASLAT.cmd` / `KURULU_SURUMU_GUNCELLE.cmd` yeterli.
 
-The main runnable product is **Lokal Bilgisayar Kontrol Paneli** at the repository root: SvelteKit frontend + Tauri 2 / Rust backend + embedded SQLite (`storage/app.db`). See `README.md` for architecture and gate workflow.
+Başlangıç rehberi: `operasyon_merkezi/kurulum/BASLANGIC_SIFIR.md`
 
-`openclaw/` is a separate pnpm monorepo (OpenClaw gateway/CLI). It is not wired into the panel’s `src/` or `src-tauri/` code. Only work there when explicitly asked.
+---
 
-### Commands (panel)
+## Primary product
+
+**Lokal Bilgisayar Kontrol Paneli** — SvelteKit + Tauri 2 + SQLite (`storage/app.db`).
+
+`openclaw/` ayrı monorepo; panele bağlı değil. Sadece istenirse dokunulur.
+
+---
+
+## Commands (panel)
 
 | Task | Command |
 |------|---------|
 | Install JS deps | `npm install` |
-| Typecheck / lint | `npm run check` (`svelte-check`; no root `npm run lint`) |
+| Typecheck | `npm run check` |
 | Frontend build | `npm run build` |
-| Rust tests | `cd src-tauri && cargo test` (43 tests: 42 unit + 1 e2e) |
-| Dev (desktop) | `npm run tauri dev` (starts Vite on port **200** + Tauri window) |
-| Vite only | `npm run dev` → http://localhost:200/ (Tauri IPC will not work in a plain browser) |
-| Desktop release build | `npm run tauri build` |
+| Rust tests | `cd src-tauri && cargo test` |
+| Dev (desktop) | `npm run tauri dev` (port **200**) |
+| Vite only | `npm run dev` |
 
-### Linux / Cloud Agent gotchas
+---
 
-1. **Port 200 is privileged** on default Linux (`ip_unprivileged_port_start` = 1024). Vite/Tauri dev will fail with `EACCES` unless Node can bind low ports, e.g. once per VM image:
-   `sudo setcap 'cap_net_bind_service=+ep' "$(readlink -f "$(which node)")"`
-   Do not put `setcap` in the VM update script.
+## Windows komutan PC
 
-2. **Rust toolchain**: Tauri 2 dependencies may require **Rust ≥ 1.85+** (edition 2024 crates). If `cargo test` fails on `edition2024`, run `rustup default stable` before building. The update script does not run `rustup`.
-
-3. **Tauri system packages** (Debian/Ubuntu): `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libssl-dev`, `build-essential`. Install via image/snapshot, not the update script.
-
-4. **Long-running dev**: Use a named tmux session (e.g. `tauri-dev`) for `npm run tauri dev`; first compile can take ~1–2 minutes.
-
-5. **Optional services** (Supabase, AI APIs, Pinecone): configured under `config/`; app runs without them.
-
-### Windows komutan PC — Yerel Agent (tünel yok)
-
-Cloud Agent uzak Linux VM'dedir; `C:\Users\Esisya\...` yoluna doğrudan erişemez.
-
-**Komutan işleri (exe güncelleme, yol kontrol):** Cursor **Desktop** Windows'ta proje klasörünü aç → Agent modu → veya çocuk `YEREL_HAZIR_BASLAT.cmd` çift tık.
-
-```powershell
-powershell -File scripts\yerel_panel_islem.ps1 -Islem kurulu_guncelle
-powershell -File scripts\yerel_panel_islem.ps1 -Islem yol_kontrol
+Proje kökü:
+```
+C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli
 ```
 
-Rehber: `operasyon_merkezi/kurulum/CURSOR_YEREL_AGENT.md`. Tünel (`KOPRU_TUNEL_BASLAT`) **zorunlu değil**.
+| İş | Dosya |
+|----|--------|
+| İlk hazırlık | `YEREL_HAZIR_BASLAT.cmd` |
+| Exe güncelle | `KURULU_SURUMU_GUNCELLE.cmd` veya `TEK_TIK_GUNCELLE.cmd` |
+| Yol kontrol | `YOLLARI_KONTROL.cmd` |
+| Ses | `SESLI_OZET_OKU.cmd` + panel Emel'i Başlat |
 
-### Secrets (optional)
+Yerel script:
+```powershell
+powershell -File scripts\yerel_panel_islem.ps1 -Islem kurulu_guncelle
+```
 
-- `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` or `SUPABASE_ANON_KEY` — cloud sync
-- Provider keys in `config/ai_providers.json` / env as documented in connector code
+---
+
+## Optional services
+
+Supabase, AI API, Pinokio — `config/` kapalı kalabilir; panel çalışır.
+
+---
+
+## Deprecated (kullanma)
+
+- `KOPRU_TUNEL_BASLAT.cmd`, `scripts/kopru_cloud_call.sh` — uzak cloud için; komutan akışında **kapalı**
+- Cursor Cloud Agent — komutan işleri için **kapalı**

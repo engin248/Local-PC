@@ -1,58 +1,39 @@
-# Git ve Kurulum — Zorunlu mu?
+# Git ve Kurulum — Zorunlu mu? (gcloud kapalı, yerel only)
 
-**Kural (komutan):** Zorunlu / mecbur / zaruri haller dışında `git pull`, `commit`, `push` **yapılmaz**.
-
----
-
-## Sizin yapmanız GEREKMEYEN (asla)
-
-| İş | Kim yapar? |
-|----|------------|
-| `git commit` | Siz yapmayın — Cloud Agent yapar |
-| `git push` | Siz yapmayın — Cloud Agent yapar |
-| GitHub'a kod yazmak | Cloud Agent (uzak sunucu) |
+**Güncelleme:** gcloud sıfırlandı. Uzak Cloud Agent **kullanılmaz**.
 
 ---
 
-## `git pull` — ne zaman ZORUNLU?
+## Sizin yapmanız GEREKMEYEN
 
-| Durum | Zorunlu mu? |
-|-------|-------------|
-| Masaüstü klasörünüzde yeni script/ses/düzeltme **yok** ve panel hâlâ eski | **Evet** — sadece indirme (pull), siz commit etmezsiniz |
-| Zaten güncel kod var veya `.exe` güncel çalışıyor | **Hayır** |
-| Sadece paneli normal kullanıyorsunuz, sorun yok | **Hayır** |
-
-**Pull istemiyorsanız** (git kuralınıza uygun):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\update_installed_exe.ps1 -SkipPull
-```
+| İş | |
+|----|--|
+| `git commit` / `git push` | Zorunlu değil |
+| gcloud / GCP | **Kapalı** |
+| Cloud Agent | **Kapalı** |
+| Tünel / KOPRU_TUNEL | **Kapalı** |
 
 ---
 
-## `ACIL_SES_KES_VE_GUNCELLE.cmd` — ne zaman ZORUNLU?
+## Sizin yapmanız GEREKEN (yerel, bir kez)
 
-| Durum | Zorunlu mu? |
-|-------|-------------|
-| Eski panel sesi durmuyor / sahte alarm | **Evet (zaruri)** |
-| Kurulu `.exe` eski, Emel paneli yok | **Evet** |
-| Panel zaten yeni ve sessiz çalışıyor | **Hayır** |
-| Sadece üretim koduna devam (Cloud Agent) | **Hayır — sabah bekleyebilir** |
+| İş | Dosya |
+|----|--------|
+| Hazırlık | `YEREL_HAZIR_BASLAT.cmd` |
+| Exe güncelle | `KURULU_SURUMU_GUNCELLE.cmd` |
+| Yol kontrol | `YOLLARI_KONTROL.cmd` |
+| Emel ses | Panel → Emel'i Başlat |
 
-Bu komut **git push değildir**; sizin bilgisayarda derleme ve kurulumdur.
-
----
-
-## Sabah özeti
-
-- **Zorunlu değil:** `git pull` + güncelleme (panel düzgünse)
-- **Zorunlu olabilir:** Sadece eski `.exe` / alarm sorunu devam ediyorsa
-- **Sizin commit/push:** Hiçbir zaman gerekmez
+Rehber: `operasyon_merkezi/kurulum/BASLANGIC_SIFIR.md`
 
 ---
 
-## Üretim devam
+## git pull ne zaman?
 
-Gece devri kapanmadı — **Üretim Departmanı** görevleri sürüyor. Cloud Agent kod yazar ve GitHub'a push eder; siz git işlemi yapmazsınız.
+Yalnızca başka makineden kod almak isterseniz — **zorunlu değil**.
 
-Görev dosyası: `gorevler/GOREV_URETIM_DEPARTMANI_01.md`
+---
+
+## Agent kuralı
+
+Yerel Cursor Agent: komutan PC'de çalışır. Push/onay istemeden GitHub'a yazmaz.

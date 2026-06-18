@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "gcloud": "kapali",
+  "cloud_agent": "kapali",
+  "tunnel_kopru": "kapali",
+  "git_push": "komutan_onayi_gerekir",
+  "git_pull": "istege_bagli",
+  "birincil_agent": "cursor_yerel_windows",
+  "proje_kok": "C:\\Users\\Esisya\\Desktop\\Lokal Bilgisayar Kontrol Paneli",
+  "baslangic_rehberi": "operasyon_merkezi/kurulum/BASLANGIC_SIFIR.md"
+}

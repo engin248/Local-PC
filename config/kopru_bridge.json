@@ -17,8 +17,8 @@
     "poll_seconds": 3
   },
   "tunnel": {
-    "required": false,
-    "hint": "Tunel ZORUNLU DEGIL. Yerel Cursor Agent icin YEREL_HAZIR_BASLAT.cmd yeterli.",
-    "tunnel_public_url": ""
+    "enabled": false,
+    "deprecated": true,
+    "hint": "KAPALI — gcloud/Cloud Agent sifirlandi. Kullanmayin."
   }
 }
