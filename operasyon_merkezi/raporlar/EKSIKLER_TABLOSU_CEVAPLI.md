@@ -36,11 +36,11 @@ Varsayılan Asker kökü: `config/asker_motoru_bridge.json` → `Desktop\asker m
 | 13 | Failover | `failover_policy.json` aktif |
 | 14 | Kontrol Departmanı | VAR |
 | 15 | Git commit/push sizden | GEREKMEZ |
-| 16 | git pull sizden | GEREKMEZ |
-| 17 | Cloud Agent | Çalışıyor |
-| 18 | Testler | 55 geçiyor |
-| 19 | Cursor sohbet sesi | YOK — Emel/panel/script |
-| 20 | Kurulu exe rehberi | `kurulum/KURULU_EXE_NEREDEN_GUNCELLENIR.md` |
+| 16 | git pull sizden | İsteğe bağlı |
+| 17 | gcloud / Cloud Agent | **KAPALI** |
+| 18 | Testler | **55 geçiyor** |
+| 19 | Cursor sohbet sesi | YOK |
+| 20 | GitHub vs yerel | Yerel önde — `GITHUB_DURUM.md` |
 
 ---
 

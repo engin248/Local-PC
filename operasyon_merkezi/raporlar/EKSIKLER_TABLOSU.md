@@ -18,9 +18,9 @@
 | 14 | Kontrol Departmanı tek sayfa | | Kodda var |
 | 15 | Git commit/push sizden | | Gerekmez |
 | 16 | git pull sizden | | İsteğe bağlı |
-| 17 | Cloud Agent çalışıyor mu? | | Evet |
-| 18 | npm/cargo testler | | Geçiyor |
+| 17 | gcloud / Cloud Agent | | **KAPALI** |
+| 18 | npm/cargo testler | | 55 geçiyor |
 | 19 | Cursor sohbet sesli okur mu? | | Hayır — panel/script |
-| 20 | Swarm outbox senkron | | URETIM-04 kodda |
+| 20 | GitHub master güncel mi? | | Yerel 8 commit önde — bkz GITHUB_DURUM |
 
 **Hemen ses:** `SESLI_OZET_OKU.cmd` çift tık

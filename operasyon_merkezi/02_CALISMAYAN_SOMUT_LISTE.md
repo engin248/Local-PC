@@ -9,22 +9,24 @@
 
 ## Özet tablo
 
+**Not (2026-06-11):** Aşağıdaki özet `kontrol/KONTROL_DURUMU.md` ile eşitlendi. Alt bölümlerdeki eski “BAŞLANACAK” cümleleri tarihseldir; kod durumu için **KONTROL_DURUMU** esas alınır.
+
 | Sıra | ID | Çalışmayan ne? | Durum |
 |------|-----|----------------|-------|
-| 1 | KN-01 | Gate sonrası gerçek connector icrası yok | **BAŞLANACAK** |
-| 2 | KN-02 | AI provider gerçek API çağrısı yok | BEKLIYOR |
-| 3 | KN-03 | AI failover yok | BEKLIYOR |
-| 4 | KN-04 | Swarm inbox/outbox + DB tahsis yok | BEKLIYOR |
-| 5 | KN-05 | Intake ajan seçimi sadece metin etiketi | BEKLIYOR |
-| 6 | KN-06 | Supabase sync yok | BEKLIYOR |
-| 7 | KN-07 | Log rotasyonu (50 MB) yok | BEKLIYOR |
-| 8 | KN-08 | Asker Motoru canlı köprü yok | BEKLIYOR |
-| 9 | KN-09 | Tarayıcı önizleme = sahte veri | BEKLIYOR |
-| 10 | KN-10 | `gorev_defteri` yanlış SUCCESS beyanı | BEKLIYOR |
-| 11 | KN-11 | Büyük dosyalar (600+ satır) | BEKLIYOR |
-| 12 | KN-12 | E2E test yok | BEKLIYOR |
-| 13 | KN-13 | StructuredReportPanel yok | BEKLIYOR |
-| 14 | KN-14 | Canlı API connector kapalı | BEKLIYOR (bilinçli) |
+| 1 | KN-01 | Gate sonrası connector icrası | **ONAYLANDI** (URETIM-01 ApprovedExecution) |
+| 2 | KN-02 | AI provider API | **ONAYLANDI** (enabled=false varsayılan) |
+| 3 | KN-03 | AI failover | **ONAYLANDI** |
+| 4 | KN-04 | Swarm inbox/outbox | **ONAYLANDI** (+ sync_outbox_reports) |
+| 5 | KN-05 | Intake tahsis | **ONAYLANDI** |
+| 6 | KN-06 | Supabase sync | **ONAYLANDI** (env yok=kapalı) |
+| 7 | KN-07 | Log rotasyonu | **ONAYLANDI** |
+| 8 | KN-08 | Asker köprü | **ONAYLANDI** (dosya; canlı API kapalı) |
+| 9 | KN-09 | Tarayıcı sahte veri | **ONAYLANDI** |
+| 10 | KN-10 | gorev_defteri | **ONAYLANDI** |
+| 11 | KN-11 | Büyük dosyalar | **KISMI** |
+| 12 | KN-12 | E2E test | **ONAYLANDI** |
+| 13 | KN-13 | StructuredReportPanel | **ONAYLANDI** |
+| 14 | KN-14 | Canlı API connector | **ONAYLANDI** (bilinçli kapalı) |
 
 ---
 

@@ -59,10 +59,13 @@ veya sadece güncelleme:
 veya:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\update_installed_exe.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\update_installed_exe.ps1 -SkipPull
 ```
 
-Script sırasıyla: `git pull` → `npm install` → `npm run tauri build` → NSIS sessiz kurulum → doğrulama.
+Script: eski süreçleri kapat → `npm install` → build → kurulum. **`-SkipPull`** = git çekmez.
+
+**Başlangıç:** `operasyon_merkezi/kurulum/BASLANGIC_SIFIR.md`  
+**Kitap:** `operasyon_merkezi/00_KITAP_INDEKS.md`
 
 Geliştirme modu:
 
