@@ -22,6 +22,40 @@ let lastKey = "";
 let voicesHydrated = false;
 let operatorVoiceBootstrapped = false;
 let lastSpeakError: string | null = null;
+let emelProtectedUntil = 0;
+
+const EMEL_BOOTSTRAP_STORAGE_KEY = "emelVoiceBootstrapped";
+
+/** Emel konuşması alarm/siren tarafından kesilmesin (ms). */
+export function protectEmelSpeech(ms = 20_000) {
+  emelProtectedUntil = Date.now() + ms;
+}
+
+export function isEmelSpeechProtected(): boolean {
+  return Date.now() < emelProtectedUntil;
+}
+
+export function persistEmelBootstrap() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(EMEL_BOOTSTRAP_STORAGE_KEY, "true");
+  } catch {
+    /* ignore */
+  }
+}
+
+export function restoreEmelBootstrapFromStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (localStorage.getItem(EMEL_BOOTSTRAP_STORAGE_KEY) === "true") {
+      operatorVoiceBootstrapped = true;
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
 
 export function setVoicePersona(next: Partial<VoicePersona>) {
   persona = { ...persona, ...next };
@@ -94,6 +128,8 @@ export async function bootstrapOperatorVoice(testPhrase?: string): Promise<{
       if (result.ok) {
         operatorVoiceBootstrapped = true;
         lastSpeakError = null;
+        protectEmelSpeech(20_000);
+        persistEmelBootstrap();
       } else {
         operatorVoiceBootstrapped = false;
       }
@@ -108,6 +144,7 @@ export async function bootstrapOperatorVoice(testPhrase?: string): Promise<{
     if (voice) utterance.voice = voice;
 
     utterance.onstart = () => {
+      protectEmelSpeech(20_000);
       finish({ ok: true, voiceName: voice?.name || "varsayılan Türkçe" });
     };
     utterance.onerror = (event) => {
@@ -230,8 +267,13 @@ export function speakText(text: string, key = text, force = true) {
   lastKey = key;
 
   if (force || key.startsWith("critical") || key.startsWith("alarm") || isOperatorSpeech) {
-    queue.length = 0;
-    window.speechSynthesis.cancel();
+    const cancelExisting =
+      !isEmelSpeechProtected() ||
+      (!isOperatorSpeech && !key.startsWith("emel"));
+    if (cancelExisting) {
+      queue.length = 0;
+      window.speechSynthesis.cancel();
+    }
   }
 
   void hydrateSpeechVoices().then(() => {
@@ -244,6 +286,7 @@ export function speakText(text: string, key = text, force = true) {
 
 export function stopSpeech() {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  if (isEmelSpeechProtected()) return;
   queue.length = 0;
   speaking = false;
   window.speechSynthesis.cancel();

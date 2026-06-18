@@ -11,4 +11,7 @@ echo.
 cd /d "%~dp0"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\ses_sunucusu.ps1"
 if errorlevel 1 pause
+echo.
+echo  Tamam. Bu pencereyi kapatabilirsiniz; panel ayri acik kalir.
+pause
 exit /b 0

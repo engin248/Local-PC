@@ -23,7 +23,7 @@
   import KontrolDepartmaniPanel from "../components/KontrolDepartmaniPanel.svelte";
   import YarbayEmelSohbetPanel from "../components/YarbayEmelSohbetPanel.svelte";
   import { subscribeLiveFeed, parseMetadata, type LiveFeedEvent } from "../lib/liveFeed";
-  import { speakText, stopSpeech, formatAlarmSpeech, bootstrapOperatorVoice, isOperatorVoiceBootstrapped, getLastSpeakError, hydrateSpeechVoices } from "../lib/voiceService";
+  import { speakText, stopSpeech, formatAlarmSpeech, bootstrapOperatorVoice, isOperatorVoiceBootstrapped, getLastSpeakError, hydrateSpeechVoices, isEmelSpeechProtected, restoreEmelBootstrapFromStorage } from "../lib/voiceService";
   import { invokePanel } from "../lib/tauriInvoke";
   import {
     ALARM_DEDUPE_MS,
@@ -652,10 +652,12 @@
 
   function silenceAllAudio() {
     stopSiren();
-    stopVoiceReply();
-    stopSpeech();
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+    if (!isEmelSpeechProtected()) {
+      stopVoiceReply();
+      stopSpeech();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     }
   }
 
@@ -801,7 +803,7 @@
 
     const repeatedSuffix = appendAlarmEvent(source, err);
     const audioBlocked = alarmMuted || isAlarmSilenced();
-    if (!audioBlocked) {
+    if (!audioBlocked && !(isEmelSpeechProtected() && !options?.force)) {
       playSiren();
       const speech =
         options?.speechText ?? `Acil sistem alarmi. ${message}${repeatedSuffix}`;
@@ -1317,6 +1319,7 @@
 
     void loadVoicePersonaConfig().then(() => {
       operatorVoiceName = getOperatorName();
+      restoreEmelBootstrapFromStorage();
       emelVoiceBootstrapped = isOperatorVoiceBootstrapped();
       if (!isMounted) return;
       if (emelVoiceBootstrapped && voiceRepliesEnabled) {
