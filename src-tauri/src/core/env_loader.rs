@@ -63,6 +63,9 @@ impl EnvLoader {
     fn parse(content: &str) -> Vec<(String, String)> {
         let mut pairs = Vec::new();
 
+        // Windows editörleri dosya başına BOM (\u{feff}) ekleyebilir; ilk anahtarı bozmamak için temizle.
+        let content = content.strip_prefix('\u{feff}').unwrap_or(content);
+
         for raw_line in content.lines() {
             let line = raw_line.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -147,6 +150,15 @@ mod tests {
                 ("B".to_string(), "single".to_string()),
                 ("C".to_string(), "plain".to_string()),
             ]
+        );
+    }
+
+    #[test]
+    fn strips_leading_bom() {
+        let pairs = EnvLoader::parse("\u{feff}GEMINI_API_KEY=withbom");
+        assert_eq!(
+            pairs,
+            vec![("GEMINI_API_KEY".to_string(), "withbom".to_string())]
         );
     }
 
