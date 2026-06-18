@@ -46,30 +46,62 @@ pub struct ExecutionContext {
     pub read_only: bool,
 }
 
+impl ExecutionContext {
+    pub fn read_only_pipeline() -> Self {
+        Self {
+            run_mode: RunMode::ReadOnly,
+            current_user_id: None,
+            approval_source: ApprovalSource::DatabaseOnly,
+            allowed_actions: vec![
+                "read_file".to_string(),
+                "read_folder".to_string(),
+                "sqlite_read".to_string(),
+                "code_analysis".to_string(),
+                "code_modification_proposal".to_string(),
+                "research".to_string(),
+                "ai_provider_call".to_string(),
+                "report_generate".to_string(),
+            ],
+            read_only: true,
+        }
+    }
+
+    /// Onay kapıları geçildikten sonra yazma/icra aksiyonlarını açar (URETIM-01).
+    pub fn upgrade_to_approved_execution(&mut self) {
+        if matches!(self.run_mode, RunMode::ApprovedExecution) && !self.read_only {
+            return;
+        }
+        self.run_mode = RunMode::ApprovedExecution;
+        self.read_only = false;
+        for action in [
+            "file_write",
+            "write_file",
+            "file_delete",
+            "delete_file",
+            "write_folder",
+            "sqlite_write",
+            "api_write",
+            "terminal_command",
+            "live_system_update",
+            "snapshot_create",
+            "test_run",
+        ] {
+            if !self.allowed_actions.iter().any(|existing| existing == action) {
+                self.allowed_actions.push(action.to_string());
+            }
+        }
+    }
+}
+
 pub fn execute_task_pipeline(task_id: &str) -> Result<ExecutionResult, String> {
     // 1. Fetch task
     let task = crate::core::task_intake::TaskIntake::get_task(task_id)?;
 
-    // 2. Establish strict execution context
-    let context = ExecutionContext {
-        run_mode: RunMode::ReadOnly,
-        current_user_id: None,
-        approval_source: ApprovalSource::DatabaseOnly,
-        allowed_actions: vec![
-            "read_file".to_string(),
-            "read_folder".to_string(),
-            "sqlite_read".to_string(),
-            "code_analysis".to_string(),
-            "code_modification_proposal".to_string(),
-            "research".to_string(),
-            "ai_provider_call".to_string(),
-            "report_generate".to_string(),
-        ],
-        read_only: true,
-    };
+    // 2. Varsayılan read-only; onay kapıları geçilince ApprovedExecution'a yükselir (URETIM-01)
+    let mut context = ExecutionContext::read_only_pipeline();
 
     // 3. Execute workflow
-    match ExecutionEngine::execute_workflow(task, &context) {
+    match ExecutionEngine::execute_workflow(task, &mut context) {
         Ok(report) => {
             let db = Database::new();
             let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -103,7 +135,7 @@ pub fn execute_task_pipeline(task_id: &str) -> Result<ExecutionResult, String> {
 pub struct ExecutionEngine;
 
 impl ExecutionEngine {
-    pub fn execute_workflow(mut task: Task, context: &ExecutionContext) -> Result<String, String> {
+    pub fn execute_workflow(mut task: Task, context: &mut ExecutionContext) -> Result<String, String> {
         let task_id = &task.id;
         let db = Database::new();
         let conn = db.get_connection().map_err(|e| e.to_string())?;
@@ -270,19 +302,17 @@ impl ExecutionEngine {
                     | "live_system_update"
             );
             if context.read_only && write_like_action {
-                let err = format!(
-                    "HATA: Read-only execution context yazma/yan etkili aksiyonu engelledi: {}",
-                    action
-                );
                 AuditLogger::log_event(
                     task_id,
-                    "error",
-                    &err,
+                    "info",
+                    &format!(
+                        "Yazma aksiyonu onay kapıları tamamlanana kadar ertelendi: {}",
+                        action
+                    ),
                     Some("Authority Gate"),
-                    Some("read_only_blocked"),
+                    Some("write_deferred_until_approval"),
                     None,
                 )?;
-                return Err(err);
             }
 
             // --- GATE 2: AUTHORITY GATE ---
@@ -647,6 +677,18 @@ impl ExecutionEngine {
                 None,
             )?;
 
+            if write_like_action && requires_approval {
+                context.upgrade_to_approved_execution();
+                AuditLogger::log_event(
+                    task_id,
+                    "info",
+                    "Onay tamamlandı: yürütme modu ApprovedExecution olarak açıldı.",
+                    Some("Approval Gate"),
+                    Some("run_mode_upgraded"),
+                    None,
+                )?;
+            }
+
             // --- GATE 7: ROLLBACK GATE ---
             task.current_gate = Some("Rollback Gate".to_string());
             AuditLogger::log_event(
@@ -917,6 +959,17 @@ mod tests {
     use crate::storage::db::Database;
 
     #[test]
+    fn read_only_context_upgrades_to_approved_execution() {
+        let mut ctx = ExecutionContext::read_only_pipeline();
+        assert!(matches!(ctx.run_mode, RunMode::ReadOnly));
+        assert!(ctx.read_only);
+        ctx.upgrade_to_approved_execution();
+        assert!(matches!(ctx.run_mode, RunMode::ApprovedExecution));
+        assert!(!ctx.read_only);
+        assert!(ctx.allowed_actions.iter().any(|a| a == "write_file"));
+    }
+
+    #[test]
     fn test_triple_lock_execution_workflow() {
         let task_id = "test_triple_lock_task";
         let db = Database::new();
@@ -1108,7 +1161,7 @@ mod tests {
         let task = crate::core::task_intake::TaskIntake::get_task(task_id).unwrap();
 
         // 6. Establish strict test context
-        let context = ExecutionContext {
+        let mut context = ExecutionContext {
             run_mode: RunMode::ApprovedExecution,
             current_user_id: Some("test_runner".to_string()),
             approval_source: ApprovalSource::DatabaseOnly,
@@ -1128,7 +1181,7 @@ mod tests {
         };
 
         // 7. Run the entire workflow!
-        let result = ExecutionEngine::execute_workflow(task, &context);
+        let result = ExecutionEngine::execute_workflow(task, &mut context);
         assert!(
             result.is_ok(),
             "Workflow execution should succeed with all 8 gates passing: {:?}",

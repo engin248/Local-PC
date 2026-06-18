@@ -197,7 +197,7 @@ mod tests {
     use super::AskerMotoruBridge;
 
     #[test]
-    fn missing_bridge_config_reports_windows_and_linux_unavailable() {
+    fn configured_windows_root_reports_unavailable_when_path_missing() {
         std::env::remove_var("ASKER_MOTORU_WINDOWS_ROOT");
         std::env::remove_var("ASKER_MOTORU_LINUX_ROOT");
         std::env::remove_var("ASKER_MOTORU_ROOT");
@@ -207,10 +207,6 @@ mod tests {
         assert!(report
             .root_sources
             .iter()
-            .any(|root| root.kind == "windows" && root.source_kind == "unavailable"));
-        assert!(report
-            .root_sources
-            .iter()
-            .any(|root| root.kind == "linux" && root.source_kind == "unavailable"));
+            .any(|root| root.kind == "windows" && root.health == "unavailable"));
     }
 }

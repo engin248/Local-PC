@@ -288,4 +288,65 @@ mod tests {
             .unwrap();
         assert!(skipped >= 1);
     }
+
+    #[test]
+    fn approved_execution_allows_write_file_log() {
+        let task_id = "action_executor_approved_test";
+        let node_id = "node_approved";
+        let db = Database::new();
+        let conn = db.get_connection().unwrap();
+        let _ = conn.execute("DELETE FROM execution_logs WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM approvals WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM tasks WHERE id = ?1", params![task_id]);
+        conn.execute(
+            "INSERT INTO tasks (id, title, user_request, status, planning_status, execution_status, risk_level, approval_status)
+             VALUES (?1, 't', 'r', 'pending', 'planning_complete', 'running', 'high', 'approved')",
+            params![task_id],
+        )
+        .unwrap();
+        for (id, approver) in [("ap1", "admin_one"), ("ap2", "admin_two")] {
+            conn.execute(
+                "INSERT INTO approvals (
+                    id, task_id, decision_node_id, approver_id, approver_role, approval_source,
+                    action, risk_level, approved_at, status
+                 ) VALUES (?1, ?2, ?3, ?4, 'admin', 'database', 'write_file', 'high', CURRENT_TIMESTAMP, 'approved')",
+                params![id, task_id, node_id, approver],
+            )
+            .unwrap();
+        }
+
+        let root = DependencyAnalyzer::get_project_root().unwrap();
+        let target = root.join("storage/logs/action_executor_approved_write.txt");
+        let _ = std::fs::create_dir_all(target.parent().unwrap());
+        let _ = std::fs::remove_file(&target);
+
+        let mut context = ExecutionContext {
+            run_mode: RunMode::ApprovedExecution,
+            current_user_id: Some("operator".to_string()),
+            approval_source: ApprovalSource::DatabaseOnly,
+            allowed_actions: vec!["write_file".to_string()],
+            read_only: false,
+        };
+        context.upgrade_to_approved_execution();
+
+        ActionExecutor::dispatch_after_gates(
+            task_id,
+            node_id,
+            "write_file",
+            &target.to_string_lossy(),
+            &context,
+            "high",
+        )
+        .unwrap();
+
+        let executed: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM execution_logs WHERE task_id = ?1 AND event_type = 'action_execute'",
+                params![task_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(executed >= 1);
+        let _ = std::fs::remove_file(&target);
+    }
 }

@@ -1,8 +1,11 @@
 {
   "schema_version": 1,
-  "windows_root": "",
+  "windows_root": "C:\\Users\\Esisya\\Desktop\\asker motoru",
   "linux_root": "",
-  "roots": [],
+  "roots": [
+    "C:\\Users\\Esisya\\Desktop\\asker motoru",
+    "C:\\Users\\Esisya\\Desktop\\ASKER_MOTORU_KOK_KLASORU"
+  ],
   "live_api": {
     "enabled": false,
     "api_base_url": "http://127.0.0.1:3100",

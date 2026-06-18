@@ -12,6 +12,7 @@ pub struct AskerModuleRegistryConfig {
     pub schema_version: u32,
     pub expected_module_total: u32,
     pub inventory_files: Vec<String>,
+    pub inventory_subdirs: Option<Vec<String>>,
     pub sqlite: Option<SqliteModuleConfig>,
 }
 
@@ -56,6 +57,12 @@ impl AskerModuleRegistry {
                 "UZMAN_HAVUZU.json".to_string(),
                 "module_inventory.json".to_string(),
             ],
+            inventory_subdirs: Some(vec![
+                "".to_string(),
+                "runtime/indexes".to_string(),
+                "Planlama".to_string(),
+                "planlama".to_string(),
+            ]),
             sqlite: Some(SqliteModuleConfig {
                 module_table_candidates: vec![
                     "modules".to_string(),
@@ -291,20 +298,49 @@ impl AskerModuleRegistry {
 
         for (_, root) in Self::asker_roots() {
             for name in &config.inventory_files {
-                let path = root.join(name);
-                if !path.exists() {
-                    continue;
-                }
-                let Ok(content) = fs::read_to_string(&path) else {
-                    continue;
-                };
-                let modules = Self::parse_inventory_content(&content, &path.display().to_string());
-                if !modules.is_empty() {
-                    return Some((path.display().to_string(), modules));
+                for candidate in Self::inventory_candidate_paths(&root, &config, name) {
+                    if !candidate.exists() {
+                        continue;
+                    }
+                    let Ok(content) = fs::read_to_string(&candidate) else {
+                        continue;
+                    };
+                    let modules = Self::parse_inventory_content(
+                        &content,
+                        &candidate.display().to_string(),
+                    );
+                    if !modules.is_empty() {
+                        return Some((candidate.display().to_string(), modules));
+                    }
                 }
             }
         }
         None
+    }
+
+    fn inventory_candidate_paths(
+        root: &Path,
+        config: &AskerModuleRegistryConfig,
+        file_name: &str,
+    ) -> Vec<PathBuf> {
+        let mut paths = Vec::new();
+        let subdirs = config.inventory_subdirs.clone().unwrap_or_else(|| {
+            vec![
+                "".to_string(),
+                "runtime/indexes".to_string(),
+                "Planlama".to_string(),
+                "planlama".to_string(),
+            ]
+        });
+        for subdir in subdirs {
+            let base = if subdir.trim().is_empty() {
+                root.to_path_buf()
+            } else {
+                root.join(subdir)
+            };
+            paths.push(base.join(file_name));
+        }
+        paths
     }
 
     fn parse_inventory_content(content: &str, source: &str) -> Vec<AskerModuleRecord> {
@@ -492,6 +528,20 @@ mod tests {
         assert_eq!(modules[0].duty.as_deref(), Some("Saha verisi sentezi"));
         assert_eq!(modules[0].skills, vec!["veri_analizi", "raporlama"]);
         assert_eq!(modules[0].system_skills, vec!["sqlite_okuma"]);
+    }
+
+    #[test]
+    fn inventory_candidate_paths_include_runtime_indexes() {
+        let config = AskerModuleRegistry::load_config();
+        let root = PathBuf::from("C:/asker");
+        let paths = AskerModuleRegistry::inventory_candidate_paths(
+            &root,
+            &config,
+            "UZMAN_HAVUZU.json",
+        );
+        assert!(paths
+            .iter()
+            .any(|p| p.ends_with("runtime/indexes/UZMAN_HAVUZU.json")));
     }
 
     #[test]

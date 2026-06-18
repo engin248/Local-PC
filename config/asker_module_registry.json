@@ -7,6 +7,12 @@
     "MODUL_ENVANTERI.json",
     "ASKER_MOTORU_AI_AJAN_TAM_ENVANTER_002_EGITIM.md"
   ],
+  "inventory_subdirs": [
+    "",
+    "runtime/indexes",
+    "Planlama",
+    "planlama"
+  ],
   "sqlite": {
     "module_table_candidates": ["modules", "swarm_modules", "asker_modules"],
     "skill_table": "skills",
