@@ -1,8 +1,8 @@
 # GitHub Durum — Kontrol Raporu
 
 **Tarih:** 2026-06-11  
-**Yerel dal:** `master` (`9ae438aa`)  
-**GitHub `origin/master`:** `eccbb85b` (**10 commit geride**)
+**Son push:** Komutan onayı ile tamamlandı  
+**Yerel / GitHub `master`:** `cbd36b7f` — **eşitlendi**
 
 ---
 
@@ -10,46 +10,38 @@
 
 | Konu | Durum |
 |------|--------|
-| GitHub master | **10 commit geride** (yerel depoda var, GitHub'da yok) |
-| Eksik GitHub'da | URETIM-01, köprü/yerel cmd, yol config, gcloud kapalı mod |
-| PC'nizde dosya yok | Push yapılmadığı için normal — yerel kopya veya pull gerekir |
-| gcloud | Kapalı — panel GCP kullanmaz |
+| GitHub master | **GÜNCEL** (11 commit push edildi) |
+| Test | `cargo test` 54 + e2e 1 = **55 geçti** |
+| `npm run check` | 0 hata |
+| gcloud / Cloud Agent | **KAPALI** |
+| Komutan PC klasörü | Bir kez `git pull` veya `.cmd` ile güncelle |
 
 ---
 
-## GitHub'da OLMAYAN (yerel depoda VAR)
+## GitHub'da artık VAR
 
-- `YEREL_HAZIR_BASLAT.cmd`, `TEK_TIK_GUNCELLE.cmd`, `YOLLARI_KONTROL.cmd`
+- `YEREL_HAZIR_BASLAT.cmd`, `TEK_TIK_GUNCELLE.cmd`, `YOLLARI_KONTROL.cmd`, `YEREL_ISLEM.cmd`
 - `config/yerel_veri_yollari.json`, `config/yerel_calisma_modu.json`
-- URETIM-01 kod (`ApprovedExecution`, outbox sync)
-- `operasyon_merkezi/kurulum/BASLANGIC_SIFIR.md`
+- URETIM-01 (`ApprovedExecution`, outbox sync)
+- `operasyon_merkezi/kurulum/BASLANGIC_SIFIR.md`, `00_KITAP_INDEKS.md`
 
 ---
 
-## Kitaptaki yanlışlar (düzeltildi)
+## PC'nizde yapılacak (tek sefer)
 
-| Eski hata | Düzeltme |
-|-----------|----------|
-| `02_CALISMAYAN` KN-01 **BAŞLANACAK** | Kodda **ONAYLANDI** — tablo güncellendi |
-| `KONTROL_DURUMU` tarih 2026-05-30 | 2026-06-11 + URETIM notu |
-| EKSIKLER Cloud Agent **Evet** | **KAPALI** (gcloud sıfır) |
-| README zorunlu `git pull` | `-SkipPull` seçeneği eklendi |
-| Test sayısı 39/51 | **55** (54+1 e2e) |
-| `GITHUB_DURUM` dal adı yanlış | `master`, **10 commit** önde |
-| `02_CALISMAYAN` “Şu an aktif: KN-01” | **KN-11 KISMI** |
-| Köprü rehberi Cloud zorunlu | **KAPALI** — yerel `.cmd` yeterli |
+```
+cd "C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli"
+git pull origin master
+YEREL_HAZIR_BASLAT.cmd
+```
 
----
+Ardından: `TEK_TIK_GUNCELLE.cmd` veya panelde **Emel'i Başlat**.
 
-## Komutan kuralı
-
-GitHub push: **onay olmadan yapılmaz**.  
-PC güncellemesi: **yerel `.cmd`** veya isteğe bağlı bir kez pull.
+Detay: `kurulum/BASLANGIC_SIFIR.md` — `raporlar/ONAYLI_PC_ADIMLARI.md`
 
 ---
 
-## Ne yapmalı?
+## Kitap düzeltmeleri (tamam)
 
-1. Yerel iş: `BASLANGIC_SIFIR.md` + `KURULU_SURUMU_GUNCELLE.cmd`
-2. GitHub eşitlemek isterseniz (onayla): bir kez push + PC'de pull
-3. Kitap: `00_KITAP_INDEKS.md` — doğru dosyalar
+KN durumu → `kontrol/KONTROL_DURUMU.md`  
+İndeks → `00_KITAP_INDEKS.md`

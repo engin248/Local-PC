@@ -21,6 +21,6 @@
 | 17 | gcloud / Cloud Agent | | **KAPALI** |
 | 18 | npm/cargo testler | | 55 geçiyor |
 | 19 | Cursor sohbet sesli okur mu? | | Hayır — panel/script |
-| 20 | GitHub master güncel mi? | | Yerel **10 commit** önde — bkz GITHUB_DURUM |
+| 20 | GitHub master güncel mi? | | **EVET** — push onaylandı (`GITHUB_DURUM`) |
 
 **Hemen ses:** `SESLI_OZET_OKU.cmd` çift tık
