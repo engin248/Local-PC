@@ -2,24 +2,25 @@
 
 | # | Madde | Sizin durumunuz (yazın) | Not |
 |---|--------|-------------------------|-----|
-| 1 | Kurulu Windows .exe güncel mi? | | Eski exe = eski ses/alarm |
+| 1 | Kurulu Windows .exe güncel mi? | | `KURULU_SURUMU_GUNCELLE.cmd` |
 | 2 | Yarbay Emel sesi | | Emel'i Başlat düğmesi |
-| 4 | Alarm / siren düzeltmeleri kodda | | master'da var |
-| 5 | ACİL SES KES çalışıyor mu? | | |
-| 6 | SQLite app.db | | Bulutta var |
-| 7 | UZMAN_HAVUZU.json (314 modül) | | Sizin diskte olmalı |
-| 8 | skill_library.sqlite | | Sizin diskte olmalı |
-| 9 | Pinokio bağlantısı | | localhost:42000 |
-| 10 | Asker Motoru canlı API | | localhost:3100 kapalı |
-| 11 | AI API (ChatGPT/Gemini) | | Config kapalı |
-| 12 | Supabase bulut sync | | Env yok = kapalı |
-| 13 | Albay Burhan Python servisi | | Dosya var, çalışmıyor olabilir |
-| 14 | Tam üretim modu (yazma icrası) | | URETIM-01 tamam |
-| 15 | Kontrol Departmanı tek sayfa | | Kodda var |
-| 16 | Git commit/push sizden | | Gerekmez |
-| 17 | git pull sizden | | İsteğe bağlı |
-| 18 | Cloud Agent çalışıyor mu? | | Evet |
-| 19 | npm/cargo testler | | Geçiyor |
-| 20 | Cursor sohbet sesli okur mu? | | Hayır — panel/script okur |
+| 3 | Alarm / siren düzeltmeleri kodda | | Kodda var |
+| 4 | ACİL SES KES çalışıyor mu? | | |
+| 5 | SQLite app.db | | `storage/app.db` |
+| 6 | UZMAN_HAVUZU.json (314 modül) | | Asker Motoru `runtime\indexes\` |
+| 7 | skill_library.sqlite | | Lokal Kütüphane database |
+| 8 | Pinokio bağlantısı | | localhost:42000 |
+| 9 | Asker Motoru canlı API | | :3100 kapalı (dosya köprüsü açık) |
+| 10 | AI API (ChatGPT/Gemini) | | Config kapalı |
+| 11 | Supabase bulut sync | | Env yok = kapalı |
+| 12 | Albay Burhan Python servisi | | Dosya var |
+| 13 | Tam üretim modu (yazma icrası) | | URETIM-01 tamam |
+| 14 | Kontrol Departmanı tek sayfa | | Kodda var |
+| 15 | Git commit/push sizden | | Gerekmez |
+| 16 | git pull sizden | | İsteğe bağlı |
+| 17 | Cloud Agent çalışıyor mu? | | Evet |
+| 18 | npm/cargo testler | | Geçiyor |
+| 19 | Cursor sohbet sesli okur mu? | | Hayır — panel/script |
+| 20 | Swarm outbox senkron | | URETIM-04 kodda |
 
 **Hemen ses:** `SESLI_OZET_OKU.cmd` çift tık
