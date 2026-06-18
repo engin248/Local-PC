@@ -1173,6 +1173,16 @@ fn search_skill_library_cmd(app: AppHandle, query: String, category: Option<Stri
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let env_report = crate::core::env_loader::EnvLoader::load_local_secrets();
+    if !env_report.files_read.is_empty() {
+        eprintln!(
+            "Yerel gizli anahtarlar yüklendi: {} dosya, {} anahtar (mevcut {} anahtar korundu).",
+            env_report.files_read.len(),
+            env_report.keys_loaded,
+            env_report.keys_skipped_existing
+        );
+    }
+
     if let Err(e) = crate::storage::db::initialize_database() {
         eprintln!("Veritabani baslatilamadi: {}", e);
         return;

@@ -13,6 +13,7 @@ pub mod authority_router;
 pub mod checkpoint_manager;
 pub mod decision_tree_builder;
 pub mod dependency_analyzer;
+pub mod env_loader;
 pub mod execution_engine;
 pub mod integrity_checker;
 pub mod operation_monitor;
