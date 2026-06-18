@@ -6,13 +6,13 @@
 
 ## Ne oldu?
 
-Cloud Agent (ben) dosyaları **uzak sunucuda** yazdım.  
-Sizin PC'deki klasör **ayrı kopya** — otomatik senkron olmaz.
+Dosyalar önce **yerel depot / uzak geliştirme ortamında** yazıldı.  
+Sizin PC'deki klasör **ayrı kopya** — otomatik senkron olmaz. **Cloud Agent kullanılmıyor.**
 
 | Yer | YEREL_HAZIR_BASLAT.cmd | TEK_TIK_GUNCELLE.cmd |
 |-----|------------------------|----------------------|
 | Uzak sunucu (ben) | **VAR** | **VAR** |
-| GitHub master | **YOK** (push edilmedi) | **YOK** |
+| GitHub master | **YOK** (10 commit push edilmedi) | **YOK** |
 | Sizin PC | **YOK** | **YOK** |
 
 Kimse silmedi — **henüz oraya konmadı.**
@@ -49,11 +49,11 @@ Bunlar **YEREL_HAZIR_BASLAT** yerine geçebilir:
 
 ## Yeni dosyalar PC'ye nasıl gelir?
 
-**Seçenek A — Onay verirseniz:** GitHub'a push ederim, siz (veya çocuk) bir kez `git pull` (sadece bu sefer).
+**Seçenek A — Önerilen:** Windows'ta **Cursor yerel Agent** — proje klasörünü açın; eksik `.cmd` dosyalarını oluşturmasını isteyin. Rehber: `CURSOR_YEREL_AGENT.md`
 
-**Seçenek B — Cursor yerel Agent:** Windows'ta Cursor açık, aynı klasörde Agent'a "eksik cmd dosyalarını oluştur" dersiniz.
+**Seçenek B — Manuel:** `KURULU_SURUMU_GUNCELLE.cmd` ile devam (zaten varsa).
 
-**Seçenek C — Manuel:** Çocuk `KURULU_SURUMU_GUNCELLE.cmd` ile devam eder (zaten varsa).
+**Seçenek C — GitHub (onay gerekir):** Push + bir kez `git pull`. Bkz. `raporlar/GITHUB_DURUM.md`
 
 ---
 

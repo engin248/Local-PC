@@ -1,8 +1,8 @@
 # GitHub Durum — Kontrol Raporu
 
 **Tarih:** 2026-06-11  
-**Yerel dal:** `cursor/uretim-01-approved-exec-e3e9`  
-**GitHub `origin/master`:** `eccbb85b`
+**Yerel dal:** `master` (`9ae438aa`)  
+**GitHub `origin/master`:** `eccbb85b` (**10 commit geride**)
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Konu | Durum |
 |------|--------|
-| GitHub master | **8 commit geride** (yerel depoda var, GitHub'da yok) |
+| GitHub master | **10 commit geride** (yerel depoda var, GitHub'da yok) |
 | Eksik GitHub'da | URETIM-01, köprü/yerel cmd, yol config, gcloud kapalı mod |
 | PC'nizde dosya yok | Push yapılmadığı için normal — yerel kopya veya pull gerekir |
 | gcloud | Kapalı — panel GCP kullanmaz |
@@ -35,6 +35,9 @@
 | EKSIKLER Cloud Agent **Evet** | **KAPALI** (gcloud sıfır) |
 | README zorunlu `git pull` | `-SkipPull` seçeneği eklendi |
 | Test sayısı 39/51 | **55** (54+1 e2e) |
+| `GITHUB_DURUM` dal adı yanlış | `master`, **10 commit** önde |
+| `02_CALISMAYAN` “Şu an aktif: KN-01” | **KN-11 KISMI** |
+| Köprü rehberi Cloud zorunlu | **KAPALI** — yerel `.cmd` yeterli |
 
 ---
 

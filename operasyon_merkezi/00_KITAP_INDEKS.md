@@ -46,7 +46,7 @@
 |-------|--------|
 | `02_CALISMAYAN_SOMUT_LISTE.md` | Özet tablo güncellendi; alt KN metinleri tarihsel olabilir |
 | `raporlar/RAPOR_CLOUD_AGENT_*` | Cloud Agent dönemi — artık kullanılmıyor |
-| `kurulum/KOPRU_KURULUM.md` | Tünel kapalı — `config/yerel_calisma_modu.json` |
+| `kurulum/KOPRU_KURULUM.md` | **KAPALI** — tünel yok; `BASLANGIC_SIFIR.md` yeterli |
 
 ---
 

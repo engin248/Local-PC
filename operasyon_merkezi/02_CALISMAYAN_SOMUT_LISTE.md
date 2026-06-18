@@ -2,8 +2,9 @@
 
 **Mod:** Kurucu Engin + Auto (tek ekip)  
 **Klasör:** `operasyon_merkezi`  
-**Tarih:** 2026-05-30  
-**Kural:** Her madde bitmeden sonrakine geçilmez. Her maddede **KP** = kontrol noktası, **KK** = kontrol kriteri.
+**Tarih:** 2026-05-30 (özet güncelleme: **2026-06-11**)  
+**Kural:** Her madde bitmeden sonrakine geçilmez. Her maddede **KP** = kontrol noktası, **KK** = kontrol kriteri.  
+**Güncel durum:** `kontrol/KONTROL_DURUMU.md` — alt KN metinleri aşağıda **tarihsel tanım** olarak durur.
 
 ---
 
@@ -30,9 +31,9 @@
 
 ---
 
-## KN-01 — Connector icra katmanı (KRİTİK)
+## KN-01 — Connector icra katmanı (KRİTİK) — **ONAYLANDI (2026-06-11)**
 
-**Sorun:** 8 kapı geçiliyor; `file_connector`, `terminal_connector` vb. pipeline’a bağlı değil. `execute_task_pipeline` her zaman `RunMode::ReadOnly`.
+**Sorun (tarihsel):** 8 kapı geçiliyor; `file_connector`, `terminal_connector` vb. pipeline’a bağlı değil. `execute_task_pipeline` her zaman `RunMode::ReadOnly`.
 
 **Yapılacak iş:**
 1. `action_executor` modülü (gate onayı sonrası dispatch)
@@ -48,7 +49,7 @@
 **KP-03:** 2 approver onaylı write.  
 **KK-03:** Hedef dosya yazılıyor; öncesinde snapshot kaydı var.
 
-**Test:** `cargo test --lib` → 39+ test yeşil.
+**Test:** `cargo test` → **55** geçti (54 unit + 1 e2e).
 
 **Dosyalar:** `src-tauri/src/core/execution_engine.rs`, yeni `src-tauri/src/core/action_executor.rs`, `system_connectors/*`
 
@@ -197,7 +198,7 @@
 KN-01 → KN-02 → KN-03 → KN-05 → KN-04 → KN-07 → KN-06 → KN-08 → KN-09 → KN-10 → KN-11 → KN-12 → KN-13 → KN-14
 ```
 
-**Şu an aktif:** KN-01
+**Şu an aktif:** KN-11 (**KISMI** — büyük dosya bölme; diğer KN maddeleri ONAYLANDI)
 
-**Rapor dosyası (Auto):** `raporlar/RAPOR_AUTO_KN01.md`  
+**Rapor dosyası (Auto):** `raporlar/RAPOR_AUTO_TUM_KN.md`  
 **Kontrol güncelleme:** `kontrol/KONTROL_DURUMU.md`

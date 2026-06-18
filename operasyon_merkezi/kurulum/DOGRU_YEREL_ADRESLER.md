@@ -39,6 +39,6 @@ Güncelleme: proje klasöründe `KURULU_SURUMU_GUNCELLE.cmd` çift tık (git çe
 
 ---
 
-## Cloud Agent notu
+## Yerel not
 
-Bulut sunucusu **sizin Windows masaüstünüze erişemez**. `.exe` güncellemesini sizin PC’de çocuk veya tek çift tık yapmalı. Kod ve yollar burada hazır.
+.exe` güncellemesi ve yol kontrolü **sizin PC'de** yapılır (`KURULU_SURUMU_GUNCELLE.cmd`, `YOLLARI_KONTROL.cmd`). Uzak agent erişimi yok; gcloud kapalı.

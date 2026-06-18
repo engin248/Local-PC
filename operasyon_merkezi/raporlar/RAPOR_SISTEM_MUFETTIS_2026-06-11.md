@@ -1,5 +1,7 @@
 # SİSTEM MÜFETTİŞ RAPORU — Tam Denetim
 
+> **TARİHSEL RAPOR** — Cloud Agent dönemi (2026-06-11 sabah). Güncel durum: `kontrol/KONTROL_DURUMU.md`, `raporlar/GITHUB_DURUM.md`, `00_KITAP_INDEKS.md`. gcloud/Cloud Agent artık **kapalı**.
+
 **Raporlayan:** Cloud Agent (Sistem Müfettişi)  
 **Tarih:** 2026-06-11  
 **Kapsam:** Lokal Bilgisayar Kontrol Paneli — tüm alt sistemler  

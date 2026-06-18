@@ -1,59 +1,35 @@
 # Lokal Komuta Köprüsü — Kurulum
 
-**Amaç:** Cloud Agent’ın “masaüstüne erişemiyorum” dememesi için Windows’ta köprü sunucusu.
+> **DURUM: KAPALI (2026-06-11)** — `config/yerel_calisma_modu.json` → gcloud/Cloud Agent kapalı.  
+> **Normal kullanım:** `YEREL_HAZIR_BASLAT.cmd` veya `KURULU_SURUMU_GUNCELLE.cmd` — tünel gerekmez.  
+> Bu dosya yalnızca **gelecekte isteğe bağlı** köprü kurulumu için arşivlenmiştir.
 
 ---
 
-## Komutan / çocuk — 3 adım
+## Ne zaman gerekir?
 
-### 1. Köprüyü kur
-```
-KOPRU_KURULUM.cmd   (çift tık)
-```
-Yeni pencere açılır — **kapatmayın** (köprü çalışır).
+Köprü, uzak bir agent'ın Windows PC'nize erişmesi içindi. Yerel Cursor Agent kullanıyorsanız **atlayın**.
 
-### 2. Cloud’un erişmesi için tünel (bir kez)
-```
-KOPRU_TUNEL_BASLAT.cmd   (çift tık)
-```
-Ekranda çıkan adres örneği:
-```
-https://abc-xyz.trycloudflare.com
-```
-Bunu `config/kopru_bridge.json` içine yapıştırın:
-```json
-"tunnel": {
-  "tunnel_public_url": "https://abc-xyz.trycloudflare.com"
-}
-```
+| İş | Köprü olmadan |
+|----|----------------|
+| .exe güncelle | `KURULU_SURUMU_GUNCELLE.cmd` veya `TEK_TIK_GUNCELLE.cmd` |
+| Yol kontrolü | `YOLLARI_KONTROL.cmd` |
+| Panel kapat | `ACIL_PANEL_KAPAT.cmd` |
 
-### 3. Token
-`config/kopru_bridge.json` içindeki `"token"` değeri — Cloud Agent’a söylemeniz gerekmez; dosya repoda kalır (gizli tutun).
+Başlangıç: `BASLANGIC_SIFIR.md`
 
 ---
 
-## Cloud Agent bundan sonra ne yapar?
+## (Arşiv) Köprü kurulumu — kullanmayın
 
-Tünel URL config’deyse:
-```bash
-./scripts/kopru_cloud_call.sh yol_kontrol
-./scripts/kopru_cloud_call.sh kurulu_guncelle
-```
+`KOPRU_TUNEL_BASLAT.cmd` ekranda **KAPALI** yazar — tünel devre dışı.
 
----
+Eski adımlar (referans):
 
-## Artı / Eksi
+1. `KOPRU_KURULUM.cmd` — yerel HTTP sunucu (127.0.0.1:19200)
+2. ~~Tünel~~ — **kapalı**
+3. Token: `config/kopru_bridge.json` (gizli tutun)
 
-| Artı | Eksi |
-|------|------|
-| Uzaktan yol kontrolü, exe güncelleme | İlk kurulumda 2 cmd çalıştırma gerekir |
-| Token + sadece izinli işlemler | Tünel penceresi açıkken URL geçerli |
-| Git push gerekmez | Tünel kapanınca URL değişebilir (yeniden tünel) |
+Dosya kuyruğu (tünel olmadan, yerel): `storage/kopru/inbox/*.json` → sonuç `outbox/`
 
----
-
-## Günlük kullanım
-
-Windows açılınca: **`KOPRU_BASLAT.cmd`** (otomatik başlatma için Görev Zamanlayıcı’ya eklenebilir)
-
-Güncelleme: Cloud Agent `kurulu_guncelle` gönderir veya siz `TEK_TIK_GUNCELLE.cmd`
+Detay: `services/lokal_kopru/README.md`

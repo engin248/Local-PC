@@ -1,33 +1,40 @@
 # Lokal Komuta Köprüsü
 
-Windows masaüstünüzü Cloud Agent’a (tünel ile) veya dosya kuyruğu ile bağlar.
+> **Varsayılan mod:** gcloud/Cloud Agent **kapalı** (`config/yerel_calisma_modu.json`).  
+> Komutan iş akışı: yerel `.cmd` dosyaları — köprü **zorunlu değil**.
 
-## İlk kurulum (komutan / çocuk — 2 dakika)
+Windows'ta isteğe bağlı yerel HTTP sunucusu + dosya kuyruğu. Uzak tünel **devre dışı** (`KOPRU_TUNEL_BASLAT.cmd` → KAPALI).
 
-1. **`KOPRU_KURULUM.cmd`** çift tık  
-2. İsteğe bağlı Cloud erişimi: **`KOPRU_TUNEL_BASLAT.cmd`** → çıkan `https://....trycloudflare.com` adresini  
-   `config/kopru_bridge.json` → `tunnel_public_url` alanına yapıştırın  
-3. Token otomatik oluşur: `config/kopru_bridge.json` → `token` (kimseyle paylaşmayın)
+## Normal kullanım (köprü yok)
 
-## Ne yapabilir?
+| İşlem | Komut |
+|-------|-------|
+| Yol kontrolü | `YOLLARI_KONTROL.cmd` |
+| Kurulu exe güncelle | `TEK_TIK_GUNCELLE.cmd` veya `KURULU_SURUMU_GUNCELLE.cmd` |
+| Panel kapat | `ACIL_PANEL_KAPAT.cmd` |
 
-| İşlem | Yerel | Cloud (tünel açıkken) |
-|-------|-------|------------------------|
-| Yol kontrolü | `YOLLARI_KONTROL.cmd` | `scripts/kopru_cloud_call.sh yol_kontrol` |
-| Kurulu exe güncelle | `TEK_TIK_GUNCELLE.cmd` | `kopru_cloud_call.sh kurulu_guncelle` |
-| Panel kapat | `ACIL_PANEL_KAPAT.cmd` | `kopru_cloud_call.sh panel_kapat` |
+Rehber: `operasyon_merkezi/kurulum/BASLANGIC_SIFIR.md`
+
+---
+
+## (İsteğe bağlı) Yerel köprü sunucusu
+
+1. **`KOPRU_KURULUM.cmd`** çift tık — 127.0.0.1:19200  
+2. Token: `config/kopru_bridge.json` → `token` (paylaşmayın)
+
+**Tünel / Cloud erişimi:** kapalı — kullanmayın.
+
+## Dosya kuyruğu (tünel yoksa)
+
+`storage/kopru/inbox/*.json` → köprü işler → `storage/kopru/outbox/`
+
+Örnek: `storage/kopru/inbox/ORNEK_gorev.json.example`
 
 ## Güvenlik
 
 - Sadece **izinli** işlemler (`allowed_operations`)
-- **Token** zorunlu (`X-Kopru-Token` başlığı)
-- Sunucu varsayılan **127.0.0.1** — dış dünya yalnızca tünel ile
-
-## Dosya kuyruğu (tünel yoksa)
-
-`storage/kopru/inbox/*.json` dosyası yazın → köprü işler → sonuç `storage/kopru/outbox/`
-
-Örnek: `storage/kopru/inbox/ORNEK_gorev.json.example`
+- **Token** zorunlu (`X-Kopru-Token`)
+- Sunucu varsayılan **127.0.0.1**
 
 ## Port
 
