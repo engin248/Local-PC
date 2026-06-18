@@ -17,7 +17,8 @@
     "poll_seconds": 3
   },
   "tunnel": {
-    "hint": "KOPRU_TUNEL_BASLAT.cmd ile public URL alin; URL'yi tunnel_public_url alanina yapistirin",
+    "required": false,
+    "hint": "Tunel ZORUNLU DEGIL. Yerel Cursor Agent icin YEREL_HAZIR_BASLAT.cmd yeterli.",
     "tunnel_public_url": ""
   }
 }

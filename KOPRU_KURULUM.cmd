@@ -1,22 +1,18 @@
 @echo off
 chcp 65001 >nul
-title KOPRU KURULUM
+title KOPRU KURULUM (tunel yok)
 cd /d "%~dp0"
 echo ========================================
-echo  LOKAL KOMUTA KOPRUSU - ILK KURULUM
+echo  YEREL KOPRU - TUNEL GEREKMEZ
 echo ========================================
 echo.
-echo 1) Kopru sunucusu baslatiliyor (yeni pencere)...
-start "KOPRU" cmd /k "%~dp0KOPRU_BASLAT.cmd"
-timeout /t 3 /nobreak >nul
+echo Cursor yerel Agent kullanacaksaniz:
+echo   YEREL_HAZIR_BASLAT.cmd yeterli
 echo.
-echo 2) Yol kontrolu (yerel)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\yerel_yollar_kontrol.ps1"
+start /min "KOPRU" cmd /c "powershell -NoProfile -ExecutionPolicy Bypass -File services\lokal_kopru\bridge.ps1"
+timeout /t 2 /nobreak >nul
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\yerel_yollar_kontrol.ps1"
 echo.
-echo 3) Cloud Agent erisimi icin (istege bagli):
-echo    KOPRU_TUNEL_BASLAT.cmd calistirin
-echo    Cikan https URL'yi config\kopru_bridge.json icine yazin
-echo.
-echo Token: config\kopru_bridge.json dosyasinda (ilk calistirmada olusur)
+echo Opsiyonel: her acilista kopru -> KOPRU_OTOMATIK_KAYIT.cmd
 echo.
 pause

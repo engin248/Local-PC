@@ -34,6 +34,19 @@ The main runnable product is **Lokal Bilgisayar Kontrol Paneli** at the reposito
 
 5. **Optional services** (Supabase, AI APIs, Pinecone): configured under `config/`; app runs without them.
 
+### Windows komutan PC — Yerel Agent (tünel yok)
+
+Cloud Agent uzak Linux VM'dedir; `C:\Users\Esisya\...` yoluna doğrudan erişemez.
+
+**Komutan işleri (exe güncelleme, yol kontrol):** Cursor **Desktop** Windows'ta proje klasörünü aç → Agent modu → veya çocuk `YEREL_HAZIR_BASLAT.cmd` çift tık.
+
+```powershell
+powershell -File scripts\yerel_panel_islem.ps1 -Islem kurulu_guncelle
+powershell -File scripts\yerel_panel_islem.ps1 -Islem yol_kontrol
+```
+
+Rehber: `operasyon_merkezi/kurulum/CURSOR_YEREL_AGENT.md`. Tünel (`KOPRU_TUNEL_BASLAT`) **zorunlu değil**.
+
 ### Secrets (optional)
 
 - `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` or `SUPABASE_ANON_KEY` — cloud sync
