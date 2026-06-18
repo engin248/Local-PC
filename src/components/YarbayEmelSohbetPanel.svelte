@@ -73,6 +73,7 @@
     </div>
   {:else}
     <p class="status-ok">Ses hattı açık. {voiceStatus || "Hazır."}</p>
+    <p class="hint">Ses duymadıysanız: Windows ses seviyesi + Türkçe konuşma paketi (Zira).</p>
   {/if}
 
   {#if voiceStatus && !voiceBootstrapped}
@@ -282,5 +283,11 @@
     font-size: 1.1rem;
     color: #7fdc8a;
     margin: 0;
+  }
+
+  .hint {
+    font-size: 1rem;
+    color: #9bc4a3;
+    margin: 0.35rem 0 0;
   }
 </style>

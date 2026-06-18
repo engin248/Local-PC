@@ -59,6 +59,10 @@ export function hydrateSpeechVoices(): Promise<SpeechSynthesisVoice[]> {
   });
 }
 
+function isBootstrapSpeechNoise(error: string): boolean {
+  return /interrupted|canceled|cancelled/i.test(error);
+}
+
 /** Tarayıcı/Tauri: ilk ses kullanıcı tıklaması gerektirir. */
 export async function bootstrapOperatorVoice(testPhrase?: string): Promise<{
   ok: boolean;
@@ -78,16 +82,64 @@ export async function bootstrapOperatorVoice(testPhrase?: string): Promise<{
     /* ignore */
   }
 
-  operatorVoiceBootstrapped = true;
   const voice = pickTurkishVoice(synth);
   const phrase =
     testPhrase || "Yarbay Emel Hanım görevde. Ses hattı açıldı. Komutanım, hazırım.";
-  speakText(phrase, "emel-bootstrap", true);
 
-  return {
-    ok: true,
-    voiceName: voice?.name || "varsayılan Türkçe",
-  };
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result: { ok: boolean; voiceName?: string; error?: string }) => {
+      if (settled) return;
+      settled = true;
+      if (result.ok) {
+        operatorVoiceBootstrapped = true;
+        lastSpeakError = null;
+      } else {
+        operatorVoiceBootstrapped = false;
+      }
+      resolve(result);
+    };
+
+    const utterance = new SpeechSynthesisUtterance(phrase);
+    utterance.lang = persona.lang;
+    utterance.rate = persona.rate;
+    utterance.pitch = persona.pitch;
+    utterance.volume = persona.volume;
+    if (voice) utterance.voice = voice;
+
+    utterance.onstart = () => {
+      finish({ ok: true, voiceName: voice?.name || "varsayılan Türkçe" });
+    };
+    utterance.onerror = (event) => {
+      const err = String((event as SpeechSynthesisErrorEvent)?.error || "speech-error");
+      lastSpeakError = err;
+      if (isBootstrapSpeechNoise(err)) {
+        finish({ ok: true, voiceName: voice?.name || "varsayılan Türkçe" });
+        return;
+      }
+      finish({ ok: false, error: `Ses hatası: ${err}` });
+    };
+
+    synth.speak(utterance);
+
+    window.setTimeout(() => {
+      try {
+        synth.resume();
+      } catch {
+        /* ignore */
+      }
+      if (settled) return;
+      if (synth.speaking || synth.pending) {
+        finish({ ok: true, voiceName: voice?.name || "varsayılan Türkçe" });
+        return;
+      }
+      finish({
+        ok: false,
+        error:
+          "Ses başlamadı. Windows: Ayarlar → Zaman ve dil → Konuşma → Türkçe ses ekleyin (Microsoft Zira).",
+      });
+    }, 2500);
+  });
 }
 
 function pickTurkishVoice(synth: SpeechSynthesis): SpeechSynthesisVoice | undefined {

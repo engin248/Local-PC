@@ -30,3 +30,15 @@ export function shouldSuppressCriticalAlarm(source: string, err: unknown): boole
   if (source.includes("Seslendirme motoru") && isSpeechSynthesisNoise(err)) return true;
   return false;
 }
+
+/** Dekoratif görseller (logo) yüklenemezse siren tetiklenmez. */
+export function isDecorativeResourceLoadFailure(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLImageElement)) return false;
+  const src = target.src || "";
+  return (
+    src.includes("brain_logo") ||
+    src.includes("tauri.svg") ||
+    src.includes("favicon") ||
+    target.classList.contains("brand-logo")
+  );
+}

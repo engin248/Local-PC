@@ -30,6 +30,7 @@
     isOperationalReadError,
     isSpeechSynthesisNoise,
     shouldSuppressCriticalAlarm,
+    isDecorativeResourceLoadFailure,
   } from "../lib/alarmPolicy";
   import {
     activateAlarmCircuitBreaker,
@@ -1339,6 +1340,10 @@
 
     const resourceErrorHandler = (event: ErrorEvent) => {
       if (event.error) return;
+      if (isDecorativeResourceLoadFailure(event.target)) {
+        console.warn("Dekoratif görsel yüklenemedi (alarm yok):", (event.target as HTMLImageElement)?.src);
+        return;
+      }
       const detail = event.message || "Kaynak yükleme hatası";
       raiseCriticalAlarm("Kaynak yükleme hatası", detail);
     };
@@ -1421,14 +1426,14 @@
   {/if}
   <div class="sidebar">
     <div class="logo-area">
-      <img src="/tauri.svg" alt="Tauri Logo" class="brand-logo" />
+      <img src="/tauri.svg" alt="Tauri Logo" class="brand-logo" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
       <div class="brand-text">
         <h1>LOKAL BILGISAYAR</h1>
         <span>KONTROL PANELI</span>
       </div>
     </div>
     <div class="brain-display">
-      <img src="/brain_logo.png" alt="AI Brain Core" />
+      <img src="/brain_logo.png" alt="AI Brain Core" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
     </div>
     <TaskTabs 
       tasks={tasks} 
