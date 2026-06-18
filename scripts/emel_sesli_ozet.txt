@@ -1,0 +1,13 @@
+Komutanım, kısa sesli özet.
+
+Bir: UNO diye ayrı bir program yok. Panel kodunda böyle bir isim aradık, bulunamadı. Muhtemelen tüm sistemin adı kastedildi.
+
+İki: Yarbay Emel sessiz çünkü Windows ilk ses için tıklama ister. Panelde turuncu düğmeye basın: Emel'i Başlat.
+
+Üç: Cursor sohbeti sesli okuyamaz. Hemen ses için masaüstünde SESLI_OZET_OKU komut dosyasına çift tıklayın.
+
+Dört: Eksikler tablosu dosyada. Üstüne TAMAM veya EKSİK yazın.
+
+Beş: Kurulu eski program varsa güncelleme gerekir. Git commit sizden istenmez.
+
+Özet bitti.

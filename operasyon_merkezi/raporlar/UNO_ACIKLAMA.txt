@@ -1,0 +1,14 @@
+UNO = Panel reposunda BOYLE BIR ISIM YOK.
+
+Aranan: config/, src/, src-tauri/, operasyon_merkezi/, asker, uzman, modul.
+Sonuc: UNO adinda modul, servis, json, exe YOK.
+
+"Kapali cevap" = arastirma bitti, cevap kesin: UNO yok.
+
+Siz baska bir sey mi demek istediniz? Ornekler:
+- Asker Motoru
+- Lokal Bilgisayar Kontrol Paneli (tum sistem)
+- OpenClaw (ayri klasor, panele bagli degil)
+- UZMAN havuzu / 314 modul
+
+Dogru ismi yazarsaniz satir 1 tabloya ekleriz.
