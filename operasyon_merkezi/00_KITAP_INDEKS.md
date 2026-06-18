@@ -13,7 +13,7 @@
 | 2 | `raporlar/GIT_VE_KURULUM_ZORUNLU_MU.md` | Git push/pull gerekir mi? |
 | 3 | `raporlar/GITHUB_DURUM.md` | GitHub vs yerel depot |
 | 4 | `kontrol/KONTROL_DURUMU.md` | KN maddeleri — **güncel durum** |
-| 5 | `raporlar/ONAYLI_PC_ADIMLARI.md` | Push sonrası PC adımları |
+| 5 | `raporlar/ONAYLI_PC_ADIMLARI.md` | Push sonrası PC — **`ONAYLI_TUM_ISLEMLER.cmd`** |
 | 6 | `raporlar/EKSIKLER_TABLOSU.md` | Komutan işaretleme tablosu |
 
 ---

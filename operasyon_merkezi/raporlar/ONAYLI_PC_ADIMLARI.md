@@ -20,9 +20,27 @@ Cloud Agent / gcloud / tünel **kapalı** — bunlar yerine geçer.
 
 ---
 
-## Sıra (5 dakika + derleme süresi)
+## Sıra (tek tık — önerilen)
 
-### 1 — Kodu çek (bir kez)
+### Tek dosya (hepsi)
+
+`ONAYLI_TUM_ISLEMLER.cmd` çift tık — sırayla:
+
+1. `git pull origin master`
+2. Yol kontrolü (UZMAN + skill_library)
+3. Kurulu `.exe` derleme ve güncelleme
+4. Panel açma + sesli Emel hatırlatması
+
+Tam yol:
+```
+C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli\ONAYLI_TUM_ISLEMLER.cmd
+```
+
+Panel açılınca → **Emel'i Başlat** (bir tık — tarayıcı kuralı).
+
+---
+
+## Sıra (adım adım — alternatif)
 
 ```powershell
 cd "C:\Users\Esisya\Desktop\Lokal Bilgisayar Kontrol Paneli"

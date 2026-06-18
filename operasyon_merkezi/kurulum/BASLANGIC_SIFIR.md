@@ -21,9 +21,10 @@ Cursor **masaüstü uygulaması** → File → Open Folder → bu klasör.
 | Sıra | Dosya | Ne yapar |
 |------|-------|----------|
 | 1 | `npm install` (terminal, bir kez) | Bağımlılık |
-| 2 | `YEREL_HAZIR_BASLAT.cmd` | Yerel hazırlık |
-| 3 | `KURULU_SURUMU_GUNCELLE.cmd` | Kurulu panel .exe güncelle |
-| 4 | `YOLLARI_KONTROL.cmd` | UZMAN / skill yolları VAR mı |
+| 2 | `ONAYLI_TUM_ISLEMLER.cmd` | **Önerilen** — pull + yol + güncelle + panel |
+| 3 | `YEREL_HAZIR_BASLAT.cmd` | Sadece hazırlık |
+| 4 | `KURULU_SURUMU_GUNCELLE.cmd` | Sadece .exe güncelle |
+| 5 | `YOLLARI_KONTROL.cmd` | Sadece yol kontrolü |
 
 Tam yollar:
 ```
