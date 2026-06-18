@@ -1,37 +1,31 @@
 # GÖREV — Üretim Departmanı Faz 1
 
 **Görev ID:** GOREV-URETIM-2026-06-11-01  
-**Koordinatör:** Cloud Agent  
-**Komutan:** Engin  
-**Durum:** URETIM-01 TAMAMLANDI (yerel, push yok)
+**Durum:** FAZ 1 TAMAMLANDI (yerel, push yok)
 
 ---
 
-## Amaç
+## Madde durumu
 
-Sistem yarım kalmasın — **üretim icrası** gate sonrası gerçek çalışsın. Şu an `execute_task_pipeline` varsayılan `RunMode::ReadOnly`; onaylı görevlerde `ApprovedExecution` açılmalı.
-
----
-
-## Kapsam (sıra)
-
-1. **URETIM-01** — Onay tamamlanınca `run_mode = ApprovedExecution` (yüksek/kritik risk + çift onay sonrası)
-2. **URETIM-02** — AI provider gerçek çağrı (Statement/Execution)
-3. **URETIM-03** — Failover policy
-4. **URETIM-04** — Swarm inbox/outbox
-5. **URETIM-05** — Asker Motoru canlı köprü (lokal)
+| ID | Konu | Durum |
+|----|------|-------|
+| URETIM-01 | Onay → ApprovedExecution | **TAMAM** |
+| URETIM-02 | AI provider Statement/Execution | **TAMAM** — Statement Gate + action_executor |
+| URETIM-03 | Failover policy | **TAMAM** — `failover_policy.json` + `select_with_failover` |
+| URETIM-04 | Swarm inbox/outbox | **TAMAM** — `sync_outbox_reports` eklendi |
+| URETIM-05 | Asker canlı köprü | **DOSYA KÖPRÜSÜ AKTİF** — canlı API `enabled: false` (bilinçli; komutan PC'de açılır) |
 
 ---
 
-## İlk teslim (URETIM-01)
+## Komutan kuralı
 
-- [x] `execution_engine.rs`: onay sayısı yeterliyse context `ApprovedExecution`
-- [x] `action_executor`: onaylı `write_file` uçtan uca test
-- [x] `cargo test` yeşil (54 test)
-- [x] Rapor: `raporlar/RAPOR_URETIM_01.md`
+Git push/pull **onay olmadan yapılmaz**. İş yerel depoda.
+
+Kurulu `.exe`: `KURULU_SURUMU_GUNCELLE.cmd` — taşıyıcı klasöründen, git yok.
 
 ---
 
-## Komutan notu
+## Raporlar
 
-Git pull/commit/push **komutan onayı olmadan yapılmaz**. İş yerel depoda kalır. Cloud Agent uzak repoya yalnızca komutan açık onay verirse push eder.
+- `raporlar/RAPOR_URETIM_01.md`
+- `raporlar/RAPOR_URETIM_FAZ1.md`

@@ -147,7 +147,62 @@ impl AiWorkflowManager {
         Ok(allocations)
     }
 
+    /// Platform outbox dosyalarını `ai_collected_reports` tablosuna alır (URETIM-04).
+    pub fn sync_outbox_reports(panel_task_id: &str) -> Result<usize, String> {
+        let workflow_root = DependencyAnalyzer::get_project_root()?.join("ai_workflow");
+        let db = Database::new();
+        let conn = db.get_connection().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT platform_name FROM ai_task_allocations WHERE task_id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let platforms: Vec<String> = stmt
+            .query_map(params![panel_task_id], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut synced = 0usize;
+        for platform in platforms {
+            let outbox_path = workflow_root
+                .join("platforms")
+                .join(&platform)
+                .join("outbox")
+                .join(format!("{}.json", panel_task_id));
+            if !outbox_path.exists() {
+                continue;
+            }
+            let report_id = Uuid::new_v4().to_string();
+            let path_str = outbox_path.to_string_lossy().into_owned();
+            conn.execute(
+                "INSERT OR REPLACE INTO ai_collected_reports (id, task_id, platform_name, report_path, is_verified)
+                 VALUES (?1, ?2, ?3, ?4, 0)",
+                params![report_id, panel_task_id, platform, path_str],
+            )
+            .map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE ai_task_allocations SET status = 'submitted' WHERE task_id = ?1 AND platform_name = ?2",
+                params![panel_task_id, platform],
+            )
+            .map_err(|e| e.to_string())?;
+            synced += 1;
+        }
+        if synced > 0 {
+            AuditLogger::log_event(
+                panel_task_id,
+                "info",
+                &format!("Swarm outbox senkron: {} rapor", synced),
+                Some("Swarm Workflow"),
+                Some("swarm_outbox_sync"),
+                None,
+            )?;
+        }
+        Ok(synced)
+    }
+
     pub fn list_allocations(panel_task_id: &str) -> Result<Vec<SwarmAllocation>, String> {
+        let _ = Self::sync_outbox_reports(panel_task_id);
         let db = Database::new();
         let conn = db.get_connection().map_err(|e| e.to_string())?;
         let workflow_root = DependencyAnalyzer::get_project_root()?.join("ai_workflow");
@@ -286,6 +341,63 @@ impl AiWorkflowManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::dependency_analyzer::DependencyAnalyzer;
+    use crate::storage::db::Database;
+    use rusqlite::params;
+
+    #[test]
+    fn sync_outbox_reports_ingests_platform_json() {
+        let task_id = "swarm_outbox_sync_test";
+        let root = DependencyAnalyzer::get_project_root().unwrap();
+        let outbox_dir = root
+            .join("ai_workflow/platforms/codex/outbox");
+        std::fs::create_dir_all(&outbox_dir).unwrap();
+        let outbox_file = outbox_dir.join(format!("{}.json", task_id));
+        std::fs::write(&outbox_file, r#"{"result":"ok"}"#).unwrap();
+
+        let db = Database::new();
+        let conn = db.get_connection().unwrap();
+        let _ = conn.execute("DELETE FROM ai_collected_reports WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM ai_task_allocations WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM execution_logs WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM tasks WHERE id = ?1", params![task_id]);
+        conn.execute(
+            "INSERT INTO tasks (id, title, user_request, status, planning_status, execution_status, risk_level, approval_status)
+             VALUES (?1, 't', 'd', 'pending', 'planning_complete', 'not_started', 'low', 'none')",
+            params![task_id],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO ai_tasks (id, title, description, risk_level, status, created_by)
+             VALUES (?1, 't', 'd', 'low', 'pending', 'test')",
+            params![task_id],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO ai_task_allocations (id, task_id, platform_name, status, payload_file_path)
+             VALUES ('alloc1', ?1, 'codex', 'waiting', 'ai_workflow/inbox.json')",
+            params![task_id],
+        )
+        .unwrap();
+
+        let synced = AiWorkflowManager::sync_outbox_reports(task_id).unwrap();
+        assert_eq!(synced, 1);
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM ai_collected_reports WHERE task_id = ?1",
+                params![task_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+
+        let _ = conn.execute("DELETE FROM ai_collected_reports WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM ai_task_allocations WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM execution_logs WHERE task_id = ?1", params![task_id]);
+        let _ = conn.execute("DELETE FROM tasks WHERE id = ?1", params![task_id]);
+        let _ = std::fs::remove_file(&outbox_file);
+    }
 
     #[test]
     fn parses_agent_tags_from_request() {

@@ -374,6 +374,29 @@ impl ExecutionEngine {
                 &task.user_request,
                 None,
             )?;
+            if matches!(
+                action,
+                "research" | "ai_provider_call" | "code_analysis" | "code_modification_proposal"
+            ) {
+                match crate::ai_providers::ai_provider_invoke::AiProviderInvoker::invoke_for_node(
+                    task_id,
+                    node_id,
+                    action,
+                    &task.user_request,
+                ) {
+                    Ok(()) => {}
+                    Err(err) => {
+                        AuditLogger::log_event(
+                            task_id,
+                            "warning",
+                            &format!("Statement Gate AI provider atlandı: {}", err),
+                            Some("Statement Gate"),
+                            Some("ai_statement_skipped"),
+                            None,
+                        )?;
+                    }
+                }
+            }
             CheckpointManager::verify_checkpoint(
                 task_id,
                 Some(node_id),
