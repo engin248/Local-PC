@@ -22,3 +22,5 @@ panel_dev_server.log
 /storage/*.log
 /storage/*.err
 /final_patch.diff
+*.db-shm
+*.db-wal
