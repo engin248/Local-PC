@@ -1,0 +1,6 @@
+{
+  "job_id": "ornek_yol_kontrol",
+  "op": "yol_kontrol",
+  "token": "BURAYA_config_kopru_bridge.json_token",
+  "created_at": "2026-06-11T00:00:00Z"
+}

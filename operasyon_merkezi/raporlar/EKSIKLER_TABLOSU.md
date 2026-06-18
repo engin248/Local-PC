@@ -7,8 +7,8 @@
 | 3 | Alarm / siren düzeltmeleri kodda | | Kodda var |
 | 4 | ACİL SES KES çalışıyor mu? | | |
 | 5 | SQLite app.db | | `storage/app.db` |
-| 6 | UZMAN_HAVUZU.json (314 modül) | | `Desktop\asker motoru\runtime\indexes\UZMAN_HAVUZU.json` |
-| 7 | skill_library.sqlite | | `Desktop\Lokal Kütüphane\database\skill_library.sqlite` |
+| 6 | UZMAN_HAVUZU.json (314 modül) | | `C:\Users\Esisya\Desktop\asker motoru\runtime\indexes\UZMAN_HAVUZU.json` |
+| 7 | skill_library.sqlite | | `C:\Users\Esisya\Desktop\Lokal Kütüphane\database\skill_library.sqlite` |
 | 8 | Pinokio bağlantısı | | localhost:42000 |
 | 9 | Asker Motoru canlı API | | :3100 kapalı (dosya köprüsü açık) |
 | 10 | AI API (ChatGPT/Gemini) | | Config kapalı |

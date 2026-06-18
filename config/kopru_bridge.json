@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "listen_host": "127.0.0.1",
+  "listen_port": 19200,
+  "token": "",
+  "allowed_operations": [
+    "health",
+    "yol_kontrol",
+    "kurulu_guncelle",
+    "panel_kapat",
+    "kopru_durum"
+  ],
+  "file_queue": {
+    "enabled": true,
+    "inbox_dir": "storage/kopru/inbox",
+    "outbox_dir": "storage/kopru/outbox",
+    "poll_seconds": 3
+  },
+  "tunnel": {
+    "hint": "KOPRU_TUNEL_BASLAT.cmd ile public URL alin; URL'yi tunnel_public_url alanina yapistirin",
+    "tunnel_public_url": ""
+  }
+}
