@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "komutan_pc": "C:\\Users\\Esisya",
+  "panel_proje": "C:\\Users\\Esisya\\Desktop\\Lokal Bilgisayar Kontrol Paneli",
+  "kurulu_exe": "C:\\Users\\Esisya\\AppData\\Local\\LOKAL BILGISAYAR KONTROL PANELI\\lokal_bilgisayar_kontrol_paneli.exe",
+  "asker_motoru_kok": "C:\\Users\\Esisya\\Desktop\\asker motoru",
+  "asker_motoru_kok_yedek": "C:\\Users\\Esisya\\Desktop\\ASKER_MOTORU_KOK_KLASORU",
+  "uzman_havuzu_json": "C:\\Users\\Esisya\\Desktop\\asker motoru\\runtime\\indexes\\UZMAN_HAVUZU.json",
+  "lokal_kutuphane_kok": "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane",
+  "skill_library_sqlite": "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite",
+  "skill_library_yedek_yollar": [
+    "C:\\Users\\Esisya\\Desktop\\asker motoru\\database\\skill_library.sqlite",
+    "C:\\Users\\Esisya\\Desktop\\Lokal Bilgisayar Kontrol Paneli\\storage\\skill_library.sqlite"
+  ]
+}

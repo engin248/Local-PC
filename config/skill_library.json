@@ -1,9 +1,15 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "env_var": "SKILL_LIBRARY_DB_PATH",
   "windows_default": "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite",
+  "windows_candidates": [
+    "C:\\Users\\Esisya\\Desktop\\Lokal Kütüphane\\database\\skill_library.sqlite",
+    "C:\\Users\\Esisya\\Desktop\\asker motoru\\database\\skill_library.sqlite",
+    "C:\\Users\\Esisya\\Desktop\\Lokal Bilgisayar Kontrol Paneli\\storage\\skill_library.sqlite"
+  ],
   "relative_candidates": [
     "../Lokal Kütüphane/database/skill_library.sqlite",
+    "../asker motoru/database/skill_library.sqlite",
     "storage/skill_library.sqlite"
   ]
 }
