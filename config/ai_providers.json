@@ -34,7 +34,7 @@
     "base_url": "https://generativelanguage.googleapis.com/v1beta",
     "api_key_env": "GEMINI_API_KEY",
     "model": "gemini-1.5-pro",
-    "enabled": false,
+    "enabled": true,
     "network_required": true,
     "dependency_level": "high",
     "allowed_task_types": [
